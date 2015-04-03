@@ -92,8 +92,8 @@ get(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
     end.
 
 
-%% Note when error we still could have processed part of the request, so
-%% we still return all the completed responses.
+%% NOTE: On error we still could have processed part of the request, so we still
+%% return all the completed responses.
 -spec mget(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary()}]
     | {error, Reason :: term(), ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
@@ -109,7 +109,7 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     mero_conn:add(ClusterName, Key, Value, BExpTime, Timeout).
 
-%% Exp time in seconds
+%% ExpTime is in seconds.
 -spec set(ClusterName :: atom(), Key :: binary(), Value :: binary(), ExpTime :: integer(),
     Timeout :: integer()) ->
     ok | {error, Reason :: term()}.
@@ -119,7 +119,7 @@ set(ClusterName, Key, Value, ExpTime, Timeout)
     mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout).
 
 
-%% @doc: Increments a counter, initial value is 1, steps of 1, timeout defaults to 24 hours.
+%% @doc: Increments a counter: initial value is 1, steps of 1, timeout defaults to 24 hours.
 %%    3 retries.
 -spec increment_counter(ClusterName :: atom(), Key :: binary()) ->
     ok | {error, Reason :: term()}.
@@ -205,13 +205,3 @@ state() ->
 %% @doc: Default callback module to instrument some metrics
 stat_event_callback(_EventArgs) ->
     ok.
-
-
-
-
-
-
-
-
-
-

@@ -27,8 +27,8 @@
 %% OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
 
-%% @doc: Creates by dynamic compile containing the
-%% startup information for each worker (pool)
+%% @doc: Dynamically compiles a module containing the startup information for
+%% each worker pool.
 %%
 %% Cofiguration example:
 %%

@@ -1,39 +1,47 @@
 Mero
 ========
 
-Mero is a scalable and lightweight OTP Erlang client for memcache. Mero allows you to interact with
-different clusters, specifying different number of pools per server and sharding algorithms per cluster.
+Mero is a scalable and lightweight OTP Erlang client for memcache. Mero allows
+interaction with different clusters, specifying different number of pools per
+server and sharding algorithms per cluster.
 
-Mero is lightweight because it doesnt use an Erlang process per socket like other typical
-pooling libraries. Each pool worker adjusts the number of available sockets based on the demand.
-There is no bottleneck selecting the pool because all the workers are created on startup and registered
-with a local name which will be parametrized on a function on a dynamic-compile module.
+Mero achieves high-performance in a number of ways. Mero does not use an Erlang
+process per socket. Each pool worker adjusts the number of available sockets
+based on demand and sockets are shared to the point of usage, avoiding copying
+of terms through the system, as is present in the per-process design common in
+other pooling libraries. All pools are registered with a local name and its
+workers are created on startup, removing pool selection bottlenecks and worker
+creation latency.
 
 If a connection to the memcached server fails there is a mechanism to delay
 connection retries. All the connections are renewed every time interval.
 
-The storage module is configurable so you can use different protocols or even use a storage different
-than memcache.
+The storage module is configurable so you can use different protocols or even
+use a storage different than memcache.
 
-It includes a callback that will be called to notify of specific error events. These events have the
-form of:
-  {Id :: list(atoms),
-   Args :: list([{Key :: cluster_name | host | port | error_reason,
-                  Value :: term()}])
-  }
- Examples of Ids are:
+It includes a callback that will be called to notify of specific error events.
+These events have the form of:
 
- - [socket, connect, ok]
- - [socket, connect, error]
- - [socket, send, error]
- - [socket, rcv, error]
- - [socket, controlling_process, error]
+```
+{Id :: list(atoms),
+  Args :: list([{Key :: cluster_name | host | port | error_reason,
+                 Value :: term()}])
+}
+```
+
+Example Ids are:
+
+ - `[socket, connect, ok]`
+ - `[socket, connect, error]`
+ - `[socket, send, error]`
+ - `[socket, rcv, error]`
+ - `[socket, controlling_process, error]`
 
 Configuration
 =============
 
-Look at the mero.app.src to see all the available options.
-The sharding algorithms available are shard_phash2 and shard_crc32.
+Please consult `mero.app.src` to see all the available options. The sharding
+algorithms available are `shard_phash2` and `shard_crc32`.
 
 ```
   [{cluster_a,
@@ -190,5 +198,4 @@ Testing the library against a local memcached server:
 
 Warning: This will erase all the contents of the memcached server it connects to ("localhost" by default).
 Uncomment the test cases at suite test/mero_test_with_local_memcached_SUITE.erl
-
 

@@ -12,8 +12,8 @@ deps:
 compile:
 	$(REBAR) compile
 
-deep_clean:
-	@rm -rf deps
+deep_clean: logs_clean
+	@rm -rf deps*
 	@$(REBAR) clean
 
 logs_clean:
