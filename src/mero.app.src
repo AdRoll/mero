@@ -1,0 +1,34 @@
+%%-*- mode: erlang -*-
+{application, mero,
+ [
+  {description, "mero"},
+  {vsn, "1.0.0"},
+  {modules, []},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  inets
+                 ]},
+  {mod, {mero, []}},
+  {env, [
+      {cluster_config,
+          [{default,
+            [{servers, [{"localhost", 11211}]},
+             {sharding_algorithm, {mero, shard_crc32}},
+             {workers_per_shard, 1},
+             {pool_worker_module, mero_wrk_tcp_binary}]}]},
+      {initial_connections_per_pool, 20},
+      {min_free_connections_per_pool, 10},
+      {max_connections_per_pool, 50},
+      {timeout_read, 30},
+      {timeout_write, 5000},
+      {write_retries, 3},
+      {expiration_time, 86400}, %% One day
+      {connection_unused_max_time, 300000},
+      {expiration_interval, 300000},
+      {max_connection_delay_time, 5000},
+      {stat_event_callback, {mero, stat_event_callback}},
+      {stat_update_callback, {mero, stat_update_callback}}
+  ]}
+ ]}.
