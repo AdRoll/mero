@@ -44,22 +44,22 @@
 
 %% TODO: Uncomment these if you want to test agains a specific memcache server
 all() -> [
-         get_undefined_binary,
-         get_undefined_txt,
-         get_set_binary,
-         get_set_txt,
-         flush_binary,
-         flush_txt,
-         delete_binary,
-         delete_txt,
-         mget_binary,
-         mget_txt,
-         add_binary,
-         add_txt,
-         increment_binary,
-         increment_txt,
-         increment_binary_with_initial,
-         increment_txt_with_initial
+%%          get_undefined_binary,
+%%          get_undefined_txt,
+%%          get_set_binary,
+%%          get_set_txt,
+%%          flush_binary,
+%%          flush_txt,
+%%          delete_binary,
+%%          delete_txt,
+%%          mget_binary,
+%%          mget_txt,
+%%          add_binary,
+%%          add_txt,
+%%          increment_binary,
+%%          increment_txt,
+%%          increment_binary_with_initial,
+%%          increment_txt_with_initial
     ].
 
 
