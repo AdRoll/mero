@@ -61,7 +61,7 @@
                   free :: list(term()),
 
                   %% Busy connections (pid -> #conn)
-                  busy :: dict:dict(),
+                  busy :: dict(),
 
                   %% Number of connections established (busy + free)
                   num_connected :: non_neg_integer(),

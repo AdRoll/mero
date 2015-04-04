@@ -136,7 +136,6 @@ close(Client) ->
 %%%=============================================================================
 
 multi_send_receive(Client, {get, {Keys}}, TimeLimit) ->
-    %dbg:tracer(), dbg:p(all,c), dbg:tpl(?MODULE,x),
     try
         {ok,[
          begin
