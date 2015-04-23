@@ -30,8 +30,11 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([start_link/1,
-         init/1]).
+-export([
+         start_link/1,
+         start_link/2,
+         init/1
+        ]).
 
 -behaviour(supervisor).
 
@@ -44,15 +47,20 @@
 %%% API functions
 %%%===================================================================
 
+-spec start_link(ClusterConfig :: list({ClusterName :: atom(),Config :: list()}))
+                -> {ok, Pid :: pid()} | {error, Reason :: term()}.
+start_link(ClusterConfig) ->
+    start_link(?MODULE, ClusterConfig).
+
 %% @doc: Starts a list of workers with the configuration generated on
 %% mero_cluster
--spec start_link(ClusterConfig :: list({ClusterName :: atom(),
-                                        Config :: list()})) ->
-    {ok, Pid :: pid()} | {error, Reason :: term()}.
-start_link(ClusterConfig) ->
+-spec start_link(SupervisorName :: atom(),
+                 ClusterConfig  :: list({ClusterName :: atom(),Config :: list()}))
+                -> {ok, Pid :: pid()} | {error, Reason :: term()}.
+start_link(SupervisorName, ClusterConfig) ->
     ok = mero_cluster:load_clusters(ClusterConfig),
     PoolDefs = mero_cluster:child_definitions(),
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [PoolDefs]).
+    supervisor:start_link({local, SupervisorName}, ?MODULE, [PoolDefs]).
 
 %%%===================================================================
 %%% Supervisor callbacks
