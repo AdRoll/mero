@@ -253,8 +253,6 @@ recv_bytes(Client, NumBytes, TimeLimit) ->
         {ok, Bin} -> Bin;
       {error, Reason} ->
         ?LOG_EVENT(Client#client.event_callback, {[memcached_receive_error], [{reason, Reason}]}),
-        error_logger:error_report([{error, receive_bytes_from_memcached_socket},
-          {reason, Reason}]),
         throw({failed, {receive_bytes, Reason}})
     end.
 
