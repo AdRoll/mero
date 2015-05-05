@@ -131,11 +131,25 @@ transaction(Client, get, [[HKey | RKeys], Timeout]) ->
     %% memcached pipelining in binary mode is odd. We send a bunch of getkq
     %% requests and a final getk request, the intention being they'll be shipped
     %% out in a few packets by the OS.
-    lists:foreach(fun(QK) -> send(Client, QK) end, GetKQ_Key),
-    send(Client, GetK_Key),
-    %% When we receive we only know if we are finished when we hit the final
-    %% getk key, since getkq won't ship anything if there's no response.
-    {Client, multi_get_recv(Client, HKey, Timeout)}.
+    SendRes = try
+                  lists:foreach(fun(QK) -> send(Client, QK) end, GetKQ_Key),
+                  send(Client, GetK_Key)
+              catch
+                  throw:{failed, ErrReason} ->
+                      error_logger:error_report([{error, memcached_request_failed},
+                                                 {client, Client},
+                                                 {cmd, ?MEMCACHE_GETK},
+                                                 {reason, ErrReason}]),
+                      {error, ErrReason}
+              end,
+    case SendRes of
+        ok ->
+            %% When we receive we only know if we are finished when we hit the final
+            %% getk key, since getkq won't ship anything if there's no response.
+            {Client, multi_get_recv(Client, HKey, Timeout)};
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 close(Client) ->
     gen_tcp:close(Client#client.socket).
