@@ -118,14 +118,24 @@ transaction(Client, flush_all, [TimeLimit]) ->
             {error, Reason}
     end;
 
-transaction(Client, get, [Keys, Timeout]) ->
-    case multi_send_receive(Client, {get, {Keys}}, Timeout) of
-      {error, Reason} ->
-        {error, Reason};
-      {ok, Results} ->
-          {Client, Results}
-    end.
+transaction(Client, get, [[Key], Timeout]) ->
+    Ret = send_receive(Client, {?MEMCACHE_GETK, Key}, Timeout),
+    case Ret of
+        {Key, Val} -> {Client, [{Key, Val}]};
+        {error, Reason} -> {error, Reason}
+    end;
 
+transaction(Client, get, [[HKey | RKeys], Timeout]) ->
+    GetK_Key = pack({?MEMCACHE_GETK, HKey}),
+    GetKQ_Key = lists:map(fun(K) -> pack({?MEMCACHE_GETKQ, K}) end, RKeys),
+    %% memcached pipelining in binary mode is odd. We send a bunch of getkq
+    %% requests and a final getk request, the intention being they'll be shipped
+    %% out in a few packets by the OS.
+    lists:foreach(fun(QK) -> send(Client, QK) end, GetKQ_Key),
+    send(Client, GetK_Key),
+    %% When we receive we only know if we are finished when we hit the final
+    %% getk key, since getkq won't ship anything if there's no response.
+    {Client, multi_get_recv(Client, HKey, Timeout)}.
 
 close(Client) ->
     gen_tcp:close(Client#client.socket).
@@ -135,17 +145,16 @@ close(Client) ->
 %%% Internal functions
 %%%=============================================================================
 
-multi_send_receive(Client, {get, {Keys}}, TimeLimit) ->
-    try
-        {ok,[
-         begin
-           Data = pack({get, Key}),
-           ok = send(Client, Data),
-           receive_response(Client, ?MEMCACHE_GETK, TimeLimit)
-         end || Key <- Keys]}
-    catch
-        throw:{failed, Reason} ->
-            {error, Reason}
+%% TODO this violates the timeout
+multi_get_recv(Client, EndKey, Timeout) ->
+    multi_get_recv(Client, EndKey, Timeout, []).
+
+multi_get_recv(Client, EndKey, Timeout, Acc) ->
+    case receive_response(Client, ?MEMCACHE_GETK, Timeout) of
+        {EndKey, Val} ->
+            [{EndKey, Val} | Acc];
+        {K, V} ->
+            multi_get_recv(Client, EndKey, Timeout, [{K,V}|Acc])
     end.
 
 send_receive(Client, {Op, _Args} = Cmd, TimeLimit) ->
@@ -181,7 +190,10 @@ pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     ExpirationTime = 16#00,
     pack(<<ExpirationTime:32>>, ?MEMCACHE_FLUSH_ALL, <<>>);
 
-pack({get, Key}) ->
+pack({?MEMCACHE_GETKQ, Key}) ->
+    pack(<<>>, ?MEMCACHE_GETK, Key);
+
+pack({?MEMCACHE_GETK, Key}) ->
     pack(<<>>, ?MEMCACHE_GETK, Key).
 
 pack(Extras, Operator, Key) ->
@@ -235,7 +247,7 @@ receive_response(Client, Op, TimeLimit) ->
 recv_bytes(_Client, 0, _TimeLimit) -> <<>>;
 recv_bytes(Client, NumBytes, TimeLimit) ->
     Timeout = mero_conf:millis_to(TimeLimit),
-    case gen_tcp_recv(Client#client.socket, NumBytes, Timeout) of
+    case gen_tcp:recv(Client#client.socket, NumBytes, Timeout) of
         {ok, Bin} -> Bin;
       {error, Reason} ->
         ?LOG_EVENT(Client#client.event_callback, [memcached_receive_error, {reason, Reason}]),
@@ -257,6 +269,3 @@ to_integer(Binary) when is_binary(Binary) ->
     Size = bit_size(Binary),
     <<Value:Size/integer>> = Binary,
     Value.
-
-gen_tcp_recv(Socket, NumBytes, Timeout) ->
-    gen_tcp:recv(Socket, NumBytes, Timeout).

@@ -129,7 +129,7 @@ delete(_Conf) ->
 
 set(_Conf) ->
     ct:log("state ~p", [mero:state()]),
-    dbg(),
+    %% dbg(),
     ?assertMatch(ok, mero:set(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
     ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
 
@@ -231,7 +231,7 @@ increment(_Conf) ->
 
 add(_Conf) ->
     ?assertMatch(ok, mero:add(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
-    dbg(),
+    %% dbg(),
     ct:log("First not stored"),
     ?assertMatch({error, not_stored}, mero:add(cluster, <<"11">>, <<"Adroll2">>, 111111, 1000)),
     ct:log("Second not stored"),

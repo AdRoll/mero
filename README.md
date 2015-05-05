@@ -196,6 +196,6 @@ mero_sup:start_link([{default,[{servers,[{"localhost",11211}]},
 Testing the library against a local memcached server:
 =====================================================
 
-Warning: This will erase all the contents of the memcached server it connects to ("localhost" by default).
-Uncomment the test cases at suite test/mero_test_with_local_memcached_SUITE.erl
-
+Warning: This will erase all the contents of the memcached server it connects to
+("localhost" by default). Uncomment the test cases at suite
+test/mero_test_with_local_memcached_SUITE.erl

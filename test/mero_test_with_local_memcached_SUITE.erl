@@ -44,23 +44,23 @@
 
 %% TODO: Uncomment these if you want to test agains a specific memcache server
 all() -> [
-%%          get_undefined_binary,
-%%          get_undefined_txt,
-%%          get_set_binary,
-%%          get_set_txt,
-%%          flush_binary,
-%%          flush_txt,
-%%          delete_binary,
-%%          delete_txt,
-%%          mget_binary,
-%%          mget_txt,
-%%          add_binary,
-%%          add_txt,
-%%          increment_binary,
-%%          increment_txt,
-%%          increment_binary_with_initial,
-%%          increment_txt_with_initial
-    ].
+          get_undefined_binary,
+          get_undefined_txt,
+          get_set_binary,
+          get_set_txt,
+          flush_binary,
+          flush_txt,
+          delete_binary,
+          delete_txt,
+          mget_binary,
+          mget_txt,
+          add_binary,
+          add_txt,
+          increment_binary,
+          increment_txt,
+          increment_binary_with_initial,
+          increment_txt_with_initial
+         ].
 
 
 suite() ->
@@ -71,16 +71,16 @@ init_per_suite(Conf) ->
 
     application:load(mero),
     ok = mero_conf:cluster_config(
-        [{cluster_binary,
-            [{servers, [{"localhost", 11211}]},
-             {sharding_algorithm, {mero, shard_crc32}},
-             {workers_per_shard, 1},
-             {pool_worker_module,mero_wrk_tcp_binary}]},
-         {cluster_txt,
-            [{servers, [{"localhost", 11211}]},
-             {sharding_algorithm, {mero, shard_crc32}},
-             {workers_per_shard, 1},
-             {pool_worker_module, mero_wrk_tcp_txt}]}]),
+           [{cluster_binary,
+             [{servers, [{"localhost", 11211}]},
+              {sharding_algorithm, {mero, shard_crc32}},
+              {workers_per_shard, 1},
+              {pool_worker_module,mero_wrk_tcp_binary}]},
+            {cluster_txt,
+             [{servers, [{"localhost", 11211}]},
+              {sharding_algorithm, {mero, shard_crc32}},
+              {workers_per_shard, 1},
+              {pool_worker_module, mero_wrk_tcp_txt}]}]),
     ok = mero_conf:initial_connections_per_pool(4),
     ok = mero_conf:min_free_connections_per_pool(1),
     ok = mero_conf:expiration_interval(3000),
@@ -103,7 +103,7 @@ end_per_suite(_Conf) ->
 init_per_testcase(_Module, Conf) ->
     ct:log("state ~p", [mero:state()]),
     Keys = [key() || _  <- lists:seq(1, 4)],
-    dbg(),
+    %% dbg(),
     [{keys, Keys} | Conf].
 
 
@@ -217,7 +217,7 @@ get_set(Cluster, ClusterAlt, Keys) ->
     ct:log("Check set to adroll ~n"),
     ct:log("state ~p", [mero:state()]),
     [ok = mero:set(Cluster, Key, <<"Adroll">>, 11111, 1000)
-        || Key <- Keys],
+     || Key <- Keys],
     ct:log("Checking keys ~n"),
     [{Key, <<"Adroll">>} = mero:get(Cluster, Key) || Key <- Keys],
     [{Key, <<"Adroll">>} = mero:get(ClusterAlt, Key) || Key <- Keys].
@@ -227,7 +227,7 @@ flush(Cluster, Keys) ->
     ct:log("Check set to adroll ~n"),
     ct:log("state ~p", [mero:state()]),
     [ok = mero:set(Cluster, Key, <<"Adroll">>, 11111, 1000)
-        || Key <- Keys],
+     || Key <- Keys],
     ct:log("Flushing local memcache ! ~p ~n", [mero:flush_all(Cluster)]),
 
     ct:log("Checking empty keys ~n"),
@@ -239,7 +239,7 @@ delete(Cluster, Keys) ->
     ct:log("Check set to adroll ~n"),
     ct:log("state ~p", [mero:state()]),
     [ok = mero:set(Cluster, Key, <<"Adroll">>, 11111, 1000)
-        || Key <- Keys],
+     || Key <- Keys],
 
     ct:log("Delete ! ~n", []),
     [ok = mero:delete(Cluster, Key, 1000) || Key <- Keys],
@@ -250,7 +250,7 @@ delete(Cluster, Keys) ->
 
 mget(Cluster, ClusterAlt, Keys) ->
     [?assertMatch(ok, mero:set(Cluster, Key, Key, 11111, 1000))
-        || Key <- Keys],
+     || Key <- Keys],
 
     io:format("Checking get itself ~n"),
     [?assertMatch({Key, Key}, mero:get(Cluster, Key)) || Key <- Keys],
@@ -268,15 +268,15 @@ increment(Cluster, ClusterAlt, Keys) ->
     io:format("Increment +1 +1 +1 ~n"),
 
     F = fun(Key, Expected) ->
-            IncrementReturn = element(2, mero:increment_counter(Cluster, Key)),
-            io:format("Increment return Expected ~p Received ~p~n", [Expected, IncrementReturn]),
-            {Key, Value2} = mero:get(Cluster, Key),
-            io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
-            ?assertMatch(Expected, IncrementReturn),
-            ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
-            {Key, Value3} = mero:get(ClusterAlt, Key),
-            io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
-            ?assertMatch(IncrementReturn, binary_to_integer(Value3))
+                IncrementReturn = element(2, mero:increment_counter(Cluster, Key)),
+                io:format("Increment return Expected ~p Received ~p~n", [Expected, IncrementReturn]),
+                {Key, Value2} = mero:get(Cluster, Key),
+                io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
+                ?assertMatch(Expected, IncrementReturn),
+                ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
+                {Key, Value3} = mero:get(ClusterAlt, Key),
+                io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
+                ?assertMatch(IncrementReturn, binary_to_integer(Value3))
         end,
 
     [F(Key, 1) || Key <- Keys],
@@ -289,17 +289,17 @@ increment_with_initial(Cluster, ClusterAlt, Keys, Initial, Steps) ->
     io:format("Increment +~p ~p ~n",[Initial, Steps]),
 
     F = fun(Key, Expected) ->
-        IncrementReturn = element(2,
-            mero:increment_counter(Cluster, Key, Steps, Initial, 22222, 3, 1000)),
-        io:format("Increment return Expected ~p Received ~p~n", [Expected, IncrementReturn]),
-        {Key, Value2} = mero:get(Cluster, Key),
-        io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
-        {Key, Value3} = mero:get(ClusterAlt, Key),
-        io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
-        ?assertMatch(Expected, IncrementReturn),
-        ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
-        ?assertMatch(IncrementReturn, binary_to_integer(Value3))
-    end,
+                IncrementReturn = element(2,
+                                          mero:increment_counter(Cluster, Key, Steps, Initial, 22222, 3, 1000)),
+                io:format("Increment return Expected ~p Received ~p~n", [Expected, IncrementReturn]),
+                {Key, Value2} = mero:get(Cluster, Key),
+                io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
+                {Key, Value3} = mero:get(ClusterAlt, Key),
+                io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
+                ?assertMatch(Expected, IncrementReturn),
+                ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
+                ?assertMatch(IncrementReturn, binary_to_integer(Value3))
+        end,
 
     [F(Key, Initial) || Key <- Keys],
     [F(Key, (Initial + Steps)) || Key <- Keys],
@@ -311,14 +311,14 @@ add(Cluster, ClusterAlt, Keys) ->
     Expected = <<"5000">>,
     Expected2 = <<"asdf">>,
     [begin
-        ?assertMatch(ok, mero:add(Cluster, Key, Expected, 10000, 10000)),
-        ?assertMatch({error, not_stored}, mero:add(cluster_txt, Key, Expected2, 10000, 10000)),
-        ?assertMatch({error, already_exists}, mero:add(cluster_binary, Key, Expected2, 10000, 10000)),
-        {Key, Value} = mero:get(Cluster, Key),
-        {Key, Value2} = mero:get(ClusterAlt, Key),
-        io:format("Checking get ~p ~p ~n", [Value, Value2]),
-        ?assertMatch(Expected, Value),
-        ?assertMatch(Expected, Value2)
+         ?assertMatch(ok, mero:add(Cluster, Key, Expected, 10000, 10000)),
+         ?assertMatch({error, not_stored}, mero:add(cluster_txt, Key, Expected2, 10000, 10000)),
+         ?assertMatch({error, already_exists}, mero:add(cluster_binary, Key, Expected2, 10000, 10000)),
+         {Key, Value} = mero:get(Cluster, Key),
+         {Key, Value2} = mero:get(ClusterAlt, Key),
+         io:format("Checking get ~p ~p ~n", [Value, Value2]),
+         ?assertMatch(Expected, Value),
+         ?assertMatch(Expected, Value2)
      end || Key <- Keys].
 
 
@@ -336,7 +336,7 @@ dbg() ->
     dbg:p(all, c),
     dbg:tpl(?MODULE,x),
     dbg:tp(mero_cluster,x),
-    %dbg:tpl(mero_cluster_txt_localhost_1_0,x),
+                                                %dbg:tpl(mero_cluster_txt_localhost_1_0,x),
     dbg:tp(mero,x),
     dbg:tpl(mero_dummy_server, x),
     dbg:tpl(mero_wrk_tcp_txt, x),
