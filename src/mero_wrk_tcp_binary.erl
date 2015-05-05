@@ -145,16 +145,37 @@ close(Client) ->
 %%% Internal functions
 %%%=============================================================================
 
-%% TODO this violates the timeout
-multi_get_recv(Client, EndKey, Timeout) ->
-    multi_get_recv(Client, EndKey, Timeout, []).
+multi_get_recv(Client, EndKey, TimeLimit) ->
+    LoopRef = erlang:make_ref(),
+    Timeout = mero_conf:millis_to(TimeLimit),
+    TRef = erlang:send_after(Timeout, self(), {oops_timeout, LoopRef}),
+    Res = multi_get_recv_loop(LoopRef, true, Client, EndKey, TimeLimit, []),
+    erlang:cancel_timer(TRef),
+    Res.
 
-multi_get_recv(Client, EndKey, Timeout, Acc) ->
+multi_get_recv_loop(LoopRef, SpawnWrk, Client, EndKey, Timeout, Acc) ->
+    Parent = self(),
+    case SpawnWrk of
+        true ->
+            spawn(fun() -> multi_get_recv(LoopRef, Parent, Client, EndKey, Timeout) end);
+        false ->
+            ok
+    end,
+    receive
+        {cont, LoopRef, Res} ->
+            multi_get_recv_loop(LoopRef, true, Client, EndKey, Timeout, [Res|Acc]);
+        {fin, LoopRef, Res} ->
+            [Res|Acc];
+        {oops_timeout, LoopRef} ->
+            Acc;
+        _ ->
+            multi_get_recv_loop(LoopRef, false, Client, EndKey, Timeout, Acc)
+    end.
+
+multi_get_recv(LoopRef, Parent, Client, EndKey, Timeout) ->
     case receive_response(Client, ?MEMCACHE_GETK, Timeout) of
-        {EndKey, Val} ->
-            [{EndKey, Val} | Acc];
-        {K, V} ->
-            multi_get_recv(Client, EndKey, Timeout, [{K,V}|Acc])
+        {EndKey, Val} -> erlang:send(Parent, {fin, LoopRef, {EndKey, Val}});
+        {K, V}        -> erlang:send(Parent, {cont, LoopRef, {K,V}})
     end.
 
 send_receive(Client, {Op, _Args} = Cmd, TimeLimit) ->
