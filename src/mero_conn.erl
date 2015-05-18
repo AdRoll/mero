@@ -117,7 +117,7 @@ pool_execute(PoolName, Op, Args, TimeLimit) when is_tuple(TimeLimit) ->
             case mero_pool:transaction(Conn, Op, Args) of
                 {error, Reason} ->
                     mero_pool:close(Conn),
-                  mero_pool:checkin_closed(Conn),
+                    mero_pool:checkin_closed(Conn),
                     {error, Reason};
                 {NConn, Return} ->
                     mero_pool:checkin(NConn),
@@ -128,4 +128,3 @@ pool_execute(PoolName, Op, Args, TimeLimit) when is_tuple(TimeLimit) ->
         {error, Reason} ->
             {error, Reason}
     end.
-

@@ -45,24 +45,15 @@
 %%% Default timeout for instrospection functions
 -define(DEFAULT_TIMEOUT, 5000).
 
--define(LOG_EVENT(IMF, IEvent), begin
-                                  {IModule, IFunction, IArgs} = IMF,
-                                  {IId, IArgs2} = IEvent,
-
-                                  apply(IModule, IFunction, [{IId, IArgs ++ IArgs2}])
+-define(LOG_EVENT(MF, KeyAndTags), begin
+                                  {StatModule, StatFunction, GlobalTags} = MF,
+                                  apply(StatModule, StatFunction, [KeyAndTags ++ GlobalTags])
                                 end).
 
-%% Events used in callback
--define(EVENT_CONNECT_OK, {[socket, connect, ok],  []}).
--define(EVENT_CONNECT_ERROR(Reason), {[socket, connect, error],  [{reason, Reason}]}).
--define(EVENT_CONTROLLING_PROCESS_ERROR(Reason), {[socket, controlling_process, error], [{reason, Reason}]}).
--define(EVENT_RCV_ERROR(Reason), {[socket, rcv, error], [{reason, Reason}]}).
--define(EVENT_SEND_ERROR(Reason), {[socket, send, error], [{reason, Reason}]}).
-
--define(CALLBACK_CONTEXT(IModule, IFunction, IClusterName, IHost, IPort),
-    {IModule, IFunction,
-        [{cluster_name, IClusterName},
-         {host, IHost},
-         {port, IPort}]}).
+-define(CALLBACK_CONTEXT(StatModule, StatFunction, ClusterName, Host, Port),
+    {StatModule, StatFunction,
+        [{cluster_name, ClusterName},
+         {host, Host},
+         {port, Port}]}).
 
 -endif.

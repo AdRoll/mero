@@ -45,8 +45,7 @@
          add/5,
          flush_all/1,
          shard_phash2/2,
-         shard_crc32/2,
-         stat_event_callback/1
+         shard_crc32/2
         ]).
 
 -export([state/0,
@@ -173,14 +172,16 @@ shard_crc32(Key, ShardSize) ->
 
 %% @doc: Returns the state of the sockets of a Cluster
 state(ClusterName) ->
-    {Free, Connected, Connecting, Failed, MessageQueue} =
+    {Links, Monitors, Free, Connected, Connecting, Failed, MessageQueue} =
         lists:foldr(fun
             ({Cluster, _, _, Pool, _},
-                {AFree, AConnected, AConnecting, AFailed, AMessageQueue})
+                {ALinks, AMonitors, AFree, AConnected, AConnecting, AFailed, AMessageQueue})
                 when (Cluster == ClusterName) ->
                 begin
                     St = mero_pool:state(Pool),
                     {
+                        ALinks + proplists:get_value(links, St),
+                        AMonitors + proplists:get_value(monitors, St),
                         AFree + proplists:get_value(free, St),
                         AConnected + proplists:get_value(num_connected, St),
                         AConnecting + proplists:get_value(num_connecting, St),
@@ -189,8 +190,11 @@ state(ClusterName) ->
 
                 end;
             (_, Acc) -> Acc
-        end, {0,0,0,0,0}, mero_cluster:child_definitions()),
-    [{free, Free},
+        end, {0,0,0,0,0,0,0}, mero_cluster:child_definitions()),
+    [
+     {links, Links},
+     {monitors, Monitors},
+     {free, Free},
      {connected, Connected},
      {connecting, Connecting},
      {failed, Failed},
@@ -200,8 +204,3 @@ state(ClusterName) ->
 %% @doc: Returns the state of the sockets for all clusters
 state() ->
     [{Cluster, state(Cluster)} || Cluster <- mero_cluster:clusters()].
-
-
-%% @doc: Default callback module to instrument some metrics
-stat_event_callback(_EventArgs) ->
-    ok.

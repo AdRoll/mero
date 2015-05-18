@@ -91,11 +91,16 @@ start_stop(_Conf) ->
   ct:log("~p~n", [mero_cluster:child_definitions()]),
   ?assertMatch(
       [{cluster,
-          [{free,5},
-              {connected,5},
-              {connecting,0},
-              {failed,0},
-              {message_queue_len,0}]}],
+        [
+         {links,6},
+         {monitors,0},
+         {free,5},
+         {connected,5},
+         {connecting,0},
+         {failed,0},
+         {message_queue_len,0}
+        ]}
+      ],
       mero:state()),
 
   ok = application:stop(mero),

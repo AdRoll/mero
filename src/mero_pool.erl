@@ -61,7 +61,7 @@
                   free :: list(term()),
 
                   %% Busy connections (pid -> #conn)
-                  busy :: dict(),
+                  busy :: dict:dict(),
 
                   %% Number of connections established (busy + free)
                   num_connected :: non_neg_integer(),
@@ -161,7 +161,7 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
             register(PoolName, self()),
             process_flag(trap_exit, true),
             Deb = sys:debug_options([]),
-            {Module, Function} = mero_conf:stat_event_callback(),
+            {Module, Function} = mero_conf:stat_callback(),
             CallBackInfo = ?CALLBACK_CONTEXT(Module, Function, ClusterName, Host, Port),
             Initial = mero_conf:initial_connections_per_pool(),
             spawn_connections(PoolName, WrkModule, Host, Port, CallBackInfo,
@@ -196,11 +196,18 @@ state(PoolName) ->
     receive
         {MRef, State} ->
             erlang:demonitor(MRef),
-            [process_info(whereis(PoolName), message_queue_len),
+            PoolPid = whereis(PoolName),
+            {links, Links} = process_info(PoolPid, links),
+            {monitors, Monitors} = process_info(PoolPid, monitors),
+            [
+             process_info(PoolPid, message_queue_len),
+             {links, length(Links)},
+             {monitors, length(Monitors)},
              {free, length(State#pool_st.free)},
              {num_connected, State#pool_st.num_connected},
              {num_connecting, State#pool_st.num_connecting},
-             {num_failed_connecting, State#pool_st.num_failed_connecting}];
+             {num_failed_connecting, State#pool_st.num_failed_connecting}
+            ];
         {'DOWN', MRef, _, _, _} ->
             {error, down}
     after ?DEFAULT_TIMEOUT ->
@@ -348,10 +355,11 @@ checkin_closed_pid(#pool_st{busy = Busy, num_connected = Num} = State, Pid) ->
     end.
 
 
-down(#pool_st{busy = Busy, num_connected = Num} = State, Pid) ->
+down(#pool_st{busy = Busy, num_connected = Num, callback_info = CallbackInfo} = State, Pid) ->
     case dict:find(Pid, Busy) of
         {ok, {_, Conn}} ->
             catch close(Conn),
+            ?LOG_EVENT(CallbackInfo, [socket, connect, close]),
             NewState = State#pool_st{busy = dict:erase(Pid, Busy),
                                      num_connected = Num - 1},
             maybe_spawn_connect(NewState);
@@ -394,9 +402,8 @@ spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, 1) ->
     spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo);
 spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, Number) when (Number > 0) ->
     SleepTime = mero_conf:max_connection_delay_time(),
-    [ begin
-          spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime)
-      end || _Number <- lists:seq(1, Number)].
+    [ spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime)
+      || _Number <- lists:seq(1, Number) ].
 
 
 try_connect(Pool, WrkModule, Host, Port, CallbackInfo) ->
@@ -436,14 +443,14 @@ schedule_expiration(State) ->
     State.
 
 
-expire_connections(#pool_st{free = Conns, pool = Pool, num_connected = Num} = State) ->
+expire_connections(#pool_st{free = Conns, pool = Pool, num_connected = Num, callback_info = CallbackInfo} = State) ->
     Now = os:timestamp(),
     try conn_time_to_live(Pool) of
         TTL ->
             case lists:foldl(fun filter_expired/2, {Now, TTL, [], []}, Conns) of
                 {_, _, [], _} -> State;
                 {_, _, ExpConns, ActConns} ->
-                    spawn_link(fun() -> close_connections(ExpConns) end),
+                    spawn_link(fun() -> close_connections(CallbackInfo, ExpConns) end),
                     maybe_spawn_connect(
                       State#pool_st{free = ActConns,
                                     num_connected = Num - length(ExpConns)})
@@ -474,11 +481,12 @@ filter_expired(#conn{updated = Updated} = Conn, {Now, TTL, ExpConns, ActConns}) 
 safe_send(PoolName, Cmd) ->
     catch PoolName ! Cmd.
 
-close_connections([]) -> ok;
+close_connections(_CallbackInfo, []) -> ok;
 
-close_connections([Conn | Conns]) ->
+close_connections(CallbackInfo, [Conn | Conns]) ->
     catch close(Conn),
-    close_connections(Conns).
+    ?LOG_EVENT(CallbackInfo, [socket, connect, close]),
+    close_connections(CallbackInfo, Conns).
 
 is_config_valid() ->
     Initial = mero_conf:initial_connections_per_pool(),
