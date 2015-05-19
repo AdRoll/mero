@@ -77,7 +77,6 @@ init_per_testcase(_, Conf) ->
 
 
 end_per_testcase(_, _Conf) ->
-  dbg:stop_clear(),
   application:stop(mero).
 
 %%%=============================================================================
@@ -224,7 +223,7 @@ checkout_checkin_limits(_) ->
     proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
   mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0),
 
-  ct:log("The first one is on use so the second one should be stablished soon"),
+  ct:log("The first one is on use so the second one should be established soon"),
   ok = mero_pool:checkin(Conn1),
   mero_test_util:wait_for_pool_state(?POOL, 2, 4, 0, 0),
 
@@ -301,12 +300,3 @@ checkout_timeout(_) ->
 %%%=============================================================================
 %%% Helper functions
 %%%=============================================================================
-
-dbg() ->
-  dbg:tracer(),
-  dbg:p(all,c),
-  dbg:tpl(mero_sup,x),
-  dbg:tpl(mero_pool,x),
-  dbg:tpl(mero,x),
-  dbg:tpl(mero_wrk,x),
-  ok.

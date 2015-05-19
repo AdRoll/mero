@@ -85,7 +85,6 @@ init_per_testcase(_Module, Conf) ->
     [{pids, Pids} | Conf].
 
 end_per_testcase(_Module, Conf) ->
-    dbg:stop_clear(),
     {ok, Pids} = proplists:get_value(pids, Conf),
     mero_test_util:stop_servers(Pids),
     mero_dummy_server:reset_all_keys(),
@@ -129,7 +128,6 @@ delete(_Conf) ->
 
 set(_Conf) ->
     ct:log("state ~p", [mero:state()]),
-    dbg(),
     ?assertMatch(ok, mero:set(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
     ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
 
@@ -231,7 +229,6 @@ increment(_Conf) ->
 
 add(_Conf) ->
     ?assertMatch(ok, mero:add(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
-    dbg(),
     ct:log("First not stored"),
     ?assertMatch({error, not_stored}, mero:add(cluster, <<"11">>, <<"Adroll2">>, 111111, 1000)),
     ct:log("Second not stored"),
@@ -254,15 +251,3 @@ m() ->
 
 key() ->
     base64:encode(crypto:strong_rand_bytes(20)).
-
-%% Just for test purposes
-dbg() ->
-    dbg:tracer(),
-    dbg:p(all, c),
-    %dbg:tp(mero_cluster,x),
-    %dbg:tpl(mero_cluster_localhost_1_0,x),
-    %dbg:tp(mero_pool,x),
-    dbg:tpl(mero_dummy_server, x),
-    dbg:tpl(mero_wrk_tcp_txt, x),
-    dbg:tpl(mero_conn, x),
-    ok.
