@@ -155,10 +155,6 @@ send_receive(Client, {Op, _Args} = Cmd, TimeLimit) ->
         receive_response(Client, Op, TimeLimit)
     catch
         throw:{failed, Reason} ->
-          error_logger:error_report([{error, memcached_request_failed},
-            {client, Client},
-            {cmd, Cmd},
-            {reason, Reason}]),
           {error, Reason}
     end.
 
@@ -206,8 +202,6 @@ send(Client, Data) ->
         ok -> ok;
         {error, Reason} ->
           ?LOG_EVENT(Client#client.event_callback, {memcached_send_error, Reason}),
-          error_logger:error_report([{error, send_error},
-            {error, Reason}]),
           throw({failed, {send, Reason}})
     end.
 
@@ -231,17 +225,9 @@ receive_response(Client, Op, TimeLimit) ->
                     Status ->  throw({failed, {response_status, Status}})
                   end;
               Data ->
-                error_logger:error_report([{error, unexpected_body_from_memcached_socket},
-                    {operation, Op},
-                  {Data, Data}]),
                 throw({failed, {unexpected_body, Data}})
             end;
       Data ->
-
-        error_logger:error_report(
-            [{error, unexpected_header_from_memcached_socket},
-             {operation, Op},
-             {Data, Data}]),
         throw({failed, {unexpected_header, Data}})
     end.
 
