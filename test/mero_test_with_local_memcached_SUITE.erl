@@ -44,23 +44,23 @@
 
 %% TODO: Uncomment these if you want to test agains a specific memcache server
 all() -> [
-%%          get_undefined_binary,
-%%          get_undefined_txt,
-%%          get_set_binary,
-%%          get_set_txt,
-%%          flush_binary,
-%%          flush_txt,
-%%          delete_binary,
-%%          delete_txt,
-%%          mget_binary,
-%%          mget_txt,
-%%          add_binary,
-%%          add_txt,
-%%          increment_binary,
-%%          increment_txt,
-%%          increment_binary_with_initial,
-%%          increment_txt_with_initial
-    ].
+          get_undefined_binary,
+          get_undefined_txt,
+          get_set_binary,
+          get_set_txt,
+          flush_binary,
+          flush_txt,
+          delete_binary,
+          delete_txt,
+          mget_binary,
+          mget_txt,
+          add_binary,
+          add_txt,
+          increment_binary,
+          increment_txt,
+          increment_binary_with_initial,
+          increment_txt_with_initial
+         ].
 
 
 suite() ->
@@ -103,7 +103,7 @@ end_per_suite(_Conf) ->
 init_per_testcase(_Module, Conf) ->
     ct:log("state ~p", [mero:state()]),
     Keys = [key() || _  <- lists:seq(1, 4)],
-    dbg(),
+    %% dbg(),
     [{keys, Keys} | Conf].
 
 
@@ -311,14 +311,14 @@ add(Cluster, ClusterAlt, Keys) ->
     Expected = <<"5000">>,
     Expected2 = <<"asdf">>,
     [begin
-        ?assertMatch(ok, mero:add(Cluster, Key, Expected, 10000, 10000)),
-        ?assertMatch({error, not_stored}, mero:add(cluster_txt, Key, Expected2, 10000, 10000)),
-        ?assertMatch({error, already_exists}, mero:add(cluster_binary, Key, Expected2, 10000, 10000)),
-        {Key, Value} = mero:get(Cluster, Key),
-        {Key, Value2} = mero:get(ClusterAlt, Key),
-        io:format("Checking get ~p ~p ~n", [Value, Value2]),
-        ?assertMatch(Expected, Value),
-        ?assertMatch(Expected, Value2)
+         ?assertMatch(ok, mero:add(Cluster, Key, Expected, 10000, 10000)),
+         ?assertMatch({error, not_stored}, mero:add(cluster_txt, Key, Expected2, 10000, 10000)),
+         ?assertMatch({error, already_exists}, mero:add(cluster_binary, Key, Expected2, 10000, 10000)),
+         {Key, Value} = mero:get(Cluster, Key),
+         {Key, Value2} = mero:get(ClusterAlt, Key),
+         io:format("Checking get ~p ~p ~n", [Value, Value2]),
+         ?assertMatch(Expected, Value),
+         ?assertMatch(Expected, Value2)
      end || Key <- Keys].
 
 
@@ -336,7 +336,7 @@ dbg() ->
     dbg:p(all, c),
     dbg:tpl(?MODULE,x),
     dbg:tp(mero_cluster,x),
-    %dbg:tpl(mero_cluster_txt_localhost_1_0,x),
+    %% dbg:tpl(mero_cluster_txt_localhost_1_0,x),
     dbg:tp(mero,x),
     dbg:tpl(mero_dummy_server, x),
     dbg:tpl(mero_wrk_tcp_txt, x),

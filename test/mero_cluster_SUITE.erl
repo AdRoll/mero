@@ -170,7 +170,7 @@ group_by_shards(_Conf) ->
                 {pool_worker_module, mero_wrk_tcp_txt}]}],
     mero_cluster:load_clusters(Config),
     ?assertMatch([], mero_cluster:group_by_shards(cluster, [])),
-    dbg(),
+    %% dbg(),
     ?assertMatch([
         {0, [<<"6">>, <<"13">>, <<"14">>, <<"15">>, <<"17">>]},
         {1, [<<"1">>,<<"2">>,<<"3">>,<<"4">>,<<"5">>,<<"7">>,
@@ -190,4 +190,3 @@ dbg() ->
     dbg:p(all,c),
     dbg:tpl(mero_cluster,x),
     ok.
-
