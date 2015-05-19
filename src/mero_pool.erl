@@ -269,10 +269,10 @@ pool_loop(State, Parent, Deb) ->
 
 
 get_connection(#pool_st{free = Free} = State, From) when Free /= [] ->
-    maybe_spawn_connect(give(State, From));
+    give(State, From);
 get_connection(State, {Pid, Ref} = _From) ->
     safe_send(Pid, {Ref, {reject, State}}),
-    State.
+    maybe_spawn_connect(State).
 
 
 maybe_spawn_connect(#pool_st{
