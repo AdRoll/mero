@@ -40,6 +40,8 @@
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
   case mero_pool:state(Pool) of
     [ _QueueInfo,
+      _Links,
+      _Monitors,
       {free, Free},
       {num_connected, Connected},
       {num_connecting, Connecting},
@@ -56,6 +58,8 @@ wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
 wait_for_min_connections_failed(Pool, Free, Connected, MinFailed) ->
   case mero_pool:state(Pool) of
     [ _QueueInfo,
+      _Links,
+      _Monitors,
       {free, Free},
       {num_connected, Connected},
       {num_connecting, _},

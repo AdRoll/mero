@@ -53,8 +53,8 @@
          connection_unused_max_time/1,
          max_connection_delay_time/0,
          max_connection_delay_time/1,
-         stat_event_callback/0,
-         stat_event_callback/1,
+         stat_callback/0,
+         stat_callback/1,
          add_now/1,
          add_now/2,
          millis_to/1,
@@ -178,12 +178,12 @@ max_connection_delay_time(Val) ->
 
 
 %% @doc: maximum delay establishing initial connections (ms)
--spec stat_event_callback() -> {Module::module(), Function :: atom()}.
-stat_event_callback() ->
+-spec stat_callback() -> {Module::module(), Function :: atom()}.
+stat_callback() ->
   get_env(stat_event_callback).
 
--spec stat_event_callback({Module::module(), Function :: atom()}) -> ok.
-stat_event_callback(Val) ->
+-spec stat_callback({Module::module(), Function :: atom()}) -> ok.
+stat_callback(Val) ->
   application:set_env(mero, stat_event_callback, Val).
 
 

@@ -28,7 +28,6 @@
       {connection_unused_max_time, 300000},
       {expiration_interval, 300000},
       {max_connection_delay_time, 5000},
-      {stat_event_callback, {mero, stat_event_callback}},
-      {stat_update_callback, {mero, stat_update_callback}}
+      {stat_event_callback, {mero_stat, noop}}
   ]}
  ]}.
