@@ -60,7 +60,7 @@ init_per_testcase(_, Conf) ->
 
 
 end_per_testcase(_, _Conf) ->
-    dbg:stop_clear().
+    ok.
 
 %%%=============================================================================
 %%% Tests
@@ -170,7 +170,6 @@ group_by_shards(_Conf) ->
                 {pool_worker_module, mero_wrk_tcp_txt}]}],
     mero_cluster:load_clusters(Config),
     ?assertMatch([], mero_cluster:group_by_shards(cluster, [])),
-    dbg(),
     ?assertMatch([
         {0, [<<"6">>, <<"13">>, <<"14">>, <<"15">>, <<"17">>]},
         {1, [<<"1">>,<<"2">>,<<"3">>,<<"4">>,<<"5">>,<<"7">>,
@@ -184,10 +183,3 @@ group_by_shards(_Conf) ->
             <<"14">>, <<"15">>, <<"16">>,
             <<"17">>, <<"18">>, <<"19">>])),
     ok.
-
-dbg() ->
-    dbg:tracer(),
-    dbg:p(all,c),
-    dbg:tpl(mero_cluster,x),
-    ok.
-
