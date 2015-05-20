@@ -77,7 +77,6 @@ init_per_testcase(_, Conf) ->
 
 
 end_per_testcase(_, _Conf) ->
-  dbg:stop_clear(),
   application:stop(mero).
 
 %%%=============================================================================
@@ -145,14 +144,21 @@ expire_connections(_) ->
   {ok, _Pid} = mero_test_util:start_server(?CLUSTER_CONFIG, 2, 4, 300, 900),
   mero_test_util:wait_for_pool_state(?POOL, 2, 2, 0, 0),
 
-  ct:log("Lets take two of the connections, new ones will be created"),
+  ct:log("Let's take two of the connections, no new ones will be created"),
   P1 = proc:new(),
   P2 = proc:new(),
   P3 = proc:new(),
   {ok, Conn1} = proc:exec(P1, {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]}),
   {ok, Conn2} = proc:exec(P2, {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]}),
+  mero_test_util:wait_for_pool_state(?POOL, 0, 2, 0, 0),
+
+  ct:log("Only on reject are new connections minted."),
+  {error, reject} = proc:exec(P3, {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]}),
   mero_test_util:wait_for_pool_state(?POOL, 2, 4, 0, 0),
+
+  ct:log("Now we can take a new connection."),
   {ok, Conn3} = proc:exec(P3, {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]}),
+  mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0),
 
   timer:sleep(500),
   ct:log("kill the server so no connection can be stablished from now on! ;)"),
@@ -229,7 +235,7 @@ checkout_checkin_limits(_) ->
     proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
   mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0),
 
-  ct:log("The first one is on use so the second one should be stablished soon"),
+  ct:log("The first one is on use so the second one should be established soon"),
   ok = mero_pool:checkin(Conn1),
   mero_test_util:wait_for_pool_state(?POOL, 2, 4, 0, 0),
 
@@ -306,12 +312,3 @@ checkout_timeout(_) ->
 %%%=============================================================================
 %%% Helper functions
 %%%=============================================================================
-
-dbg() ->
-  dbg:tracer(),
-  dbg:p(all,c),
-  dbg:tpl(mero_sup,x),
-  dbg:tpl(mero_pool,x),
-  dbg:tpl(mero,x),
-  dbg:tpl(mero_wrk,x),
-  ok.
