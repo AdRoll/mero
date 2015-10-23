@@ -144,7 +144,7 @@ async_by_shard_mget(Name, KeysGroupedByShards, TimeLimit) ->
         [] ->
             ProcessedOut;
         ErrorsOut ->
-            {errors, ErrorsOut, ProcessedOut}
+            {error, ErrorsOut, ProcessedOut}
     end.
 
 
