@@ -84,10 +84,7 @@ There are three ways to start this application:
 
  - From an erlang shell:
 ```
-erl -pa ebin/ -pa deps/*/ebin/ -s inets
-
-> application:start(mero).
-ok
+erl -pa ebin/ -pa deps/*/ebin/ -s inets -s mero
 
 > mero:increment_counter(default, <<"key">>).
 {ok,1}
