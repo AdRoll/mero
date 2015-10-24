@@ -89,6 +89,8 @@ get(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
     case mero_conn:get(ClusterName, [Key], Timeout) of
         [{Key, Value}] ->
             {Key, Value};
+        {error, [Reason], []} ->
+            {error, Reason};
         {error, Reason, []} ->
             {error, Reason};
         {error, _Reason, [{Key, Value}]} ->
