@@ -32,7 +32,8 @@
 
 -behaviour(application).
 
--export([start/2,
+-export([start/0,
+         start/2,
          stop/1]).
 
 -export([increment_counter/2,
@@ -40,6 +41,7 @@
          get/2,
          get/3,
          delete/3,
+         mget/2,
          mget/3,
          set/5,
          add/5,
@@ -57,6 +59,9 @@
 %%%=============================================================================
 %%% Application behaviour
 %%%=============================================================================
+
+start() ->
+    application:start(mero).
 
 %% @doc: Starts the application
 start(_StartType, _StartArgs) ->
@@ -84,6 +89,8 @@ get(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
     case mero_conn:get(ClusterName, [Key], Timeout) of
         [{Key, Value}] ->
             {Key, Value};
+        {error, [Reason], []} ->
+            {error, Reason};
         {error, Reason, []} ->
             {error, Reason};
         {error, _Reason, [{Key, Value}]} ->
@@ -96,6 +103,8 @@ get(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
 -spec mget(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary()}]
     | {error, Reason :: term(), ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
+mget(ClusterName, Keys) when is_list(Keys), is_atom(ClusterName) ->
+    mero_conn:get(ClusterName, Keys, mero_conf:timeout_read()).
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     mero_conn:get(ClusterName, Keys, Timeout).
 
