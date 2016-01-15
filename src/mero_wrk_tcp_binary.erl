@@ -37,7 +37,7 @@
 -export([connect/3,
     controlling_process/2,
     transaction/3,
-    close/1]).
+    close/2]).
 
 
 -record(client, {socket, pool, event_callback :: module()}).
@@ -147,7 +147,8 @@ transaction(Client, async_mget_response, [Keys, Timeout]) ->
             {Client, Results}
     end.
 
-close(Client) ->
+close(Client, Reason) ->
+    ?LOG_EVENT(Client#client.event_callback, [closing_socket, {reason, Reason}]),
     gen_tcp:close(Client#client.socket).
 
 

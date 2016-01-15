@@ -106,7 +106,7 @@ async_by_shard_mget(Name, KeysGroupedByShards, TimeLimit) ->
                         {ok, Conn} ->
                             case mero_pool:transaction(Conn, async_mget, [Keys]) of
                                 {error, Reason} ->
-                                    mero_pool:close(Conn),
+                                    mero_pool:close(Conn, async_mget_error),
                                     mero_pool:checkin_closed(Conn),
                                     {Processed, [Reason | Errors]};
                                 {NConn, {error, Reason}} ->
@@ -127,7 +127,7 @@ async_by_shard_mget(Name, KeysGroupedByShards, TimeLimit) ->
         fun({Conn, Keys}, {ProcessedIn, ErrorsIn}) ->
             case mero_pool:transaction(Conn, async_mget_response, [Keys, TimeLimit]) of
                 {error, Reason} ->
-                    mero_pool:close(Conn),
+                    mero_pool:close(Conn, async_mget_response_error),
                     mero_pool:checkin_closed(Conn),
                     {ProcessedIn, [Reason | ErrorsIn]};
                 {Client, {error, Reason}} ->
@@ -154,7 +154,7 @@ pool_execute(PoolName, Op, Args, TimeLimit) when is_tuple(TimeLimit) ->
         {ok, Conn} ->
             case mero_pool:transaction(Conn, Op, Args) of
                 {error, Reason} ->
-                    mero_pool:close(Conn),
+                    mero_pool:close(Conn, sync_transaction_error),
                     mero_pool:checkin_closed(Conn),
                     {error, Reason};
                 {NConn, Return} ->
