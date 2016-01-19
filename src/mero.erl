@@ -51,7 +51,9 @@
         ]).
 
 -export([state/0,
-         state/1]).
+         state/1,
+         deep_state/0,
+         deep_state/1]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -213,3 +215,17 @@ state(ClusterName) ->
 %% @doc: Returns the state of the sockets for all clusters
 state() ->
     [{Cluster, state(Cluster)} || Cluster <- mero_cluster:clusters()].
+
+deep_state(ClusterName) ->
+    lists:foldr(
+      fun
+          ({Cluster, _, _, Pool, _}, Acc) when (Cluster == ClusterName) ->
+                       St = mero_pool:state(Pool),
+                       [[{pool, Pool} | St] | Acc];
+          (_, Acc) -> Acc
+               end, [], mero_cluster:child_definitions()).
+
+
+%% @doc: Returns the state of the sockets for all clusters
+deep_state() ->
+    [{Cluster, deep_state(Cluster)} || Cluster <- mero_cluster:clusters()].
