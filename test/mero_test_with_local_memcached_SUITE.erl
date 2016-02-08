@@ -44,6 +44,7 @@
 
 %% TODO: Uncomment these if you want to test agains a specific memcache server
 all() -> [
+<<<<<<< HEAD
 %%          get_undefined_binary,
 %%          get_undefined_txt,
 %%          get_set_binary,
@@ -62,6 +63,24 @@ all() -> [
 %%          increment_txt,
 %%          increment_binary_with_initial,
 %%          increment_txt_with_initial
+=======
+         %% get_undefined_binary,
+         %% get_undefined_txt,
+         %% get_set_binary,
+         %% get_set_txt,
+         %% flush_binary,
+         %% flush_txt,
+         %% delete_binary,
+         %% delete_txt,
+         %% mget_binary,
+         %% mget_txt,
+         %% add_binary,
+         %% add_txt,
+         %% increment_binary,
+         %% increment_txt,
+         %% increment_binary_with_initial,
+         %% increment_txt_with_initial
+>>>>>>> master
     ].
 
 
@@ -105,7 +124,6 @@ end_per_suite(_Conf) ->
 init_per_testcase(_Module, Conf) ->
     ct:log("state ~p", [mero:state()]),
     Keys = [key() || _  <- lists:seq(1, 4)],
-    dbg(),
     [{keys, Keys} | Conf].
 
 
@@ -351,16 +369,3 @@ add(Cluster, ClusterAlt, Keys) ->
 
 key() ->
     base64:encode(crypto:strong_rand_bytes(20)).
-
-%% Just for test purposes
-dbg() ->
-    dbg:tracer(),
-    dbg:p(all, c),
-    dbg:tpl(?MODULE,x),
-    dbg:tp(mero_cluster,x),
-    %dbg:tpl(mero_cluster_txt_localhost_1_0,x),
-    dbg:tp(mero,x),
-    dbg:tpl(mero_dummy_server, x),
-    dbg:tpl(mero_wrk_tcp_txt, x),
-    dbg:tpl(mero_conn, x),
-    ok.

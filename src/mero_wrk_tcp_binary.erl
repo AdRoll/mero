@@ -35,9 +35,9 @@
 
 %%% Start/stop functions
 -export([connect/3,
-         controlling_process/2,
-         transaction/3,
-         close/1]).
+    controlling_process/2,
+    transaction/3,
+    close/2]).
 
 
 -record(client, {socket, pool, event_callback :: module()}).
@@ -73,12 +73,14 @@ controlling_process(Client, Pid) ->
             {error, Reason}
     end.
 
-transaction(Client, delete, [Key,  TimeLimit]) ->
+transaction(Client, delete, [Key, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
-        {<<>>, <<>>} ->
+        {ok, {<<>>, <<>>}} ->
             {Client, ok};
-        {<<>>, undefined} ->
+        {ok, {<<>>, undefined}} ->
             {Client, {error, not_found}};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
         {error, Reason} ->
             {error, Reason}
     end;
@@ -100,48 +102,67 @@ transaction(Client, mdelete, [Keys,  TimeLimit]) ->
 
 transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}, TimeLimit) of
-      {error, Reason} ->
-        {error, Reason};
-      {<<>>, ActualValue} ->
-        {Client, {ok, to_integer(ActualValue)}}
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, {<<>>, ActualValue}} ->
+            {Client, {ok, to_integer(ActualValue)}}
     end;
 
 
 transaction(Client, set, [Key, Value, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime}}, TimeLimit) of
-        {<<>>, <<>>} ->
+        {ok, {<<>>, <<>>}} ->
             {Client, ok};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
         {error, Reason} ->
             {error, Reason}
     end;
 
 transaction(Client, add, [Key, Value, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_ADD, {Key, Value, ExpTime}}, TimeLimit) of
-        {<<>>, <<>>} ->
+        {ok, {<<>>, <<>>}} ->
             {Client, ok};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
         {error, Reason} ->
             {error, Reason}
     end;
-
 
 transaction(Client, flush_all, [TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_FLUSH_ALL, {}}, TimeLimit) of
-        {<<>>, <<>>} ->
+        {ok, {<<>>, <<>>}} ->
             {Client, ok};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
         {error, Reason} ->
             {error, Reason}
     end;
 
-transaction(Client, get, [Keys, Timeout]) ->
-    case multi_send_receive(Client, {get, {Keys}}, Timeout) of
-      {error, Reason} ->
-        {error, Reason};
-      {ok, Results} ->
-          {Client, Results}
+transaction(Client, async_mget, [Keys]) ->
+    case async_mget(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
+transaction(Client, async_mget_response, [Keys, Timeout]) ->
+    case async_mget_response(Client, Keys, Timeout) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, Results} ->
+            {Client, Results}
     end.
 
-
-close(Client) ->
+close(Client, Reason) ->
+    ?LOG_EVENT(Client#client.event_callback, [closing_socket, {reason, Reason}]),
     gen_tcp:close(Client#client.socket).
 
 
@@ -149,27 +170,14 @@ close(Client) ->
 %%% Internal functions
 %%%=============================================================================
 
-multi_send_receive(Client, {get, {Keys}}, TimeLimit) ->
-    try
-        {ok,[
-         begin
-           Data = pack({get, Key}),
-           ok = send(Client, Data),
-           receive_response(Client, ?MEMCACHE_GETK, TimeLimit)
-         end || Key <- Keys]}
-    catch
-        throw:{failed, Reason} ->
-            {error, Reason}
-    end.
-
 send_receive(Client, {Op, _Args} = Cmd, TimeLimit) ->
     try
         Data = pack(Cmd),
         ok = send(Client, Data),
-        receive_response(Client, Op, TimeLimit)
+        {ok, receive_response(Client, Op, TimeLimit)}
     catch
         throw:{failed, Reason} ->
-          {error, Reason}
+            {error, Reason}
     end.
 
 
@@ -198,8 +206,12 @@ pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     ExpirationTime = 16#00,
     pack(<<ExpirationTime:32>>, ?MEMCACHE_FLUSH_ALL, <<>>);
 
-pack({get, Key}) ->
+pack({getkq, Key}) ->
+    pack(<<>>, ?MEMCACHE_GETKQ, Key);
+
+pack({getk, Key}) ->
     pack(<<>>, ?MEMCACHE_GETK, Key).
+
 
 pack(Extras, Operator, Key) ->
     pack(Extras, Operator, Key, <<>>).
@@ -210,64 +222,78 @@ pack(Extras, Operator, Key, Value) ->
     Body = <<Extras:ExtrasSize/binary, Key/binary, Value/binary>>,
     BodySize = size(Body),
     <<16#80:8, Operator:8, KeySize:16,
-      ExtrasSize:8, 16#00:8, 16#00:16,
-      BodySize:32, 16#00:32, 16#00:64, Body:BodySize/binary>>.
+    ExtrasSize:8, 16#00:8, 16#00:16,
+    BodySize:32, 16#00:32, 16#00:64, Body:BodySize/binary>>.
 
 
 send(Client, Data) ->
     case gen_tcp:send(Client#client.socket, Data) of
-        ok -> ok;
+        ok ->
+            ok;
         {error, Reason} ->
-          ?LOG_EVENT(Client#client.event_callback, [memcached_send_error, {reason, Reason}]),
-          throw({failed, {send, Reason}})
+            ?LOG_EVENT(Client#client.event_callback, [memcached_send_error, {reason, Reason}]),
+            throw({failed, {send, Reason}})
     end.
 
 
 receive_response(Client, Op, TimeLimit) ->
     case recv_bytes(Client, 24, TimeLimit) of
-      <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
-      BodySize:32, _Opq:32, _CAS:64>> ->
+        <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
+        BodySize:32, _Opq:32, _CAS:64>> ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, Value/binary>> ->
-                  case Status of
-                    16#0001 -> {Key, undefined};
-                    16#0000 -> {Key, Value};
-                    16#0002 -> throw({failed, already_exists});
-                    16#0003 -> throw({failed, value_too_large});
-                    16#0004 -> throw({failed, invalid_arguments});
-                    16#0005 -> throw({failed, item_not_stored});
-                    16#0006 -> throw({failed, incr_decr_on_non_numeric_value});
-                    16#0081 -> throw({failed, item_not_stor});
-                    16#0082 -> throw({failed, item_not_stored});
-                    Status ->  throw({failed, {response_status, Status}})
-                  end;
-              Data ->
-                throw({failed, {unexpected_body, Data}})
+                    case Status of
+                        16#0001 ->
+                            {Key, undefined};
+                        16#0000 ->
+                            {Key, Value};
+                        16#0002 ->
+                            {error, already_exists};
+                        16#0003 ->
+                            {error, value_too_large};
+                        16#0004 ->
+                            {error, invalid_arguments};
+                        16#0005 ->
+                            {error, item_not_stored};
+                        16#0006 ->
+                            {error, incr_decr_on_non_numeric_value};
+                        16#0081 ->
+                            {error, item_not_stor};
+                        16#0082 ->
+                            {error, item_not_stored};
+                        Status ->
+                            throw({failed, {response_status, Status}})
+                    end;
+                Data ->
+                    throw({failed, {unexpected_body, Data}})
             end;
-      Data ->
-        throw({failed, {unexpected_header, Data}})
+        Data ->
+            throw({failed, {unexpected_header, Data, {expected, Op}}})
     end.
 
 
-recv_bytes(_Client, 0, _TimeLimit) -> <<>>;
+recv_bytes(_Client, 0, _TimeLimit) ->
+    <<>>;
 recv_bytes(Client, NumBytes, TimeLimit) ->
     Timeout = mero_conf:millis_to(TimeLimit),
     case gen_tcp_recv(Client#client.socket, NumBytes, Timeout) of
-        {ok, Bin} -> Bin;
-      {error, Reason} ->
-        ?LOG_EVENT(Client#client.event_callback, [memcached_receive_error, {reason, Reason}]),
-        throw({failed, {receive_bytes, Reason}})
+        {ok, Bin} ->
+            Bin;
+        {error, Reason} ->
+            ?LOG_EVENT(Client#client.event_callback, [memcached_receive_error, {reason, Reason}]),
+            throw({failed, {receive_bytes, Reason}})
     end.
 
+
 value_to_integer(Value) ->
-  value_to_integer(Value, []).
+    value_to_integer(Value, []).
 
 value_to_integer(<<>>, Acc) ->
-  list_to_integer(lists:reverse(Acc));
+    list_to_integer(lists:reverse(Acc));
 value_to_integer(<<0, Rest/binary>>, Acc) ->
-  value_to_integer(Rest, Acc);
+    value_to_integer(Rest, Acc);
 value_to_integer(<<K, Rest/binary>>, Acc) ->
-  value_to_integer(Rest, [K | Acc]).
+    value_to_integer(Rest, [K | Acc]).
 
 
 to_integer(Binary) when is_binary(Binary) ->
@@ -275,5 +301,63 @@ to_integer(Binary) when is_binary(Binary) ->
     <<Value:Size/integer>> = Binary,
     Value.
 
+
 gen_tcp_recv(Socket, NumBytes, Timeout) ->
     gen_tcp:recv(Socket, NumBytes, Timeout).
+
+
+async_mget(Client, Keys) ->
+    try
+        {ok, send_gets(Client, Keys)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
+
+
+send_gets(Client, [Key]) ->
+    ok = send(Client, pack({getk, Key}));
+send_gets(Client, [Key | Keys]) ->
+    ok = send(Client, pack({getkq, Key})),
+    send_gets(Client, Keys).
+
+
+async_mget_response(Client, Keys, TimeLimit) ->
+    try
+        {ok, receive_mget_response(Client, TimeLimit, Keys, [])}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
+
+
+receive_mget_response(Client, TimeLimit, Keys, Acc) ->
+    case recv_bytes(Client, 24, TimeLimit) of
+        <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
+        BodySize:32, _Opq:32, _CAS:64>> = Data ->
+            case recv_bytes(Client, BodySize, TimeLimit) of
+                <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>> ->
+                    {Key, Value} = case Status of
+                                       16#0001 ->
+                                           {Key, undefined};
+                                       16#0000 ->
+                                           {Key, ValueReceived};
+                                       Status ->
+                                           throw({failed, {response_status, Status}})
+                                   end,
+                    Responses = [{Key, Value} | Acc],
+                    NKeys = lists:delete(Key, Keys),
+                    case Op of
+                    % On silent we expect more values
+                        ?MEMCACHE_GETKQ ->
+                            receive_mget_response(Client, TimeLimit, NKeys, Responses);
+                    % This was the last one!
+                        ?MEMCACHE_GETK ->
+                            Responses ++ [{KeyIn, undefined} || KeyIn <- NKeys]
+                    end;
+                Data ->
+                    throw({failed, {unexpected_body, Data}})
+            end;
+        Data ->
+            throw({failed, {unexpected_header, Data}})
+    end.

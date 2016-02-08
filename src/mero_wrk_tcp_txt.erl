@@ -37,7 +37,7 @@
 -export([connect/3,
          controlling_process/2,
          transaction/3,
-         close/1]).
+         close/2]).
 
 -record(client, {socket, pool, event_callback}).
 
@@ -148,19 +148,32 @@ transaction(Client, flush_all, [TimeLimit]) ->
             {error, Reason}
     end;
 
-transaction(Client, get, [Keys, TimeLimit]) ->
-    case send_receive(Client, {?MEMCACHE_GET, {Keys}}, TimeLimit) of
+transaction(Client, async_mget, [Keys]) ->
+    case async_mget(Client, Keys) of
         {error, Reason} ->
             {error, Reason};
-        {ok, FoundKeyValues} ->
-            FoundKeys = [Key || {Key, _Value} <- FoundKeyValues],
-            NotFoundKeys = lists:subtract(Keys, FoundKeys),
-            Result = [{Key, undefined} || Key <- NotFoundKeys] ++ FoundKeyValues,
-            {Client, Result}
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
+transaction(Client, async_mget_response, [Keys, Timeout]) ->
+    case async_mget_response(Client, Keys, Timeout) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, {ok, FoundKeyValues}} ->
+             FoundKeys = [Key || {Key, _Value} <- FoundKeyValues],
+             NotFoundKeys = lists:subtract(Keys, FoundKeys),
+             Result = [{Key, undefined} || Key <- NotFoundKeys] ++ FoundKeyValues,
+             {Client, Result}
     end.
 
 
-close(Client) ->
+close(Client, Reason) ->
+    ?LOG_EVENT(Client#client.event_callback, [closing_socket, {reason, Reason}]),
     gen_tcp:close(Client#client.socket).
 
 
@@ -311,3 +324,23 @@ to_integer(Value) when is_integer(Value) ->
     Value;
 to_integer(Value) when is_binary(Value) ->
     binary_to_integer(Value).
+
+
+async_mget(Client, Keys) ->
+    try
+        Data = pack({?MEMCACHE_GET, {Keys}}),
+        {ok, send(Client, Data)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
+
+
+async_mget_response(Client, Keys, TimeLimit) ->
+    try
+        {ok, receive_response(Client, {?MEMCACHE_GET, {Keys}}, TimeLimit, <<>>, [])}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
+

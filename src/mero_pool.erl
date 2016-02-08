@@ -35,7 +35,7 @@
          checkin/1,
          checkin_closed/1,
          transaction/3,
-         close/1,
+         close/2,
          pool_loop/3,
          system_continue/3,
          system_terminate/4]).
@@ -137,8 +137,8 @@ transaction(#conn{worker_module = WorkerModule,
 
 
 close(#conn{worker_module = WorkerModule,
-            client = Client}) ->
-    WorkerModule:close(Client).
+            client = Client}, Reason) ->
+    WorkerModule:close(Client, Reason).
 
 
 system_continue(Parent, Deb, State) ->
@@ -206,6 +206,7 @@ state(PoolName) ->
              {free, length(State#pool_st.free)},
              {num_connected, State#pool_st.num_connected},
              {num_connecting, State#pool_st.num_connecting},
+
              {num_failed_connecting, State#pool_st.num_failed_connecting}
             ];
         {'DOWN', MRef, _, _, _} ->
@@ -227,12 +228,20 @@ pool_loop(State, Parent, Deb) ->
         connect_failed ->
             ?MODULE:pool_loop(connect_failed(State), Parent, Deb);
         connect ->
-            spawn_connect(State#pool_st.pool,
-                          State#pool_st.worker_module,
-                          State#pool_st.host,
-                          State#pool_st.port,
-                          State#pool_st.callback_info),
-            ?MODULE:pool_loop(State, Parent, Deb);
+            NumConnecting = State#pool_st.num_connecting,
+            Connected = State#pool_st.num_connected,
+            MaxConns = State#pool_st.max_connections,
+            case (NumConnecting + Connected) > MaxConns of
+                true ->
+                    ?MODULE:pool_loop(State#pool_st{num_connecting = NumConnecting - 1}, Parent, Deb);
+                false ->
+                    spawn_connect(State#pool_st.pool,
+                                  State#pool_st.worker_module,
+                                  State#pool_st.host,
+                                  State#pool_st.port,
+                                  State#pool_st.callback_info),
+                    ?MODULE:pool_loop(State, Parent, Deb)
+            end;
         {checkout, From} ->
             ?MODULE:pool_loop(get_connection(State, From), Parent, Deb);
         {checkin, Pid, Conn} ->
@@ -261,11 +270,10 @@ pool_loop(State, Parent, Deb) ->
 
 
 get_connection(#pool_st{free = Free} = State, From) when Free /= [] ->
-    maybe_spawn_connect(give(State, From));
-
+    give(State, From);
 get_connection(State, {Pid, Ref} = _From) ->
     safe_send(Pid, {Ref, {reject, State}}),
-    State.
+    maybe_spawn_connect(State).
 
 
 maybe_spawn_connect(#pool_st{
@@ -275,25 +283,21 @@ maybe_spawn_connect(#pool_st{
                        min_connections = MinConn,
                        num_connecting = Connecting,
                        num_failed_connecting = NumFailed,
-                       reconnect_wait_time = WaitTime,
                        worker_module = WrkModule,
                        callback_info = CallbackInfo,
+                       reconnect_wait_time = WaitTime,
                        pool = Pool,
                        host = Host,
                        port = Port} = State) ->
     %% Length could be big.. better to not have more than a few dozens of sockets
     %% May be worth to keep track of the length of the free in a counter.
-    MaxAllowed = MaxConn - (Connected + Connecting),
-    Needed = case MinConn - (length(Free) + Connecting) of
-                 MaxNeeded when MaxNeeded > MaxAllowed ->
-                     MaxAllowed;
-                 MaxNeeded ->
-                     MaxNeeded
-             end,
+
+    FreeSockets = length(Free),
+    Needed = calculate_needed(FreeSockets, Connected, Connecting, MaxConn, MinConn),
     if
         %% Need sockets and no failed connections are reported..
         %% we create new ones
-        (Needed > 0), NumFailed =< 1 ->
+        (Needed > 0), NumFailed < 1 ->
             spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, Needed),
             State#pool_st{num_connecting = Connecting + Needed};
 
@@ -301,7 +305,7 @@ maybe_spawn_connect(#pool_st{
         %% connection attempt has failed. Don't open more than
         %% one connection until an attempt has succeeded again.
         (Needed > 0), Connecting == 0 ->
-            reconnect_after_wait(WaitTime),
+            erlang:send_after(WaitTime, self(), connect),
             State#pool_st{num_connecting = Connecting + 1};
 
         %% We dont need sockets or we have failed connections
@@ -310,20 +314,25 @@ maybe_spawn_connect(#pool_st{
             State
     end.
 
+calculate_needed(FreeSockets, Connected, Connecting, MaxConn, MinConn) ->
+    TotalSockets = Connected + Connecting,
+    MaxAllowed = MaxConn - TotalSockets,
+    IdleSockets = FreeSockets + Connecting,
+    case MinConn - IdleSockets of
+        MaxNeeded when MaxNeeded > MaxAllowed ->
+            MaxAllowed;
+        MaxNeeded ->
+            MaxNeeded
+    end.
 
 connect_success(#pool_st{free = Free,
                          num_connected = Num,
-                         num_connecting = NumConnecting,
-                         num_failed_connecting = NumFailed} = State,
+                         num_connecting = NumConnecting} = State,
                 Conn) ->
-    NState = State#pool_st{free = [Conn|Free],
+    State#pool_st{free = [Conn|Free],
                            num_connected = Num + 1,
                            num_connecting = NumConnecting - 1,
-                           num_failed_connecting = 0},
-    case (NumFailed > 0) of
-        true -> maybe_spawn_connect(NState);
-        false -> NState
-    end.
+                           num_failed_connecting = 0}.
 
 
 connect_failed(#pool_st{num_connecting = Num,
@@ -358,7 +367,7 @@ checkin_closed_pid(#pool_st{busy = Busy, num_connected = Num} = State, Pid) ->
 down(#pool_st{busy = Busy, num_connected = Num, callback_info = CallbackInfo} = State, Pid) ->
     case dict:find(Pid, Busy) of
         {ok, {_, Conn}} ->
-            catch close(Conn),
+            catch close(Conn, down),
             ?LOG_EVENT(CallbackInfo, [socket, connect, close]),
             NewState = State#pool_st{busy = dict:erase(Pid, Busy),
                                      num_connected = Num - 1},
@@ -375,13 +384,9 @@ give(#pool_st{free = [Conn|Free],
     State#pool_st{busy = dict:store(Pid, {MRef, Conn}, Busy), free = Free}.
 
 
-reconnect_after_wait(WaitTime) ->
-    erlang:send_after(WaitTime, self(), connect).
-
-
-%% connect inmediately
 spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo) ->
-    spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, 0).
+    MaxConnectionDelayTime = mero_conf:max_connection_delay_time(),
+    spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, MaxConnectionDelayTime).
 
 spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
     spawn_link(fun() ->
@@ -397,7 +402,6 @@ spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
                end).
 
 
-%% Connect with delay
 spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, 1) ->
     spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo);
 spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, Number) when (Number > 0) ->
@@ -484,8 +488,7 @@ safe_send(PoolName, Cmd) ->
 close_connections(_CallbackInfo, []) -> ok;
 
 close_connections(CallbackInfo, [Conn | Conns]) ->
-    catch close(Conn),
-    ?LOG_EVENT(CallbackInfo, [socket, connect, close]),
+    catch close(Conn, expire),
     close_connections(CallbackInfo, Conns).
 
 is_config_valid() ->
