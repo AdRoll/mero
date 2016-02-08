@@ -51,8 +51,8 @@ all() -> [
          %% flush_binary,
          %% flush_txt,
          %% delete_binary,
-         %% mdelete_binary,
-         %% mdelete_txt,
+         mdelete_binary,
+         mdelete_txt
          %% delete_txt,
          %% mget_binary,
          %% mget_txt,
