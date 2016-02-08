@@ -40,6 +40,7 @@
          get/2,
          get/3,
          delete/3,
+         mdelete/3,
          mget/3,
          set/5,
          add/5,
@@ -145,6 +146,10 @@ increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
 delete(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
     mero_conn:delete(ClusterName, Key, Timeout).
 
+-spec mdelete(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
+    ok | {error, Reason :: term()}.
+mdelete(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
+    mero_conn:mdelete(ClusterName, Keys, Timeout).
 
 %% The response is a list of all the individual requests, one per shard
 -spec flush_all(ClusterName :: atom()) ->

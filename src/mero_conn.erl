@@ -34,6 +34,7 @@
          get/3,
          set/5,
          delete/3,
+         mdelete/3,
          add/5,
          flush_all/2
         ]).
@@ -67,6 +68,12 @@ delete(Name, Key, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
     pool_execute(PoolName, delete, [Key, TimeLimit], TimeLimit).
+
+
+mdelete(Name, Keys, Timeout) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    PoolName = mero_cluster:server(Name, Keys),
+    pool_execute(PoolName, mdelete, [Keys, TimeLimit], TimeLimit).
 
 
 add(Name, Key, Value, ExpTime, Timeout) ->

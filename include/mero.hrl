@@ -37,6 +37,7 @@
 -define(MEMCACHE_SET, 16#01).
 -define(MEMCACHE_ADD, 16#02).
 -define(MEMCACHE_DELETE, 16#04).
+-define(MEMCACHE_DELETEQ, 16#14).
 -define(MEMCACHE_FLUSH_ALL, 16#08).
 
 %%% If a connection attempt fails, or a connection is broken

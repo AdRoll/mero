@@ -84,6 +84,20 @@ transaction(Client, delete, [Key,  TimeLimit]) ->
     end;
 
 
+transaction(Client, mdelete, [Keys,  TimeLimit]) ->
+    lists:foreach(fun(Key) ->
+                          case send_receive(Client, {?MEMCACHE_DELETEQ, {Key}}, TimeLimit) of
+                              {<<>>, <<>>} ->
+                                  {Client, ok};
+                              {<<>>, undefined} ->
+                                  {Client, {error, not_found}};
+                              {error, Reason} ->
+                                  {error, Reason}
+                          end
+                  end, Keys),
+    {Client, ok};
+
+
 transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}, TimeLimit) of
       {error, Reason} ->
@@ -167,6 +181,9 @@ pack({?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}) ->
 
 pack({?MEMCACHE_DELETE, {Key}}) ->
     pack(<<>>, ?MEMCACHE_DELETE, Key);
+
+pack({?MEMCACHE_DELETEQ, {Key}}) ->
+    pack(<<>>, ?MEMCACHE_DELETEQ, Key);
 
 pack({?MEMCACHE_ADD, {Key, Value, ExpTime}}) ->
     IntExpTime = value_to_integer(ExpTime),

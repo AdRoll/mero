@@ -43,44 +43,89 @@
 %%%=============================================================================
 
 all() -> [
-         undefined_counter,
-         increase_counter,
-         get_undefineds,
-         multiget_undefineds,
-         increment,
-         multiget_defineds,
-         set,
-         delete,
-         add
+          {group, text_protocol}
+          %% temporarily disabled
+          %% {group, binary_protocol}
+         ].
+
+groups() ->
+    [
+     {text_protocol, [],
+      [
+       undefined_counter,
+       increase_counter,
+       get_undefineds,
+       multiget_undefineds,
+       increment,
+       multiget_defineds,
+       set,
+       delete,
+       mdelete,
+       add
+      ]
+     },
+     {binary_protocol, [],
+      [
+       undefined_counter,
+       increase_counter,
+       get_undefineds,
+       multiget_undefineds,
+       increment,
+       multiget_defineds,
+       set,
+       delete,
+       mdelete,
+       add
+      ]
+     }
     ].
 
 suite() ->
     [{timetrap, {seconds, 15}}].
 
+init_per_group(text_protocol, Config) ->
+    ClusterConfig = [{cluster,
+                      [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
+                       {sharding_algorithm, {mero, shard_phash2}},
+                       {workers_per_shard, 1},
+                       {pool_worker_module, mero_wrk_tcp_txt}]
+                     },
+                     {cluster2,
+                      [{servers, [{"localhost", 11300}]},
+                       {sharding_algorithm, {mero, shard_crc32}},
+                       {workers_per_shard, 1},
+                       {pool_worker_module, mero_wrk_tcp_txt}]
+                     }],
+    [{cluster_config, ClusterConfig} | Config];
+init_per_group(binary_protocol, Config) ->
+    ClusterConfig = [{cluster,
+                      [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
+                       {sharding_algorithm, {mero, shard_phash2}},
+                       {workers_per_shard, 1},
+                       {pool_worker_module, mero_wrk_tcp_binary}]
+                     },
+                     {cluster2,
+                      [{servers, [{"localhost", 11300}]},
+                       {sharding_algorithm, {mero, shard_crc32}},
+                       {workers_per_shard, 1},
+                       {pool_worker_module, mero_wrk_tcp_binary}]
+                     }],
+    [{cluster_config, ClusterConfig} | Config].
+
+end_per_group(_GroupName, _Config) ->
+    ok.
+
 init_per_suite(Conf) ->
     ok = application:start(inets),
-
     Conf.
 
 end_per_suite(_Conf) ->
     ok = application:stop(inets),
     ok.
 
-
 init_per_testcase(_Module, Conf) ->
     application:load(mero),
-    ClusterConfig = [{cluster,
-        [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
-            {sharding_algorithm, {mero, shard_phash2}},
-            {workers_per_shard, 1},
-            {pool_worker_module, mero_wrk_tcp_txt}]
-    },
-        {cluster2,
-            [{servers, [{"localhost", 11300}]},
-                {sharding_algorithm, {mero, shard_crc32}},
-                {workers_per_shard, 1},
-                {pool_worker_module, mero_wrk_tcp_txt}]
-        }],
+    ClusterConfig = ?config(cluster_config, Conf),
     Pids = mero_test_util:start_server(ClusterConfig, 1, 1, 30000, 90000),
     [{pids, Pids} | Conf].
 
@@ -125,6 +170,24 @@ delete(_Conf) ->
     ?assertMatch({error, not_found},  mero:delete(cluster, <<"11">>, 1000)).
 
 
+mdelete(_Conf) ->
+    ?assertMatch({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
+    ?assertMatch({<<"22">>, undefined}, mero:get(cluster, <<"22">>)),
+
+    ?assertMatch(ok, mero:set(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
+    ?assertMatch(ok, mero:set(cluster, <<"22">>, <<"Adroll">>, 22222, 1000)),
+
+    ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
+    ?assertMatch({<<"22">>, <<"Adroll">>}, mero:get(cluster, <<"22">>)),
+
+    ?assertMatch(ok, mero:mdelete(cluster, [<<"11">>, <<"22">>], 1000)),
+
+    ?assertMatch({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
+    ?assertMatch({<<"22">>, undefined}, mero:get(cluster, <<"22">>)),
+
+    %% mdelete is fire and forget. If this is undesirable an alternate approach
+    %% can be taken but it's Good Enough for the motivating problem.
+    ?assertMatch(ok,  mero:mdelete(cluster, [<<"11">>, <<"22">>], 1000)).
 
 
 set(_Conf) ->
