@@ -79,7 +79,8 @@ mdelete(Name, Keys, Timeout) ->
     %% Jazz for my present experimental purposes.
     %%
     %% -blt
-    lists:foreach(fun ({PoolName, Ks}) ->
+    lists:foreach(fun ({ShardIdentifier, Ks}) ->
+                          PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
                           pool_execute(PoolName, mdelete, [Ks, TimeLimit], TimeLimit)
                   end, KeysGroupedByShards).
 
