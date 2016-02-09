@@ -72,8 +72,16 @@ delete(Name, Key, Timeout) ->
 
 mdelete(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    PoolName = mero_cluster:server(Name, Keys),
-    pool_execute(PoolName, mdelete, [Keys, TimeLimit], TimeLimit).
+    KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
+    %% NOTE
+    %%
+    %% Doing this synchronously is probably not desirable. It's close enough for
+    %% Jazz for my present experimental purposes.
+    %%
+    %% -blt
+    lists:foreach(fun ({PoolName, Ks}) ->
+                          pool_execute(PoolName, mdelete, [Ks, TimeLimit], TimeLimit)
+                  end, KeysGroupedByShards).
 
 
 add(Name, Key, Value, ExpTime, Timeout) ->
