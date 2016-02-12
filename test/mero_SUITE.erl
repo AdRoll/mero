@@ -43,38 +43,39 @@
 %%%=============================================================================
 
 all() -> [
-          {group, binary_protocol},
-          {group, text_protocol}
+          {group, text_protocol},
+          {group, binary_protocol}
          ].
 
 groups() ->
     [
-     {text_protocol, [],
+     {text_protocol, [shuffle, {repeat_until_any_fail, 5}],
       [
-       undefined_counter,
-       increase_counter,
-       get_undefineds,
-       multiget_undefineds,
-       increment,
-       multiget_defineds,
-       set,
+       add,
        delete,
+       get_undefineds,
+       increase_counter,
+       increment,
        mdelete,
-       add
+       multiget_defineds,
+       multiget_undefineds,
+       set,
+       undefined_counter
       ]
      },
-     {binary_protocol, [],
+     {binary_protocol, [shuffle, {repeat_until_any_fail, 5}],
       [
-       undefined_counter,
-       increase_counter,
-       get_undefineds,
-       multiget_undefineds,
-       increment,
-       multiget_defineds,
-       set,
+       add,
        delete,
+       get_undefineds,
+       increase_counter,
+       increment,
        mdelete,
-       add
+       multiget_defineds,
+       multiget_undefineds,
+       set,
+       undefined_counter,
+       always_pass
       ]
      }
     ].

@@ -370,7 +370,7 @@ parse_text(Request) ->
         [<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes] -> {set, Key, Bytes};
         [<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes] -> {add, Key, Bytes};
         [<<"delete">>, Key] -> {delete, Key};
-        [<<"incr">>, Key, Value] -> {incr, Key, Value}
+        [<<"incr">>, Key, Value] -> {incr, Key, 100, Value, Value}
     end.
 
 split(Binary) ->
