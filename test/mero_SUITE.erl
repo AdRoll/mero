@@ -43,9 +43,8 @@
 %%%=============================================================================
 
 all() -> [
+          {group, binary_protocol},
           {group, text_protocol}
-          %% temporarily disabled
-          %% {group, binary_protocol}
          ].
 
 groups() ->
@@ -197,11 +196,13 @@ set(_Conf) ->
     ?assertMatch(ok, mero:set(cluster, <<"12">>, <<"Adroll2">>, 11111, 1000)),
     ?assertMatch({<<"12">>, <<"Adroll2">>}, mero:get(cluster, <<"12">>)),
 
-    [{<<"12">>, <<"Adroll2">>},
-     {<<"11">>, <<"Adroll">>}] = mero:mget(cluster, [<<"11">>, <<"12">>], 5000),
+    Resp0 = mero:mget(cluster, [<<"11">>, <<"12">>], 5000),
+    [{<<"11">>, <<"Adroll">>},
+     {<<"12">>, <<"Adroll2">>}] = lists:sort(Resp0),
 
+    Resp1 = mero:mget(cluster2, [<<"11">>, <<"12">>], 5000),
     [{<<"11">>, undefined},
-     {<<"12">>, undefined}] = mero:mget(cluster2, [<<"11">>, <<"12">>], 5000),
+     {<<"12">>, undefined}] = lists:sort(Resp1),
 
     ok.
 
@@ -219,14 +220,14 @@ multiget_undefineds(_Conf) ->
 
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    [{<<"13">>, undefined},
-     {<<"14">>, undefined},
-        {<<"15">>, undefined},
+    Resp = mero:mget(cluster, [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>], 1000),
 
-        {<<"11">>, undefined},
-        {<<"12">>, undefined},
-        {<<"16">>, undefined}] = mero:mget(cluster,
-        [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>], 1000).
+    [{<<"11">>, undefined},
+     {<<"12">>, undefined},
+     {<<"13">>, undefined},
+     {<<"14">>, undefined},
+     {<<"15">>, undefined},
+     {<<"16">>, undefined}] = lists:sort(Resp).
 
 
 multiget_defineds(_Conf) ->
@@ -299,7 +300,7 @@ add(_Conf) ->
     ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
 
     % ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
-    oik.
+    ok.
 m() ->
     ?assertMatch(ok,  mero:delete(cluster, <<"11">>, 1000)),
     ?assertMatch({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
