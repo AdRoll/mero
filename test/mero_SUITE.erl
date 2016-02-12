@@ -126,6 +126,8 @@ init_per_testcase(_Module, Conf) ->
     application:load(mero),
     ClusterConfig = ?config(cluster_config, Conf),
     Pids = mero_test_util:start_server(ClusterConfig, 1, 1, 30000, 90000),
+    mero_conf:timeout_write(1000),
+    mero_conf:timeout_read(1000),
     [{pids, Pids} | Conf].
 
 end_per_testcase(_Module, Conf) ->
@@ -142,16 +144,18 @@ end_per_testcase(_Module, Conf) ->
 undefined_counter(_Conf) ->
     Key = key(),
     ct:log("state ~p", [mero:state()]),
-    ?assertMatch({Key, undefined}, mero:get(cluster, Key)),
-    ?assertMatch({Key, undefined}, mero:get(cluster, Key)),
-    ?assertMatch({Key, undefined}, mero:get(cluster2, Key)),
-    ?assertMatch({Key, undefined}, mero:get(cluster2, Key)),
+    ?assertMatch({Key, undefined}, mero:get(cluster, Key, 1000)),
+    ?assertMatch({Key, undefined}, mero:get(cluster, Key, 1000)),
+    ?assertMatch({Key, undefined}, mero:get(cluster2, Key, 1000)),
+    ?assertMatch({Key, undefined}, mero:get(cluster2, Key, 1000)),
     ok.
 
 
 increase_counter(_Conf) ->
     Key = key(),
     ct:log("state ~p", [mero:state()]),
+    ct:log("READ ~p", [mero_conf:timeout_read()]),
+    ct:log("WRITE ~p", [mero_conf:timeout_write()]),
     ?assertMatch({ok, 1}, mero:increment_counter(cluster, Key)),
     ?assertMatch({ok, 2}, mero:increment_counter(cluster, Key)),
     ?assertMatch({ok, 1}, mero:increment_counter(cluster2, Key)),
@@ -211,9 +215,9 @@ get_undefineds(_Conf) ->
     Key2 = key(),
     Key3 = key(),
 
-    {Key, undefined} = mero:get(cluster, Key),
-    {Key2, undefined} = mero:get(cluster, Key2),
-    {Key3, undefined} = mero:get(cluster, Key3).
+    {Key, undefined} = mero:get(cluster, Key, 1000),
+    {Key2, undefined} = mero:get(cluster, Key2, 1000),
+    {Key3, undefined} = mero:get(cluster, Key3, 1000).
 
 multiget_undefineds(_Conf) ->
    [] = mero:mget(cluster, [], 1000),
