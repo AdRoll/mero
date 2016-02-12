@@ -28,6 +28,8 @@
 %%
 -module(mero_dummy_server).
 
+-include_lib("mero/include/mero.hrl").
+
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -behaviour(gen_server).
@@ -179,163 +181,260 @@ loop(Sock, Port, Opts, Buf) ->
 %%%-----------------------------------------------------------------------------
 %%% INTERNAL FUNCTIONS
 %%%-----------------------------------------------------------------------------
+
 handle_data(Sock, Port, Data) ->
     Response = response(Port, Data),
     send(Sock, iolist_to_binary(Response)),
-    %io:format("~p~n", [[{request, Data}, {response, Response}]]).
     ok.
 
 %% We send one byte at a time to test that we are handling package split correctly
 send(_Sock, <<>>) -> ok;
 send(Sock, <<Byte:1/binary, Rest/binary>>) ->
-    %io:format("Send byte ~p",[Byte]),
     gen_tcp:send(Sock, Byte),
     timer:sleep(1),
     send(Sock, Rest).
 
-%% Probably the worst code ever..
-%% response(<<16#80:8, ?OP_Increment:8, KeySize:16,
-%%            _ExtrasSize:8, 16#00:8, 16#00:16,
-%%            _BodySize:32, 16#00:32, 16#00:64,
-%%            Value:64, Initial:64, _ExpTime:32,
-%%            Key/binary>>) ->
-%%     Result = increment(Key, Initial, Value),
-%%
-%%     ValueOut = list_to_binary(integer_to_list(Result)),
-%%     ExtrasOut = <<>>,
-%%     ExtrasSizeOut = size(ExtrasOut),
-%%     Status = 0,
-%%     BodyOut = <<ExtrasOut/binary, Key/binary,ValueOut/binary>>,
-%%     BodySizeOut = size(BodyOut),
-%%
-%%     <<16#81:8, ?OP_Increment:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-%%       BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
-%%
-%%
-%%
-%% response(<<16#80:8, ?OP_Get:8, KeySize:16,
-%%            _ExtrasSize:8, 16#00:8, 16#00:16,
-%%            _BodySize:32, 16#00:32, 16#00:64,
-%%            Key/binary>>) ->
-%%
-%%     ExtrasOut = <<>>,
-%%     ExtrasSizeOut = size(ExtrasOut),
-%%
-%%     {ValueOut, Status} =
-%%         case get_counter(Key) of
-%%             undefined -> {<<>>, 1}; % Status 1
-%%             ValueOutt -> {list_to_binary(integer_to_list(ValueOutt)), 0}
-%%         end,
-%%     BodyOut = <<ExtrasOut/binary, Key/binary, ValueOut/binary>>,
-%%     BodySizeOut = size(BodyOut),
-%%
-%%     <<16#81:8, ?OP_Get:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-%%       BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
-
-response(Port, Request) ->
-    case parse(Request) of
-        {get, Keys} ->
-            response_get_keys(Port, Keys, []);
-        {set, Key, Bytes} ->
-            %io:format("[~p] Put ~p ~p ~n", [self(), Key, Bytes]),
-            lput(Port, Key, Bytes),
-            [<<"STORED">>, <<"\r\n">>];
-        {delete, Key} ->
-            case lget(Port, Key) of
-                undefined ->
-                    [<<"NOT_FOUND">>, <<"\r\n">>];
-                _Value ->
-                    lput(Port, Key, undefined),
-                    [<<"DELETED">>, <<"\r\n">>]
-            end;
-        {add, Key, Bytes} ->
-            case lget(Port, Key) of
-                undefined ->
-                    lput(Port, Key, Bytes),
-                    io:format("[~p] Add ~p ~p ~n", [self(), Key, Bytes]),
-                    [<<"STORED">>, <<"\r\n">>];
-                Value ->
-                    io:format("[~p] Add already exists ~p not added to ~p ~p~n", [self(), Key, Value, lget(Port, Key)]),
-                    [<<"NOT_STORED">>, <<"\r\n">>]
-            end;
-        {incr, Key, Bytes} ->
-            case lget(Port, Key) of
-                undefined ->
-                    %% Return error
-                    %io:format("[~p] Key not found ~p ~n",[self(), Key]),
-                    ["NOT_FOUND", <<"\r\n">>];
-                Value ->
-                    Result = to_int(Value) + to_int(Bytes),
-                    lput(Port, Key, Result),
-                    %io:format("[~p] Incr ~p from ~p to ~p~n", [self(), Key, Value, Result]),
-                    [to_bin(Result), <<"\r\n">>]
-            end
-    end.
-
-
-response_get_keys(_Port, [], Acc) ->
-    [Acc,  "END\r\n"];
-
-response_get_keys(Port, [Key | Keys], Acc) ->
-    case lget(Port, Key) of
-        undefined ->
-            io:format("[~p] Get ~p not found ~n",[self(), Key]),
-            response_get_keys(Port, Keys, Acc);
-        Value ->
-            LValue = to_bin(Value),
-            NBytes = size(LValue),
-            io:format("[~p] Get ~p -~p- ~n", [self(), Key, LValue]),
-            response_get_keys(Port, Keys, [Acc, "VALUE", " ", to_bin(Key), " 00 ", to_bin(NBytes),  "\r\n", to_bin(LValue),"\r\n"])
-    end.
-
-to_int(Value) when is_integer(Value) ->
-    Value;
-to_int(Value) when is_list(Value) ->
-    list_to_integer(Value);
-to_int(Value) when is_binary(Value) ->
-    to_int(binary_to_list(Value)).
-
-to_bin(Value) when is_binary(Value) ->
-    Value;
-to_bin(Value) when is_integer(Value) ->
-    to_bin(integer_to_list(Value));
-to_bin(Value) when is_list(Value) ->
-    list_to_binary(Value).
-
 get_current_keys() ->
-    Keys = application:get_env(mero, dummy_server_keys, []),
-    io:format("Current Keys ~p", [Keys]),
-    Keys.
+    application:get_env(mero, dummy_server_keys, []).
 
 get_key(Port, Key) ->
     proplists:get_value({Port, Key}, get_current_keys(), undefined).
 
 put_key(Port, Key, Value) ->
     NList = lists:keystore({Port, Key}, 1, get_current_keys(), {{Port, Key}, Value}),
+    ct:log("Current Keys: ~p~n", [get_current_keys()]),
     application:set_env(mero, dummy_server_keys, NList).
 
-lget(Port, Key) ->
-    Result = get_key(Port, Key),
-    io:format("~p GET ~p = ~p ~n", [self(), Key, Result]),
-    Result.
+parse(<<16#80:8, _Rest/binary>> = Request) ->
+    Resp = parse_binary(Request),
+    {binary, Resp};
+parse(Request) ->
+    Resp = parse_text(Request),
+    {text, Resp}.
 
-lput(Port, Key, Value) ->
-    Result = put_key(Port, Key, Value),
-    NewValue = get_key(Port, Key),
-    io:format("~p PUT ~p = ~p  ~p => ~p ~n", [self(), Key, Value, Result, NewValue]),
-    Result.
+%%%===================================================================
+%%% Text Protocol
+%%%===================================================================
+
+%%%% Response
+
+canned_responses(text, _Key, _Op, not_found)  -> ["NOT_FOUND", <<"\r\n">>];
+canned_responses(text, _Key, _Op, not_stored) -> ["NOT_STORED", <<"\r\n">>];
+canned_responses(text, _Key, _Op, stored)     -> [<<"STORED">>, <<"\r\n">>];
+canned_responses(text, _Key, _Op, deleted)    -> [<<"DELETED">>, <<"\r\n">>];
+canned_responses(text, _Key, _Op, {incr, I})  -> [mero_util:to_bin(I), <<"\r\n">>];
+
+canned_responses(binary, _Key, Op, not_found) ->
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    Status = 1,
+    BodyOut = <<>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = 0,
+
+    <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+
+canned_responses(binary, _Key, Op, not_stored) ->
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    Status = 5,
+    BodyOut = <<>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = 0,
+
+    <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+
+canned_responses(binary, _Key, Op, stored) ->
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    Status = 0,
+    BodyOut = <<>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = 0,
+
+    <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+
+canned_responses(binary, _Key, Op, deleted) -> %% same as stored, intentionally
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    Status = 0,
+    BodyOut = <<>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = 0,
+
+    <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+
+canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
+    ValueOut = list_to_binary(integer_to_list(I)),
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    Status = 0,
+    BodyOut = <<ExtrasOut/binary, ValueOut/binary>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = 0,
+
+    <<16#81:8, ?MEMCACHE_INCREMENT:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>.
+
+text_response_get_keys(_Port, [], Acc) ->
+    [Acc,  "END\r\n"];
+text_response_get_keys(Port, [Key | Keys], Acc) ->
+    case get_key(Port, Key) of
+        undefined ->
+            text_response_get_keys(Port, Keys, Acc);
+        Value ->
+            LValue = mero_util:to_bin(Value),
+            NBytes = size(LValue),
+            text_response_get_keys(Port, Keys, [Acc, "VALUE", " ", mero_util:to_bin(Key), " 00 ",
+                                                mero_util:to_bin(NBytes), "\r\n", mero_util:to_bin(LValue),"\r\n"])
+    end.
+
+%% NOTE: This is not correct. Right now we don't distinguish between multiple
+%% kinds of GETs, quiet and not. We must.
+binary_response_get_keys(_Port, [], Acc) ->
+    Acc;
+binary_response_get_keys(Port, [{Op, Key} | Keys], Acc) ->
+    {Status, Value} =  case get_key(Port, Key) of
+                           undefined -> {1, <<>>};
+                           Val -> {0, Val}
+                       end,
+    LValue = mero_util:to_bin(Value),
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    BodyOut = <<ExtrasOut/binary, Key/binary, LValue/binary>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = size(Key),
+
+    binary_response_get_keys(Port, Keys, [<<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0,
+                                            Status:16, BodySizeOut:32, 0:32, 0:64, BodyOut/binary>> | Acc]).
+
+%% TODO add stored / not stored responses here
+
+response(Port, Request) ->
+    case parse(Request) of
+        {Kind, {get, Keys}} ->
+            case Kind of
+                text ->
+                    text_response_get_keys(Port, Keys, []);
+                binary ->
+                    binary_response_get_keys(Port, Keys, [])
+            end;
+        {Kind, {set, Key, Bytes}} ->
+            put_key(Port, Key, Bytes),
+            canned_responses(Kind, Key, ?MEMCACHE_SET, stored);
+        {Kind, {delete, Key}} ->
+            case get_key(Port, Key) of
+                undefined ->
+                    canned_responses(Kind, Key, ?MEMCACHE_DELETE, not_found);
+                _Value ->
+                    put_key(Port, Key, undefined),
+                    canned_responses(Kind, Key, ?MEMCACHE_DELETE, deleted)
+            end;
+        {Kind, {add, Key, Bytes}} ->
+            case get_key(Port, Key) of
+                undefined ->
+                    put_key(Port, Key, Bytes),
+                    canned_responses(Kind, Key, ?MEMCACHE_ADD, stored);
+                _Value ->
+                    canned_responses(Kind, Key, ?MEMCACHE_ADD, not_stored)
+            end;
+        {Kind, {incr, Key, ExpTime, Initial, Bytes}} ->
+            case get_key(Port, Key) of
+                undefined ->
+                    %% Return error
+                    case ExpTime of
+                        4294967295 -> %% 32 bits, all 1
+                            canned_responses(Kind, Key, ?MEMCACHE_INCREMENT, not_found);
+                        _ ->
+                            put_key(Port, Key, Initial),
+                            canned_responses(Kind, Key, ?MEMCACHE_INCREMENT, {incr, Initial})
+                    end;
+                Value ->
+                    Result = mero_util:to_int(Value) + mero_util:to_int(Bytes),
+                    put_key(Port, Key, Result),
+                    canned_responses(Kind, Key, ?MEMCACHE_INCREMENT, {incr, Result})
+            end
+    end.
+
+
+%%% Parse
 
 %% Only supporting requests that come in its own tcp package
-parse(Request) ->
+parse_text(Request) ->
     case split(Request) of
         [<<"get">> | Keys] -> {get, Keys};
         [<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes] -> {set, Key, Bytes};
         [<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes] -> {add, Key, Bytes};
         [<<"delete">>, Key] -> {delete, Key};
-        [<<"incr">>, Key, Bytes] -> {incr, Key, Bytes}
+        [<<"incr">>, Key, Value] -> {incr, Key, Value}
     end.
-
-
 
 split(Binary) ->
     binary:split(Binary, [<<"\r\n">>, <<" ">>], [global, trim]).
+
+%%%===================================================================
+%%% Binary Protocol
+%%%===================================================================
+
+%%% Parse
+
+parse_binary(<<16#80:8, ?MEMCACHE_GET:8, _/binary>> = Bin) ->
+    {get, parse_get([], Bin)};
+parse_binary(<<16#80:8, ?MEMCACHE_GETQ:8, _/binary>> = Bin) ->
+    {get, parse_get([], Bin)};
+parse_binary(<<16#80:8, ?MEMCACHE_GETK:8, _/binary>> = Bin) ->
+    {get, parse_get([], Bin)};
+parse_binary(<<16#80:8, ?MEMCACHE_GETKQ:8, _/binary>> = Bin) ->
+    {get, parse_get([], Bin)};
+parse_binary(<<16#80:8, ?MEMCACHE_SET:8, KeySize:16,
+               ExtrasSize:8, 16#00:8, 16#00:16,
+               _BodySize:32, 16#00:32, 16#00:64,
+               _Extras:ExtrasSize/binary,
+               Key:KeySize/binary, Value/binary>>) ->
+    {set, Key, Value};
+parse_binary(<<16#80:8, ?MEMCACHE_ADD:8, KeySize:16,
+               ExtrasSize:8, 16#00:8, 16#00:16,
+               _BodySize:32, 16#00:32, 16#00:64,
+               _Extras:ExtrasSize/binary,
+               Key:KeySize/binary, Value/binary>>) ->
+    {add, Key, Value};
+parse_binary(<<16#80:8, ?MEMCACHE_DELETE:8, KeySize:16,
+               ExtrasSize:8, 16#00:8, 16#00:16,
+               _BodySize:32, 16#00:32, 16#00:64,
+               _Extras:ExtrasSize/binary,
+               Key:KeySize/binary>>) ->
+    {delete, Key};
+parse_binary(<<16#80:8, ?MEMCACHE_INCREMENT:8, KeySize:16,
+               _ExtrasSize:8, 16#00:8, 16#00:16,
+               _BodySize:32, 16#00:32, 16#00:64,
+               Value:64, Initial:64, ExpTime:32,
+               Key:KeySize/binary>>) ->
+    {incr, Key, ExpTime, Initial, Value}.
+
+
+parse_get(Acc, <<>>) ->
+    Acc;
+parse_get(Acc, <<16#80:8, ?MEMCACHE_GET:8, KeySize:16,
+                 _ExtrasSize:8, 16#00:8, 16#00:16,
+                 _BodySize:32, 16#00:32, 16#00:64,
+                 Key:KeySize/binary, Rest/binary>>) ->
+    parse_get([{?MEMCACHE_GET, Key} | Acc], Rest);
+parse_get(Acc, <<16#80:8, ?MEMCACHE_GETQ:8, KeySize:16,
+                 _ExtrasSize:8, 16#00:8, 16#00:16,
+                 _BodySize:32, 16#00:32, 16#00:64,
+                 Key:KeySize/binary, Rest/binary>>) ->
+    parse_get([{?MEMCACHE_GETQ, Key} | Acc], Rest);
+parse_get(Acc, <<16#80:8, ?MEMCACHE_GETK:8, KeySize:16,
+                 _ExtrasSize:8, 16#00:8, 16#00:16,
+                 _BodySize:32, 16#00:32, 16#00:64,
+                 Key:KeySize/binary, Rest/binary>>) ->
+    parse_get([{?MEMCACHE_GETK, Key} | Acc], Rest);
+parse_get(Acc, <<16#80:8, ?MEMCACHE_GETKQ:8, KeySize:16,
+                 _ExtrasSize:8, 16#00:8, 16#00:16,
+                 _BodySize:32, 16#00:32, 16#00:64,
+                 Key:KeySize/binary, Rest/binary>>) ->
+    parse_get([{?MEMCACHE_GETKQ, Key} | Acc], Rest).

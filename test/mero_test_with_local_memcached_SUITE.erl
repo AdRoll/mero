@@ -51,6 +51,8 @@ all() -> [
          %% flush_binary,
          %% flush_txt,
          %% delete_binary,
+         %% mdelete_binary,
+         %% mdelete_txt,
          %% delete_txt,
          %% mget_binary,
          %% mget_txt,
@@ -147,11 +149,18 @@ delete_binary(Conf) ->
     Keys = keys(Conf),
     delete(cluster_binary, Keys).
 
+mdelete_binary(Conf) ->
+    Keys = keys(Conf),
+    mdelete(cluster_binary, Keys).
+
 
 delete_txt(Conf) ->
     Keys = keys(Conf),
     delete(cluster_txt, Keys).
 
+mdelete_txt(Conf) ->
+    Keys = keys(Conf),
+    mdelete(cluster_txt, Keys).
 
 mget_binary(Conf) ->
     Keys = keys(Conf),
@@ -242,6 +251,19 @@ delete(Cluster, Keys) ->
 
     ct:log("Delete ! ~n", []),
     [ok = mero:delete(Cluster, Key, 1000) || Key <- Keys],
+
+    ct:log("Checking empty keys ~n"),
+    [{Key, undefined} = mero:get(Cluster, Key) || Key <- Keys].
+
+
+mdelete(Cluster, Keys) ->
+    ct:log("Check set to adroll ~n"),
+    ct:log("state ~p", [mero:state()]),
+    [ok = mero:set(Cluster, Key, <<"Adroll">>, 11111, 1000)
+        || Key <- Keys],
+
+    ct:log("Delete ! ~n", []),
+    ok = mero:mdelete(Cluster, Keys, 1000),
 
     ct:log("Checking empty keys ~n"),
     [{Key, undefined} = mero:get(Cluster, Key) || Key <- Keys].

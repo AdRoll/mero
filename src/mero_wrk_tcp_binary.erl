@@ -86,6 +86,22 @@ transaction(Client, delete, [Key, TimeLimit]) ->
     end;
 
 
+transaction(Client, mdelete, [Keys,  TimeLimit]) ->
+    Resp = mero_util:foreach(fun(Key) ->
+                              case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
+                                  {ok, {<<>>, <<>>}} ->
+                                      continue;
+                                  {ok, {<<>>, undefined}} ->
+                                      continue;
+                                  {ok, {error, _Reason}} ->
+                                      continue;
+                                  {error, Reason} ->
+                                      {break, {error, Reason}}
+                              end
+                      end, Keys),
+    {Client, Resp};
+
+
 transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}, TimeLimit) of
         {error, Reason} ->
@@ -93,7 +109,7 @@ transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
         {ok, {<<>>, ActualValue}} ->
-            {Client, {ok, to_integer(ActualValue)}}
+            {Client, {ok, value_to_integer(ActualValue)}}
     end;
 
 
@@ -176,6 +192,9 @@ pack({?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}) ->
 pack({?MEMCACHE_DELETE, {Key}}) ->
     pack(<<>>, ?MEMCACHE_DELETE, Key);
 
+pack({?MEMCACHE_DELETEQ, {Key}}) ->
+    pack(<<>>, ?MEMCACHE_DELETEQ, Key);
+
 pack({?MEMCACHE_ADD, {Key, Value, ExpTime}}) ->
     IntExpTime = value_to_integer(ExpTime),
     pack(<<16#DEADBEEF:32, IntExpTime:32>>, ?MEMCACHE_ADD, Key, Value);
@@ -237,13 +256,13 @@ receive_response(Client, Op, TimeLimit) ->
                         16#0004 ->
                             {error, invalid_arguments};
                         16#0005 ->
-                            {error, item_not_stored};
+                            {error, not_stored};
                         16#0006 ->
                             {error, incr_decr_on_non_numeric_value};
                         16#0081 ->
-                            {error, item_not_stor};
+                            {error, unknown_command};
                         16#0082 ->
-                            {error, item_not_stored};
+                            {error, out_of_memory};
                         Status ->
                             throw({failed, {response_status, Status}})
                     end;
@@ -277,12 +296,6 @@ value_to_integer(<<0, Rest/binary>>, Acc) ->
     value_to_integer(Rest, Acc);
 value_to_integer(<<K, Rest/binary>>, Acc) ->
     value_to_integer(Rest, [K | Acc]).
-
-
-to_integer(Binary) when is_binary(Binary) ->
-    Size = bit_size(Binary),
-    <<Value:Size/integer>> = Binary,
-    Value.
 
 
 gen_tcp_recv(Socket, NumBytes, Timeout) ->
@@ -320,21 +333,14 @@ receive_mget_response(Client, TimeLimit, Keys, Acc) ->
         BodySize:32, _Opq:32, _CAS:64>> = Data ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>> ->
-                    {Key, Value} = case Status of
-                                       16#0001 ->
-                                           {Key, undefined};
-                                       16#0000 ->
-                                           {Key, ValueReceived};
-                                       Status ->
-                                           throw({failed, {response_status, Status}})
-                                   end,
+                    {Key, Value} = filter_by_status(Status, Key, ValueReceived),
                     Responses = [{Key, Value} | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
-                    % On silent we expect more values
+                        %% On silent we expect more values
                         ?MEMCACHE_GETKQ ->
                             receive_mget_response(Client, TimeLimit, NKeys, Responses);
-                    % This was the last one!
+                        %% This was the last one!
                         ?MEMCACHE_GETK ->
                             Responses ++ [{KeyIn, undefined} || KeyIn <- NKeys]
                     end;
@@ -344,3 +350,7 @@ receive_mget_response(Client, TimeLimit, Keys, Acc) ->
         Data ->
             throw({failed, {unexpected_header, Data}})
     end.
+
+filter_by_status(16#0000, Key, ValueReceived)  -> {Key, ValueReceived};
+filter_by_status(16#0001, Key, _ValueReceived) -> {Key, undefined};
+filter_by_status(Status, _Key, _ValueReceived) -> throw({failed, {response_status, Status}}).

@@ -109,6 +109,19 @@ transaction(Client, delete, [Key,  TimeLimit]) ->
             {error, Reason}
     end;
 
+transaction(Client, mdelete, [Keys,  TimeLimit]) ->
+    Resp = mero_util:foreach(fun(Key) ->
+                              case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
+                                  {ok, deleted} ->
+                                      continue;
+                                  {error, not_found} ->
+                                      continue;
+                                  {error, Reason} ->
+                                      {break, {error, Reason}}
+                              end
+                      end, Keys),
+    {Client, Resp};
+
 transaction(Client, add, [Key, Value, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_ADD, {Key, Value, ExpTime}}, TimeLimit) of
         {ok, stored} ->
@@ -330,4 +343,3 @@ async_mget_response(Client, Keys, TimeLimit) ->
         throw:{failed, Reason} ->
             {error, Reason}
     end.
-

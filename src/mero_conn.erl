@@ -31,12 +31,13 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -export([increment_counter/7,
-    get/3,
-    set/5,
-    delete/3,
-    add/5,
-    flush_all/2
-]).
+         get/3,
+         set/5,
+         delete/3,
+         mdelete/3,
+         add/5,
+         flush_all/2
+        ]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -67,6 +68,21 @@ delete(Name, Key, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
     pool_execute(PoolName, delete, [Key, TimeLimit], TimeLimit).
+
+
+mdelete(Name, Keys, Timeout) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
+    %% NOTE
+    %%
+    %% Doing this synchronously is probably not desirable. It's close enough for
+    %% Jazz for my present experimental purposes.
+    %%
+    %% -blt
+    lists:foreach(fun ({ShardIdentifier, Ks}) ->
+                          PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
+                          pool_execute(PoolName, mdelete, [Ks, TimeLimit], TimeLimit)
+                  end, KeysGroupedByShards).
 
 
 add(Name, Key, Value, ExpTime, Timeout) ->
