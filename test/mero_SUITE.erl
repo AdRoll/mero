@@ -74,8 +74,7 @@ groups() ->
        multiget_defineds,
        multiget_undefineds,
        set,
-       undefined_counter,
-       always_pass
+       undefined_counter
       ]
      }
     ].
