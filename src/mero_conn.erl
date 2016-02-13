@@ -39,6 +39,9 @@
          flush_all/2
         ]).
 
+%% private export
+-export([mdelete_exec/3]).
+
 -include_lib("mero/include/mero.hrl").
 
 
@@ -73,13 +76,13 @@ delete(Name, Key, Timeout) ->
 mdelete(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
-    %% NOTE: Doing this synchronously is probably not desirable. We might spawn
-    %% a process for each ShardIdentifier to reduce latency. With the way
-    %% memcache works we can never get better than req/resp per Shard per key.
-    lists:foreach(fun ({ShardIdentifier, Ks}) ->
-                          PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
-                          pool_execute(PoolName, mdelete, [Ks, TimeLimit], TimeLimit)
-                  end, KeysGroupedByShards).
+    rpc:pmap({mero_conn, mdelete_exec}, [Name, TimeLimit], KeysGroupedByShards),
+    ok.
+
+
+mdelete_exec({ShardIdentifier, Ks}, Name, TimeLimit) ->
+    PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
+    pool_execute(PoolName, mdelete, [Ks, TimeLimit], TimeLimit).
 
 
 add(Name, Key, Value, ExpTime, Timeout) ->
