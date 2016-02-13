@@ -269,11 +269,10 @@ canned_responses(binary, _Key, Op, deleted) -> %% same as stored, intentionally
       BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
 
 canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
-    ValueOut = list_to_binary(integer_to_list(I)),
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = 0,
-    BodyOut = <<ExtrasOut/binary, ValueOut/binary>>,
+    BodyOut = <<ExtrasOut/binary, I:64/integer>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
 

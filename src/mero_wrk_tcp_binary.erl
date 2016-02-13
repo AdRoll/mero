@@ -109,7 +109,7 @@ transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
         {ok, {<<>>, ActualValue}} ->
-            {Client, {ok, value_to_integer(ActualValue)}}
+            {Client, {ok, to_integer(ActualValue)}}
     end;
 
 
@@ -297,6 +297,10 @@ value_to_integer(<<0, Rest/binary>>, Acc) ->
 value_to_integer(<<K, Rest/binary>>, Acc) ->
     value_to_integer(Rest, [K | Acc]).
 
+to_integer(Binary) when is_binary(Binary) ->
+    Size = bit_size(Binary),
+    <<Value:Size/integer>> = Binary,
+    Value.
 
 gen_tcp_recv(Socket, NumBytes, Timeout) ->
     gen_tcp:recv(Socket, NumBytes, Timeout).
