@@ -157,8 +157,7 @@ increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
 delete(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
     mero_conn:delete(ClusterName, Key, Timeout).
 
--spec mdelete(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
-    ok | {error, Reason :: term()}.
+-spec mdelete(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) -> ok.
 mdelete(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     mero_conn:mdelete(ClusterName, Keys, Timeout).
 

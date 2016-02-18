@@ -86,22 +86,6 @@ transaction(Client, delete, [Key, TimeLimit]) ->
     end;
 
 
-transaction(Client, mdelete, [Keys,  TimeLimit]) ->
-    Resp = mero_util:foreach(fun(Key) ->
-                              case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
-                                  {ok, {<<>>, <<>>}} ->
-                                      continue;
-                                  {ok, {<<>>, undefined}} ->
-                                      continue;
-                                  {ok, {error, _Reason}} ->
-                                      continue;
-                                  {error, Reason} ->
-                                      {break, {error, Reason}}
-                              end
-                      end, Keys),
-    {Client, Resp};
-
-
 transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}, TimeLimit) of
         {error, Reason} ->
@@ -153,8 +137,28 @@ transaction(Client, async_mget, [Keys]) ->
             {Client, ok}
     end;
 
-transaction(Client, async_mget_response, [Keys, Timeout]) ->
-    case async_mget_response(Client, Keys, Timeout) of
+transaction(Client, async_delete, [Keys]) ->
+    case async_delete(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
+transaction(Client, async_response, [Keys, Timeout]) ->
+    case async_response(Client, Keys, Timeout) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, Results} ->
+            {Client, Results}
+    end;
+
+transaction(Client, async_blank_response, [Keys, Timeout]) ->
+    case async_blank_response(Client, Keys, Timeout) of
         {error, Reason} ->
             {error, Reason};
         {ok, {error, Reason}} ->
@@ -314,6 +318,13 @@ async_mget(Client, Keys) ->
             {error, Reason}
     end.
 
+async_delete(Client, Keys) ->
+    try
+        {ok, lists:foldl(fun(K, ok) -> send(Client, pack({?MEMCACHE_DELETEQ, {K}})) end, ok, Keys)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
 
 send_gets(Client, [Key]) ->
     ok = send(Client, pack({getk, Key}));
@@ -322,28 +333,27 @@ send_gets(Client, [Key | Keys]) ->
     send_gets(Client, Keys).
 
 
-async_mget_response(Client, Keys, TimeLimit) ->
+async_response(Client, Keys, TimeLimit) ->
     try
-        {ok, receive_mget_response(Client, TimeLimit, Keys, [])}
+        {ok, receive_response(Client, TimeLimit, Keys, [])}
     catch
         throw:{failed, Reason} ->
             {error, Reason}
     end.
 
-
-receive_mget_response(Client, TimeLimit, Keys, Acc) ->
+receive_response(Client, TimeLimit, Keys, Acc) ->
     case recv_bytes(Client, 24, TimeLimit) of
         <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
         BodySize:32, _Opq:32, _CAS:64>> = Data ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>> ->
-                    {Key, Value} = filter_by_status(Status, Key, ValueReceived),
+                    {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
                     Responses = [{Key, Value} | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
                         %% On silent we expect more values
                         ?MEMCACHE_GETKQ ->
-                            receive_mget_response(Client, TimeLimit, NKeys, Responses);
+                            receive_response(Client, TimeLimit, NKeys, Responses);
                         %% This was the last one!
                         ?MEMCACHE_GETK ->
                             Responses ++ [{KeyIn, undefined} || KeyIn <- NKeys]
@@ -355,6 +365,9 @@ receive_mget_response(Client, TimeLimit, Keys, Acc) ->
             throw({failed, {unexpected_header, Data}})
     end.
 
-filter_by_status(16#0000, Key, ValueReceived)  -> {Key, ValueReceived};
-filter_by_status(16#0001, Key, _ValueReceived) -> {Key, undefined};
-filter_by_status(Status, _Key, _ValueReceived) -> throw({failed, {response_status, Status}}).
+async_blank_response(_Client, _Keys, _TimeLimit) ->
+    {ok, [ok]}.
+
+filter_by_status(16#0000, _Op, Key, ValueReceived)  -> {Key, ValueReceived};
+filter_by_status(16#0001, _Op, Key, _ValueReceived) -> {Key, undefined};
+filter_by_status(Status, _Op, _Key, _ValueReceived) -> throw({failed, {response_status, Status}}).

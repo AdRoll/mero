@@ -158,8 +158,28 @@ transaction(Client, async_mget, [Keys]) ->
             {Client, ok}
     end;
 
-transaction(Client, async_mget_response, [Keys, Timeout]) ->
-    case async_mget_response(Client, Keys, Timeout) of
+transaction(Client, async_delete, [Keys]) ->
+    case async_delete(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
+transaction(Client, async_blank_response, [Keys, Timeout]) ->
+    case async_blank_response(Client, Keys, Timeout) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, Results} ->
+            {Client, Results}
+    end;
+
+transaction(Client, async_response, [Keys, Timeout]) ->
+    case async_response(Client, Keys, Timeout) of
         {error, Reason} ->
             {error, Reason};
         {ok, {error, Reason}} ->
@@ -195,6 +215,8 @@ send_receive(Client, {Op, _Args} = Cmd, TimeLimit) ->
 
 pack({?MEMCACHE_DELETE, {Key}}) when is_binary(Key) ->
     [<<"delete ">>, Key, <<"\r\n">>];
+pack({?MEMCACHE_DELETEQ, {Key}}) when is_binary(Key) ->
+    [<<"delete ">>, Key, <<" noreply ">>, <<"\r\n">>];
 pack({?MEMCACHE_ADD, {Key, Initial, ExpTime}}) ->
     NBytes = integer_to_list(size(Initial)),
     [<<"add ">>, Key, <<" ">>, <<"00">>, <<" ">>, ExpTime,
@@ -335,8 +357,18 @@ async_mget(Client, Keys) ->
             {error, Reason}
     end.
 
+async_delete(Client, Keys) ->
+    try
+        {ok, lists:foreach(fun(K) -> send(Client, pack({?MEMCACHE_DELETEQ, {K}})) end, Keys)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
 
-async_mget_response(Client, Keys, TimeLimit) ->
+async_blank_response(_Client, _Keys, _TimeLimit) ->
+    {ok, [ok]}.
+
+async_response(Client, Keys, TimeLimit) ->
     try
         {ok, receive_response(Client, {?MEMCACHE_GET, {Keys}}, TimeLimit, <<>>, [])}
     catch

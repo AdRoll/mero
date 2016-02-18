@@ -209,7 +209,7 @@ parse(<<16#80:8, _Rest/binary>> = Request) ->
     Resp = parse_binary(Request),
     {binary, Resp};
 parse(Request) ->
-    Resp = parse_text(Request),
+    Resp = parse_text(split(Request)),
     {text, Resp}.
 
 %%%===================================================================
@@ -223,6 +223,7 @@ canned_responses(text, _Key, _Op, not_stored) -> ["NOT_STORED", <<"\r\n">>];
 canned_responses(text, _Key, _Op, stored)     -> [<<"STORED">>, <<"\r\n">>];
 canned_responses(text, _Key, _Op, deleted)    -> [<<"DELETED">>, <<"\r\n">>];
 canned_responses(text, _Key, _Op, {incr, I})  -> [mero_util:to_bin(I), <<"\r\n">>];
+canned_responses(text, _Key, _Op, noop)       -> [];
 
 canned_responses(binary, _Key, Op, not_found) ->
     ExtrasOut = <<>>,
@@ -277,7 +278,9 @@ canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
     KeySize = 0,
 
     <<16#81:8, ?MEMCACHE_INCREMENT:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>.
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+
+canned_responses(binary, _Key, _Op, noop)       -> [].
 
 text_response_get_keys(_Port, [], Acc) ->
     [Acc,  "END\r\n"];
@@ -314,7 +317,9 @@ binary_response_get_keys(Port, [{Op, Key} | Keys], Acc) ->
 %% TODO add stored / not stored responses here
 
 response(Port, Request) ->
-    case parse(Request) of
+    {Kind, {DeleteKeys, Cmd}} = parse(Request),
+    lists:foreach(fun(K) -> put_key(Port, K, undefined) end, DeleteKeys),
+    case {Kind, Cmd} of
         {Kind, {get, Keys}} ->
             case Kind of
                 text ->
@@ -362,15 +367,21 @@ response(Port, Request) ->
 
 %%% Parse
 
-%% Only supporting requests that come in its own tcp package
-parse_text(Request) ->
-    case split(Request) of
-        [<<"get">> | Keys] -> {get, Keys};
-        [<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes] -> {set, Key, Bytes};
-        [<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes] -> {add, Key, Bytes};
-        [<<"delete">>, Key] -> {delete, Key};
-        [<<"incr">>, Key, Value] -> {incr, Key, 100, Value, Value}
-    end.
+parse_text([<<"get">> | Keys]) -> {[], {get, Keys}};
+parse_text([<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {set, Key, Bytes}};
+parse_text([<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {add, Key, Bytes}};
+parse_text([<<"delete">>, Key]) -> {[], {delete, Key}};
+parse_text([<<"delete">>, Key, <<"noreply">>, <<>> | Rest]) ->
+    parse_multi_delete_text([Key], Rest);
+parse_text([<<"incr">>, Key, Value]) -> {[], {incr, Key, 100, Value, Value}}.
+
+parse_multi_delete_text(Acc, []) ->
+    {Acc, undefined};
+parse_multi_delete_text(Acc, [<<"delete">>, Key, <<"noreply">>, <<>> | Rest]) ->
+    parse_multi_delete_text([Key | Acc], Rest);
+parse_multi_delete_text(Acc, Other) ->
+    {[], Cmd} = parse_text(Other),
+    {Acc, Cmd}.
 
 split(Binary) ->
     binary:split(Binary, [<<"\r\n">>, <<" ">>], [global, trim]).
@@ -382,38 +393,51 @@ split(Binary) ->
 %%% Parse
 
 parse_binary(<<16#80:8, ?MEMCACHE_GET:8, _/binary>> = Bin) ->
-    {get, parse_get([], Bin)};
+    {[], {get, parse_get([], Bin)}};
 parse_binary(<<16#80:8, ?MEMCACHE_GETQ:8, _/binary>> = Bin) ->
-    {get, parse_get([], Bin)};
+    {[], {get, parse_get([], Bin)}};
 parse_binary(<<16#80:8, ?MEMCACHE_GETK:8, _/binary>> = Bin) ->
-    {get, parse_get([], Bin)};
+    {[], {get, parse_get([], Bin)}};
 parse_binary(<<16#80:8, ?MEMCACHE_GETKQ:8, _/binary>> = Bin) ->
-    {get, parse_get([], Bin)};
+    {[], {get, parse_get([], Bin)}};
 parse_binary(<<16#80:8, ?MEMCACHE_SET:8, KeySize:16,
                ExtrasSize:8, 16#00:8, 16#00:16,
                _BodySize:32, 16#00:32, 16#00:64,
                _Extras:ExtrasSize/binary,
                Key:KeySize/binary, Value/binary>>) ->
-    {set, Key, Value};
+    {[], {set, Key, Value}};
 parse_binary(<<16#80:8, ?MEMCACHE_ADD:8, KeySize:16,
                ExtrasSize:8, 16#00:8, 16#00:16,
                _BodySize:32, 16#00:32, 16#00:64,
                _Extras:ExtrasSize/binary,
                Key:KeySize/binary, Value/binary>>) ->
-    {add, Key, Value};
+    {[], {add, Key, Value}};
 parse_binary(<<16#80:8, ?MEMCACHE_DELETE:8, KeySize:16,
                ExtrasSize:8, 16#00:8, 16#00:16,
                _BodySize:32, 16#00:32, 16#00:64,
                _Extras:ExtrasSize/binary,
                Key:KeySize/binary>>) ->
-    {delete, Key};
+    {[], {delete, Key}};
+parse_binary(<<16#80:8, ?MEMCACHE_DELETEQ:8, _/binary>> = Inp) ->
+    parse_multi_delete_binary([], Inp);
 parse_binary(<<16#80:8, ?MEMCACHE_INCREMENT:8, KeySize:16,
                _ExtrasSize:8, 16#00:8, 16#00:16,
                _BodySize:32, 16#00:32, 16#00:64,
                Value:64, Initial:64, ExpTime:32,
                Key:KeySize/binary>>) ->
-    {incr, Key, ExpTime, Initial, Value}.
+    {[], {incr, Key, ExpTime, Initial, Value}}.
 
+parse_multi_delete_binary(Acc, []) ->
+    {Acc, undefined};
+parse_multi_delete_binary(Acc, <<16#80:8, ?MEMCACHE_DELETEQ:8, KeySize:16,
+                                 ExtrasSize:8, 16#00:8, 16#00:16,
+                                 _BodySize:32, 16#00:32, 16#00:64,
+                                 _Extras:ExtrasSize/binary,
+                                 Key:KeySize/binary, Rest/binary>>) ->
+    parse_multi_delete_binary([Key | Acc], Rest);
+parse_multi_delete_binary(Acc, Other) ->
+    {[], Cmd} = parse_binary(Other),
+    {Acc, Cmd}.
 
 parse_get(Acc, <<>>) ->
     Acc;

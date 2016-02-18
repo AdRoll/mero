@@ -49,7 +49,7 @@ all() -> [
 
 groups() ->
     [
-     {text_protocol, [shuffle, {repeat_until_any_fail, 5}],
+     {text_protocol, [shuffle, {repeat_until_any_fail, 1}],
       [
        add,
        delete,
@@ -63,7 +63,7 @@ groups() ->
        undefined_counter
       ]
      },
-     {binary_protocol, [shuffle, {repeat_until_any_fail, 5}],
+     {binary_protocol, [shuffle, {repeat_until_any_fail, 1}],
       [
        add,
        delete,
@@ -115,6 +115,11 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_suite(Conf) ->
+    dbg:stop_clear(),
+    dbg:tracer(),
+    dbg:p(all,c),
+    dbg:tpl(mero_dummy_server, x),
+
     ok = application:start(inets),
     Conf.
 
