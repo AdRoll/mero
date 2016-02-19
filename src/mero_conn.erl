@@ -86,9 +86,9 @@ delete(Name, Key, Timeout) ->
 mdelete(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
-    [ok] = async_by_shard(Name, KeysGroupedByShards, TimeLimit,
-                          [async_delete, async_delete_error, async_blank_response,
-                           async_delete_response_error]),
+    async_by_shard(Name, KeysGroupedByShards, TimeLimit,
+                   [async_delete, async_delete_error, async_blank_response,
+                    async_delete_response_error]),
     ok.
 
 add(Name, Key, Value, ExpTime, Timeout) ->
