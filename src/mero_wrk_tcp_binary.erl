@@ -377,6 +377,12 @@ receive_response(Client, TimeLimit, Keys, Acc) ->
                     Responses = [{Key, Value} | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
+                        %% elasticache does not return the correct Op for
+                        %% INCREMENTQ, returning INCREMENT. Ignore both variants.
+                        ?MEMCACHE_INCREMENTQ ->
+                            receive_response(Client, TimeLimit, NKeys, Responses);
+                        ?MEMCACHE_INCREMENT ->
+                            receive_response(Client, TimeLimit, NKeys, Responses);
                         %% On silent we expect more values
                         ?MEMCACHE_GETKQ ->
                             receive_response(Client, TimeLimit, NKeys, Responses);
