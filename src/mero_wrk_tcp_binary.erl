@@ -137,6 +137,16 @@ transaction(Client, async_mget, [Keys]) ->
             {Client, ok}
     end;
 
+transaction(Client, async_increment, [Keys]) ->
+    case async_increment(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
 transaction(Client, async_delete, [Keys]) ->
     case async_delete(Client, Keys) of
         {error, Reason} ->
@@ -192,6 +202,12 @@ pack({?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}) ->
     IntInitial = value_to_integer(Initial),
     IntExpTime = value_to_integer(ExpTime),
     pack(<<IntValue:64, IntInitial:64, IntExpTime:32>>, ?MEMCACHE_INCREMENT, Key);
+
+pack({?MEMCACHE_INCREMENTQ, {Key, Value, Initial, ExpTime}}) ->
+    IntValue = value_to_integer(Value),
+    IntInitial = value_to_integer(Initial),
+    IntExpTime = value_to_integer(ExpTime),
+    pack(<<IntValue:64, IntInitial:64, IntExpTime:32>>, ?MEMCACHE_INCREMENTQ, Key);
 
 pack({?MEMCACHE_DELETE, {Key}}) ->
     pack(<<>>, ?MEMCACHE_DELETE, Key);
@@ -321,6 +337,16 @@ async_mget(Client, Keys) ->
 async_delete(Client, Keys) ->
     try
         {ok, lists:foldl(fun(K, ok) -> send(Client, pack({?MEMCACHE_DELETEQ, {K}})) end, ok, Keys)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
+
+async_increment(Client, Keys) ->
+    try
+        {ok, lists:foreach(fun({K, Value, Initial, ExpTime}) ->
+                                   send(Client, pack({?MEMCACHE_INCREMENTQ, {K, Value, Initial, ExpTime}}))
+                           end, Keys)}
     catch
         throw:{failed, Reason} ->
             {error, Reason}

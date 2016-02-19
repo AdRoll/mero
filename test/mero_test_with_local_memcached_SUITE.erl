@@ -61,7 +61,9 @@ all() -> [
          %% increment_binary,
          %% increment_txt,
          %% increment_binary_with_initial,
-         %% increment_txt_with_initial
+         %% increment_txt_with_initial,
+         %% mincrement_binary,
+         %% mincrement_txt
     ].
 
 
@@ -186,6 +188,13 @@ increment_binary(Conf) ->
     Keys = keys(Conf),
     increment(cluster_binary, cluster_txt, Keys).
 
+mincrement_binary(Conf) ->
+    Keys = keys(Conf),
+    mincrement(cluster_binary, cluster_txt, Keys).
+
+mincrement_txt(Conf) ->
+    Keys = keys(Conf),
+    mincrement(cluster_txt, cluster_binary, Keys).
 
 increment_txt(Conf) ->
     Keys = keys(Conf),
@@ -284,6 +293,13 @@ mget(Cluster, ClusterAlt, Keys) ->
          ?assertEqual({value, {Key, Key}}, lists:keysearch(Key, 1, ResultsAlt))
      end || Key <- Keys].
 
+mincrement(Cluster = cluster_txt, _ClusterAlt, Keys) ->
+    {error, not_supportable} = mero:mincrement_counter(Cluster, Keys);
+mincrement(Cluster = cluster_binary, _ClusterAlt, Keys) ->
+    ok = mero:mincrement_counter(Cluster, Keys),
+    MGetRet = lists:sort(mero:mget(Cluster, Keys)),
+    Expected = lists:sort([{K, <<"1">>} || K <- Keys]),
+    ?assertMatch(Expected, MGetRet).
 
 increment(Cluster, ClusterAlt, Keys) ->
     io:format("Increment +1 +1 +1 ~n"),

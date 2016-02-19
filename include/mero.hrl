@@ -30,6 +30,7 @@
 -define(MEMCACHERL_HRL, true).
 
 -define(MEMCACHE_INCREMENT, 16#05).
+-define(MEMCACHE_INCREMENTQ, 16#15).
 -define(MEMCACHE_GET, 16#00).
 -define(MEMCACHE_GETQ, 16#09).
 -define(MEMCACHE_GETK, 16#0C).

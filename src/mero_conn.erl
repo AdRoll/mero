@@ -31,6 +31,7 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -export([increment_counter/7,
+         mincrement_counter/7,
          get/3,
          set/5,
          delete/3,
@@ -50,6 +51,17 @@ increment_counter(Name, Key, Value, Initial, ExpTime, Retries, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
     increment_counter_timelimit(PoolName, Key, Value, Initial, ExpTime, Retries, TimeLimit).
+
+mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
+    Payload = [{Shard, [{K, Value, Initial, ExpTime} || K <- Ks]} || {Shard, Ks} <- KeysGroupedByShards],
+    case async_by_shard(Name, Payload, TimeLimit,
+                          [async_increment, async_increment_error, async_blank_response,
+                           async_increment_response_error]) of
+        {error, [not_supportable], _} -> {error, not_supportable};
+        _Other -> ok
+    end.
 
 
 set(Name, Key, Value, ExpTime, Timeout) ->
@@ -104,7 +116,6 @@ increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLim
         {error, Reason} ->
             {error, Reason}
     end.
-
 
 async_by_shard(Name, KeysGroupedByShards, TimeLimit,
                [AsyncOp, AsyncOpError, AsyncOpResponse, AsyncOpResponseError]) ->

@@ -168,6 +168,16 @@ transaction(Client, async_delete, [Keys]) ->
             {Client, ok}
     end;
 
+transaction(Client, async_increment, [Keys]) ->
+    case async_increment(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
 transaction(Client, async_blank_response, [Keys, Timeout]) ->
     case async_blank_response(Client, Keys, Timeout) of
         {error, Reason} ->
@@ -364,6 +374,9 @@ async_delete(Client, Keys) ->
         throw:{failed, Reason} ->
             {error, Reason}
     end.
+
+async_increment(_Client, _Keys) ->
+    {error, not_supportable}. %% txt incr doesn't support initail etc
 
 async_blank_response(_Client, _Keys, _TimeLimit) ->
     {ok, [ok]}.

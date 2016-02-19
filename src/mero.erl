@@ -38,6 +38,8 @@
 
 -export([increment_counter/2,
          increment_counter/7,
+         mincrement_counter/2,
+         mincrement_counter/7,
          get/2,
          get/3,
          delete/3,
@@ -150,6 +152,24 @@ increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
     BInitial = list_to_binary(integer_to_list(Initial)),
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     mero_conn:increment_counter(ClusterName, Key, BValue, BInitial, BExpTime, Retries, Timeout).
+
+-spec mincrement_counter(ClusterName :: atom(), Key :: [binary()]) ->
+    ok | {error, Reason :: term()}.
+mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) ->
+    mincrement_counter(ClusterName, Keys, 1, 1, mero_conf:key_expiration_time(),
+                       mero_conf:write_retries(), mero_conf:timeout_write()).
+
+-spec mincrement_counter(ClusterName :: atom(), Keys :: [binary()], Value :: integer(),
+                         Initial :: integer(), ExpTime :: integer(),
+                         Retries :: integer(), Timeout :: integer()) ->
+                                ok | {error, Reason :: term()}.
+mincrement_counter(ClusterName, Keys, Value, Initial, ExpTime, Retries, Timeout)
+  when is_list(Keys), is_integer(Value), is_integer(ExpTime), is_atom(ClusterName),
+    (Initial >= 0), (Value >=0) ->
+    BValue = list_to_binary(integer_to_list(Value)),
+    BInitial = list_to_binary(integer_to_list(Initial)),
+    BExpTime = list_to_binary(integer_to_list(ExpTime)),
+    mero_conn:mincrement_counter(ClusterName, Keys, BValue, BInitial, BExpTime, Retries, Timeout).
 
 
 -spec delete(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->

@@ -69,6 +69,7 @@ groups() ->
        delete,
        get_undefineds,
        increase_counter,
+       %% mincrease_counter,
        increment,
        mdelete,
        multiget_defineds,
@@ -115,11 +116,6 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_suite(Conf) ->
-    dbg:stop_clear(),
-    dbg:tracer(),
-    dbg:p(all,c),
-    dbg:tpl(mero_dummy_server, x),
-
     ok = application:start(inets),
     Conf.
 
@@ -166,6 +162,14 @@ increase_counter(_Conf) ->
     ?assertMatch({ok, 1}, mero:increment_counter(cluster2, Key)),
     ?assertMatch({ok, 2}, mero:increment_counter(cluster2, Key)),
     ok.
+
+mincrease_counter(_Conf) ->
+    Key0 = key(),
+    Key1 = key(),
+    ok = mero:mincrement_counter(cluster, [Key0, Key1]),
+    Expected = [{Key0, 1}, {Key1, 1}],
+    Ret = mero:mget(cluster, [Key0, Key1]),
+    ?assertMatch(Expected, Ret).
 
 
 delete(_Conf) ->
