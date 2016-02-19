@@ -379,6 +379,8 @@ receive_response(Client, TimeLimit, Keys, Acc) ->
                     case Op of
                         %% elasticache does not return the correct Op for
                         %% INCREMENTQ, returning INCREMENT. Ignore both variants.
+                        ?MEMCACHE_DELETEQ ->
+                            receive_response(Client, TimeLimit, NKeys, Responses);
                         ?MEMCACHE_INCREMENTQ ->
                             receive_response(Client, TimeLimit, NKeys, Responses);
                         ?MEMCACHE_INCREMENT ->
