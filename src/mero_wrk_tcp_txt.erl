@@ -236,14 +236,13 @@ pack({?MEMCACHE_SET, {Key, Initial, ExpTime, undefined}}) ->
     NBytes = integer_to_list(size(Initial)),
     [<<"set ">>, Key, <<" ">>, <<"00">>, <<" ">>, ExpTime,
      <<" ">>, NBytes, <<"\r\n">>, Initial, <<"\r\n">>];
-pack({?MEMCACHE_SET, {Key, Initial, ExpTime, CAS}}) when is_binary(CAS) ->
-    %% note: when using the text protocol, all CAS values are opaque binary tokens.  CAS
-    %% should only be supplied if setting a value after looking it up.  if the value has
-    %% changed since we looked it up, the result of a cas command will be EXISTS
+pack({?MEMCACHE_SET, {Key, Initial, ExpTime, CAS}}) when is_integer(CAS) ->
+    %% note: CAS should only be supplied if setting a value after looking it up.  if the
+    %% value has changed since we looked it up, the result of a cas command will be EXISTS
     %% (otherwise STORED).
     NBytes = integer_to_list(size(Initial)),
     [<<"cas ">>, Key, <<" ">>, <<"00">>, <<" ">>, ExpTime,
-     <<" ">>, NBytes, <<" ">>, CAS, <<"\r\n">>, Initial, <<"\r\n">>];
+     <<" ">>, NBytes, <<" ">>, integer_to_binary(CAS), <<"\r\n">>, Initial, <<"\r\n">>];
 pack({?MEMCACHE_INCREMENT, {Key, Value}}) ->
     [<<"incr ">>, Key, <<" ">>, Value, <<"\r\n">>];
 pack({?MEMCACHE_FLUSH_ALL, {}}) ->
@@ -329,7 +328,7 @@ parse_command([<<"SERVER_ERROR">> | Reason]) ->
     {error, Reason};
 
 parse_command([<<"EXISTS">>]) ->
-    {error, exists};
+    {error, already_exists};
 parse_command([<<"NOT_FOUND">>]) ->
     {error, not_found};
 parse_command([<<"NOT_STORED">>]) ->
@@ -343,7 +342,7 @@ parse_command([<<"DELETED">>]) ->
 parse_command([<<"VALUE">>, Key, _Flag, Bytes]) ->
     {ok, {value, Key, list_to_integer(binary_to_list(Bytes)), undefined}};
 parse_command([<<"VALUE">>, Key, _Flag, Bytes, CAS]) ->
-    {ok, {value, Key, list_to_integer(binary_to_list(Bytes)), CAS}};
+    {ok, {value, Key, list_to_integer(binary_to_list(Bytes)), binary_to_integer(CAS)}};
 parse_command([<<"OK">>]) ->
     {ok, ok};
 parse_command([<<"VERSION">> | Version]) ->

@@ -65,7 +65,7 @@
 
 -include_lib("mero/include/mero.hrl").
 
--type cas_token() :: undefined | binary() | integer().
+-type cas_token() :: undefined | integer().
 
 %%%=============================================================================
 %%% Application behaviour
@@ -184,6 +184,7 @@ set(ClusterName, Key, Value, ExpTime, Timeout) ->
 cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
     when is_binary(Key), is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
+    %% note: if CAS is undefined, this will be an unconditional set:
     mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout, CAS).
 
 

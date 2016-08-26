@@ -29,6 +29,7 @@
 -module(mero_dummy_server).
 
 -include_lib("mero/include/mero.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
@@ -76,8 +77,8 @@ stop(Pid) when is_pid(Pid) ->
     MRef = erlang:monitor(process, Pid),
     gen_server:call(Pid, stop),
     receive
-        {'DOWN', MRef, _, _, _} ->
-            io:format("server stopped ~p~n", [whereis(?MODULE)]),
+        {'DOWN', MRef, _, Object, Info} ->
+            ct:log("server ~p stopped ~p: ~p", [Object, whereis(?MODULE), Info]),
             ok
     end;
 stop(Port) when is_integer(Port) ->
@@ -118,13 +119,13 @@ init([Port, Opts]) ->
     process_flag(trap_exit, true),
     case listen(Port, Opts) of
         {ok, ListenSocket} ->
-            io:format("memcached mocked server started on port ~p~n", [Port]),
+            ct:log("memcached mocked server started on port ~p", [Port]),
             start_acceptor([self(), Port, ListenSocket, Opts]),
             {ok, #state{listen_socket = ListenSocket,
                         opts = Opts}};
         {error, Reason} ->
-            io:format("memcached dummy server error: ~p~n", [Reason]),
-            {stop,Reason}
+            ct:log("memcached dummy server error: ~p", [Reason]),
+            {stop, Reason}
     end.
 
 start_acceptor(Args) ->
@@ -184,6 +185,7 @@ loop(Sock, Port, Opts, Buf) ->
 
 handle_data(Sock, Port, Data) ->
     Response = response(Port, Data),
+    ct:log("sending response ~p", [iolist_to_binary(Response)]),
     send(Sock, iolist_to_binary(Response)),
     ok.
 
@@ -199,7 +201,7 @@ get_current_keys() ->
 
 set_keys(NList) ->
     application:set_env(mero, dummy_server_keys, NList),
-    ct:log("Current Keys: ~p~n", [get_current_keys()]),
+    ct:log("Current Keys: ~p", [get_current_keys()]),
     NList.
 
 get_key(Port, Key) ->
@@ -208,18 +210,22 @@ get_key(Port, Key) ->
 
 put_key(Port, Key, undefined, undefined) ->
     set_keys(lists:keydelete({Port, Key}, 1, get_current_keys()));
+put_key(Port, Key, Value, undefined) ->
+    {Mega, Sec, Micro} = os:timestamp(),
+    put_key(Port, Key, Value, Mega + Sec + Micro);
 put_key(Port, Key, Value, CAS) ->
     set_keys(lists:keystore({Port, Key}, 1, get_current_keys(), {{Port, Key}, {Value, CAS}})).
 put_key(Port, Key, Value) ->
     put_key(Port, Key, Value, undefined).
 
 parse(<<16#80:8, _Rest/binary>> = Request) ->
-    ct:log("About to parse request: ~p~n", [Request]),
+    ct:log("About to parse request: ~p", [Request]),
     Resp = parse_binary(Request),
     {binary, Resp};
 parse(Request) ->
-    ct:log("About to parse text request: ~p~n", [Request]),
+    ct:log("About to parse text request: ~p", [Request]),
     Resp = parse_text(split(Request)),
+    ct:log("Parsed command: ~p", [Resp]),
     {text, Resp}.
 
 %%%===================================================================
@@ -228,13 +234,13 @@ parse(Request) ->
 
 %%%% Response
 
-canned_responses(text, _Key, _Op, not_found)  -> ["NOT_FOUND", <<"\r\n">>];
-canned_responses(text, _Key, _Op, not_stored) -> ["NOT_STORED", <<"\r\n">>];
-canned_responses(text, _Key, _Op, stored)     -> [<<"STORED">>, <<"\r\n">>];
-canned_responses(text, _Key, _Op, exists)     -> [<<"EXISTS">>, <<"\r\n">>];
-canned_responses(text, _Key, _Op, deleted)    -> [<<"DELETED">>, <<"\r\n">>];
-canned_responses(text, _Key, _Op, {incr, I})  -> [mero_util:to_bin(I), <<"\r\n">>];
-canned_responses(text, _Key, _Op, noop)       -> [];
+canned_responses(text, _Key, _Op, not_found)      -> ["NOT_FOUND", <<"\r\n">>];
+canned_responses(text, _Key, _Op, not_stored)     -> ["NOT_STORED", <<"\r\n">>];
+canned_responses(text, _Key, _Op, stored)         -> [<<"STORED">>, <<"\r\n">>];
+canned_responses(text, _Key, _Op, already_exists) -> [<<"EXISTS">>, <<"\r\n">>];
+canned_responses(text, _Key, _Op, deleted)        -> [<<"DELETED">>, <<"\r\n">>];
+canned_responses(text, _Key, _Op, {incr, I})      -> [mero_util:to_bin(I), <<"\r\n">>];
+canned_responses(text, _Key, _Op, noop)           -> [];
 
 canned_responses(binary, _Key, Op, not_found) ->
     ExtrasOut = <<>>,
@@ -291,6 +297,17 @@ canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
     <<16#81:8, ?MEMCACHE_INCREMENT:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
       BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
 
+canned_responses(binary, _Key, Op, already_exists) ->
+    ExtrasOut = <<>>,
+    ExtrasSizeOut = size(ExtrasOut),
+    Status = 16#0002,
+    BodyOut = <<>>,
+    BodySizeOut = size(BodyOut),
+    KeySize = 0,
+
+    <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
+      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+
 canned_responses(binary, _Key, _Op, noop)       -> [].
 
 text_response_get_keys(_Port, [], Acc, _WithCas) ->
@@ -305,12 +322,7 @@ text_response_get_keys(Port, [Key | Keys], Acc, WithCas) ->
             NAcc = [Acc, "VALUE", " ", mero_util:to_bin(Key), " 00 ",
                     mero_util:to_bin(NBytes), case WithCas of
                                                   true ->
-                                                      [" ", mero_util:to_bin(case CAS of
-                                                                                 undefined ->
-                                                                                     0;
-                                                                                 _ ->
-                                                                                     CAS
-                                                                             end)];
+                                                      [" ", mero_util:to_bin(CAS)];
                                                   _ ->
                                                       ""
                                               end,
@@ -373,12 +385,16 @@ response(Port, Request) ->
         {Kind, {cas, Key, Bytes, CAS}} ->
             case get_key(Port, Key) of
                 undefined ->
+                    ct:log("cas of non-existent key ~p", [Key]),
                     canned_responses(Kind, Key, ?MEMCACHE_SET, not_found);
                 {_, CAS} ->
+                    ct:log("cas of existing key ~p with correct token ~p", [Key, CAS]),
                     put_key(Port, Key, Bytes, CAS + 1),
                     canned_responses(Kind, Key, ?MEMCACHE_SET, stored);
-                {_, _} ->
-                    canned_responses(Kind, Key, ?MEMCACHE_SET, exists)
+                {_, ExpectedCAS} ->
+                    ct:log("cas of existing key ~p with incorrect token ~p (wanted ~p)",
+                           [Key, CAS, ExpectedCAS]),
+                    canned_responses(Kind, Key, ?MEMCACHE_SET, already_exists)
             end;
         {Kind, {delete, Key}} ->
             ct:log("deleting ~p", [Key]),
@@ -423,7 +439,7 @@ response(Port, Request) ->
 parse_text([<<"get">> | Keys]) -> {[], {get, Keys}};
 parse_text([<<"gets">> | Keys]) -> {[], {gets, Keys}};
 parse_text([<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {set, Key, Bytes}};
-parse_text([<<"cas">>, Key, _Flag, _ExpTime, _NBytes, Bytes, CAS]) -> {[], {cas, Key, Bytes, binary_to_integer(CAS)}};
+parse_text([<<"cas">>, Key, _Flag, _ExpTime, _NBytes, CAS, Bytes]) -> {[], {cas, Key, Bytes, binary_to_integer(CAS)}};
 parse_text([<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {add, Key, Bytes}};
 parse_text([<<"delete">>, Key]) -> {[], {delete, Key}};
 parse_text([<<"delete">>, Key, <<"noreply">>, <<>> | Rest]) ->

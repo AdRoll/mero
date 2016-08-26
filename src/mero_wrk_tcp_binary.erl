@@ -101,6 +101,9 @@ transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
     case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
         {ok, #mero_item{key = <<>>, value = <<>>}} ->
             {Client, ok};
+        {ok, #mero_item{key = <<>>, value = undefined}} when CAS /= undefined ->
+            %% attempt to set a key using CAS, but key wasn't present.
+            {Client, {error, not_found}};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
         {error, Reason} ->
@@ -273,6 +276,14 @@ send(Client, Data) ->
     end.
 
 
+cas_value(16#00) ->
+    undefined;
+cas_value(undefined) ->
+    16#00;
+cas_value(Value) when is_integer(Value) andalso Value > 0 ->
+    Value.
+
+
 receive_response(Client, Op, TimeLimit) ->
     case recv_bytes(Client, 24, TimeLimit) of
         <<
@@ -290,9 +301,9 @@ receive_response(Client, Op, TimeLimit) ->
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, Value/binary>> ->
                     case Status of
                         16#0001 ->
-                            #mero_item{key = Key, cas = CAS};
+                            #mero_item{key = Key, cas = cas_value(CAS)};
                         16#0000 ->
-                            #mero_item{key = Key, value = Value, cas = CAS};
+                            #mero_item{key = Key, value = Value, cas = cas_value(CAS)};
                         16#0002 ->
                             {error, already_exists};
                         16#0003 ->
@@ -407,7 +418,7 @@ receive_response(Client, TimeLimit, Keys, Acc) ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>> ->
                     {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
-                    Responses = [#mero_item{key = Key, value = Value, cas = CAS}
+                    Responses = [#mero_item{key = Key, value = Value, cas = cas_value(CAS)}
                                  | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
