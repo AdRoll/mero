@@ -194,10 +194,11 @@ transaction(Client, async_response, [Keys, Timeout]) ->
             {error, Reason};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
-        {ok, {ok, FoundKeyValues}} ->
-             FoundKeys = [Key || {Key, _Value} <- FoundKeyValues],
+        {ok, {ok, FoundItems}} ->
+             FoundKeys = [Key || #mero_item{key = Key} <- FoundItems],
              NotFoundKeys = lists:subtract(Keys, FoundKeys),
-             Result = [{Key, undefined} || Key <- NotFoundKeys] ++ FoundKeyValues,
+             Result = [#mero_item{key = Key, value = undefined}
+                       || Key <- NotFoundKeys] ++ FoundItems,
              {Client, Result}
     end.
 

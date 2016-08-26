@@ -119,8 +119,7 @@ mget(ClusterName, Keys) ->
 
 
 -spec gets(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->
-                  {Key :: binary(), Value :: undefined | binary(),
-                   CAS :: cas_token()}
+                  {Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}
                       | {error, Reason :: term()}.
 gets(ClusterName, Key, Timeout) ->
     case mgets(ClusterName, [Key], Timeout) of
@@ -129,7 +128,9 @@ gets(ClusterName, Key, Timeout) ->
         {error, _Reason, [Processed]} ->
             Processed;
         [Result] ->
-            Result
+            Result;
+        [] ->
+            {Key, undefined, undefined}
     end.
 gets(ClusterName, Key) ->
     gets(ClusterName, Key, mero_conf:timeout_read()).
