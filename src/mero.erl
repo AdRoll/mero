@@ -123,7 +123,7 @@ mget(ClusterName, Keys) ->
                       | {error, Reason :: term()}.
 gets(ClusterName, Key, Timeout) ->
     case mgets(ClusterName, [Key], Timeout) of
-        {error, Reason, []} ->
+        {error, [Reason], []} ->
             {error, Reason};
         {error, _Reason, [Processed]} ->
             Processed;
