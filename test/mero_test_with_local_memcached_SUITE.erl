@@ -63,7 +63,9 @@ all() -> [
          %% increment_binary_with_initial,
          %% increment_txt_with_initial,
          %% mincrement_binary,
-         %% mincrement_txt
+         %% mincrement_txt,
+         %% cas_binary,
+         %% cas_txt
     ].
 
 
@@ -215,6 +217,15 @@ increment_txt_with_initial(Conf) ->
     increment_with_initial(cluster_binary, cluster_txt, Keys, 800, 100).
 
 
+cas_txt(Conf) ->
+    Keys = keys(Conf),
+    cas(cluster_txt, cluster_binary, Keys).
+
+cas_binary(Conf) ->
+    Keys = keys(Conf),
+    cas(cluster_binary, cluster_txt, Keys).
+
+
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
@@ -359,6 +370,30 @@ add(Cluster, ClusterAlt, Keys) ->
      end || Key <- Keys].
 
 
+cas(Cluster, ClusterAlt, Keys) ->
+    Value1 = <<"asdf">>,
+    Value2 = <<"foo">>,
+    Value3 = <<"bar">>,
+    [begin
+         ?assertEqual({error, not_found}, mero:cas(Cluster, Key, Value1, 10000, 10000, 12345)),
+         await_connected(Cluster),
+         ?assertEqual(ok, mero:set(Cluster, Key, Value1, 10000, 10000)),
+         ?assertEqual({Key, Value1}, mero:get(ClusterAlt, Key)),
+         {Key, Value1, CAS} = mero:gets(Cluster, Key),
+         {Key, Value1, CAS} = mero:gets(ClusterAlt, Key),
+         ?assertEqual({error, already_exists}, mero:cas(Cluster, Key, Value2, 10000, 10000, CAS + 1)),
+         await_connected(Cluster),
+         ?assertEqual(ok, mero:cas(Cluster, Key, Value2, 10000, 10000, CAS)),
+         ?assertEqual({error, already_exists}, mero:cas(ClusterAlt, Key, Value2, 10000, 10000, CAS)),
+         await_connected(ClusterAlt),
+         ?assertEqual({Key, Value2}, mero:get(ClusterAlt, Key)),
+         ?assertEqual(ok, mero:set(Cluster, Key, Value3, 10000, 10000)),
+         {Key, Value3, NCAS} = mero:gets(Cluster, Key),
+         ?assertNotEqual(CAS, NCAS)
+     end
+     || Key <- Keys].
+
+
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
@@ -366,3 +401,18 @@ add(Cluster, ClusterAlt, Keys) ->
 
 key() ->
     base64:encode(crypto:strong_rand_bytes(20)).
+
+
+await_connected(Cluster) ->
+    ct:log("waiting for free connections"),
+    Wait = fun W () ->
+                   State = mero:state(),
+                   case proplists:get_value(connected, proplists:get_value(Cluster, State)) of
+                       N when is_integer(N) andalso N > 0 ->
+                           ok;
+                       _ ->
+                           timer:sleep(100),
+                           W()
+                   end
+           end,
+    Wait().

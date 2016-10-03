@@ -60,7 +60,8 @@ groups() ->
        multiget_defineds,
        multiget_undefineds,
        set,
-       undefined_counter
+       undefined_counter,
+       cas
       ]
      },
      {binary_protocol, [shuffle, {repeat_until_any_fail, 1}],
@@ -75,7 +76,8 @@ groups() ->
        multiget_defineds,
        multiget_undefineds,
        set,
-       undefined_counter
+       undefined_counter,
+       cas
       ]
      }
     ].
@@ -142,6 +144,39 @@ end_per_testcase(_Module, Conf) ->
 %%%=============================================================================
 %%% Tests
 %%%=============================================================================
+cas(_Conf) ->
+    Key = key(),
+    ct:log("state ~p", [mero:state()]),
+
+    %% CAS with a token which is not undefined should result in a "not found" error:
+    ?assertEqual({error, not_found}, mero:cas(cluster, Key, <<"asdf">>, 1000, 1000, 12345)),
+    %% connection may have been closed due to error.  wait for free connections:
+    await_connected(cluster),
+
+    ?assertEqual({Key, undefined, undefined}, mero:gets(cluster, Key, 1000)),
+    ?assertEqual(ok, mero:add(cluster, Key, <<"x">>, 1000, 1000)),
+    {Key, <<"x">>, CAS} = mero:gets(cluster, Key, 1000),
+
+    %% CAS with a token other than the token which was returned from
+    %% `gets` should result in an "exists" error:
+    ?assertEqual({error, already_exists}, mero:cas(cluster, Key, <<"y">>, 1000, 1000, CAS + 123)),
+    await_connected(cluster),
+
+    ?assertEqual({Key, <<"x">>}, mero:get(cluster, Key, 1000)),
+    {Key, <<"x">>, CAS} = mero:gets(cluster, Key, 1000),
+
+    %% CAS of an existing key using the expected token should succeed:
+    ?assertEqual(ok, mero:cas(cluster, Key, <<"z">>, 1000, 1000, CAS)),
+    {Key, <<"z">>, CAS1} = mero:gets(cluster, Key, 1000),
+
+    %% overwriting the key without CAS should succeed, and the token should change:
+    ?assertEqual(ok, mero:set(cluster, Key, <<"q">>, 1000, 1000)),
+    {Key, <<"q">>, CAS2} = mero:gets(cluster, Key, 1000),
+    ?assertEqual({Key, <<"q">>}, mero:get(cluster, Key, 1000)),
+    ?assertNotEqual(CAS1, CAS2),
+    ok.
+
+
 undefined_counter(_Conf) ->
     Key = key(),
     ct:log("state ~p", [mero:state()]),
@@ -256,14 +291,15 @@ multiget_defineds(_Conf) ->
     ?assertMatch({ok, 3}, mero:increment_counter(cluster, <<"16">>)),
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    [{<<"17">>, undefined},
-     {<<"15">>, <<"2">>},
-     {<<"14">>, <<"2">>},
-     {<<"13">>, <<"1">>},
-     {<<"16">>, <<"3">>},
-     {<<"12">>, <<"1">>},
-     {<<"11">>, <<"1">>}] = mero:mget(cluster,
-        [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>,<<"17">>], 1000).
+    Expected = [{<<"17">>, undefined},
+                {<<"15">>, <<"2">>},
+                {<<"14">>, <<"2">>},
+                {<<"13">>, <<"1">>},
+                {<<"16">>, <<"3">>},
+                {<<"12">>, <<"1">>},
+                {<<"11">>, <<"1">>}],
+    ?assertEqual(Expected, mero:mget(cluster,
+                                     [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>,<<"17">>], 1000)).
 
 
 increment(_Conf) ->
@@ -328,3 +364,17 @@ m() ->
 
 key() ->
     base64:encode(crypto:strong_rand_bytes(20)).
+
+await_connected(Cluster) ->
+    ct:log("waiting for free connections"),
+    Wait = fun W () ->
+                   State = mero:state(),
+                   case proplists:get_value(connected, proplists:get_value(Cluster, State)) of
+                       N when is_integer(N) andalso N > 1 ->
+                           ok;
+                       _ ->
+                           timer:sleep(100),
+                           W()
+                   end
+           end,
+    Wait().

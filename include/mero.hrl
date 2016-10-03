@@ -58,4 +58,8 @@
          {host, Host},
          {port, Port}]}).
 
+-record(mero_item, {key,
+                    value,
+                    cas}).
+
 -endif.

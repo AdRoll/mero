@@ -33,7 +33,7 @@
 -export([increment_counter/7,
          mincrement_counter/7,
          get/3,
-         set/5,
+         set/6,
          delete/3,
          mdelete/3,
          add/5,
@@ -64,10 +64,10 @@ mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
     end.
 
 
-set(Name, Key, Value, ExpTime, Timeout) ->
+set(Name, Key, Value, ExpTime, Timeout, CAS) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName, set, [Key, Value, ExpTime, TimeLimit], TimeLimit).
+    pool_execute(PoolName, set, [Key, Value, ExpTime, TimeLimit, CAS], TimeLimit).
 
 
 get(Name, Keys, Timeout) ->

@@ -42,11 +42,16 @@
          mincrement_counter/7,
          get/2,
          get/3,
+         gets/2,
+         gets/3,
          delete/3,
          mdelete/3,
          mget/2,
          mget/3,
+         mgets/2,
+         mgets/3,
          set/5,
+         cas/6,
          add/5,
          flush_all/1,
          shard_phash2/2,
@@ -60,6 +65,7 @@
 
 -include_lib("mero/include/mero.hrl").
 
+-type cas_token() :: undefined | integer().
 
 %%%=============================================================================
 %%% Application behaviour
@@ -80,38 +86,73 @@ stop(_State) ->
 %%% External functions
 %%%=============================================================================
 
-%% @doc: Gets the value of a key in a specific cluster
--spec get(ClusterName :: atom(), Key :: binary()) ->
-    {Key :: binary(), Value :: undefined | integer()}
-    | {error, Reason :: term()}.
-get(ClusterName, Key) when is_binary(Key), is_atom(ClusterName) ->
-    get(ClusterName, Key, mero_conf:timeout_read()).
-
 -spec get(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->
-    {Key :: binary(), Value :: undefined | binary()}
-    | {error, Reason :: term()}.
-get(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
-    case mero_conn:get(ClusterName, [Key], Timeout) of
-        [{Key, Value}] ->
-            {Key, Value};
-        {error, [Reason], []} ->
+                 {Key :: binary(), Value :: undefined | binary()}
+                     | {error, Reason :: term()}.
+get(ClusterName, Key, Timeout) ->
+    case gets(ClusterName, Key, Timeout) of
+        {error, Reason} ->
             {error, Reason};
-        {error, Reason, []} ->
-            {error, Reason};
-        {error, _Reason, [{Key, Value}]} ->
+        {Key, Value, _CAS} ->
             {Key, Value}
     end.
+get(ClusterName, Key) ->
+    get(ClusterName, Key, mero_conf:timeout_read()).
 
 
-%% NOTE: On error we still could have processed part of the request, so we still
-%% return all the completed responses.
 -spec mget(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary()}]
     | {error, Reason :: term(), ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
-mget(ClusterName, Keys) when is_list(Keys), is_atom(ClusterName) ->
-    mero_conn:get(ClusterName, Keys, mero_conf:timeout_read()).
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
-    mero_conn:get(ClusterName, Keys, Timeout).
+    Extract = fun (Items) ->
+                      [{Key, Value}
+                       || {Key, Value, _} <- Items]
+              end,
+    case mgets(ClusterName, Keys, Timeout) of
+        {error, Reason, ProcessedKeyValues} ->
+            {error, Reason, Extract(ProcessedKeyValues)};
+        KeyValues ->
+            Extract(KeyValues)
+    end.
+mget(ClusterName, Keys) ->
+    mget(ClusterName, Keys, mero_conf:timeout_read()).
+
+
+-spec gets(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->
+                  {Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}
+                      | {error, Reason :: term()}.
+gets(ClusterName, Key, Timeout) ->
+    case mgets(ClusterName, [Key], Timeout) of
+        {error, [Reason], []} ->
+            {error, Reason};
+        {error, _Reason, [Processed]} ->
+            Processed;
+        [Result] ->
+            Result;
+        [] ->
+            {Key, undefined, undefined}
+    end.
+gets(ClusterName, Key) ->
+    gets(ClusterName, Key, mero_conf:timeout_read()).
+
+
+-spec mgets(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
+    [{Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}]
+    | {error, Reason :: term(),
+       ProcessedKeyValues :: [{Key :: binary(), Value :: binary(), CAS :: cas_token()}]}.
+mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
+    Extract = fun (Items) ->
+                      [{Key, Value, CAS}
+                       || #mero_item{key = Key, value = Value, cas = CAS} <- Items]
+              end,
+    case mero_conn:get(ClusterName, Keys, Timeout) of
+        {error, Reason, ProcessedKeyValues} ->
+            {error, Reason, Extract(ProcessedKeyValues)};
+        KeyValues ->
+            Extract(KeyValues)
+    end.
+mgets(ClusterName, Keys) ->
+    mgets(ClusterName, Keys, mero_conf:timeout_read()).
 
 
 -spec add(ClusterName :: atom(), Key :: binary(), Value :: binary(), ExpTime :: integer(),
@@ -122,14 +163,29 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     mero_conn:add(ClusterName, Key, Value, BExpTime, Timeout).
 
-%% ExpTime is in seconds.
--spec set(ClusterName :: atom(), Key :: binary(), Value :: binary(), ExpTime :: integer(),
-    Timeout :: integer()) ->
+
+-spec set(ClusterName :: atom(),
+          Key :: binary(),
+          Value :: binary(),
+          ExpTime :: integer(), % value is in seconds
+          Timeout :: integer()) ->
     ok | {error, Reason :: term()}.
-set(ClusterName, Key, Value, ExpTime, Timeout)
+set(ClusterName, Key, Value, ExpTime, Timeout) ->
+    cas(ClusterName, Key, Value, ExpTime, Timeout, undefined).
+
+
+-spec cas(ClusterName :: atom(),
+          Key :: binary(),
+          Value :: binary(),
+          ExpTime :: integer(), % value is in seconds
+          Timeout :: integer(),
+          CAS :: cas_token()) ->
+    ok | {error, Reason :: term()}.
+cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
     when is_binary(Key), is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
-    mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout).
+    %% note: if CAS is undefined, this will be an unconditional set:
+    mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout, CAS).
 
 
 %% @doc: Increments a counter: initial value is 1, steps of 1, timeout defaults to 24 hours.

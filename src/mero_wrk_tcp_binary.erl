@@ -35,18 +35,18 @@
 
 %%% Start/stop functions
 -export([connect/3,
-    controlling_process/2,
-    transaction/3,
-    close/2]).
+         controlling_process/2,
+         transaction/3,
+         close/2]).
 
 
 -record(client, {socket, pool, event_callback :: module()}).
 
 -define(SOCKET_OPTIONS, [binary,
-    {packet, raw},
-    {active, false},
-    {reuseaddr, true},
-    {nodelay, true}]).
+                         {packet, raw},
+                         {active, false},
+                         {reuseaddr, true},
+                         {nodelay, true}]).
 
 %%%=============================================================================
 %%% External functions
@@ -75,9 +75,9 @@ controlling_process(Client, Pid) ->
 
 transaction(Client, delete, [Key, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
-        {ok, {<<>>, <<>>}} ->
+        {ok, #mero_item{key = <<>>, value = <<>>}} ->
             {Client, ok};
-        {ok, {<<>>, undefined}} ->
+        {ok, #mero_item{key = <<>>, value = undefined}} ->
             {Client, {error, not_found}};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
@@ -92,15 +92,18 @@ transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]
             {error, Reason};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
-        {ok, {<<>>, ActualValue}} ->
+        {ok, #mero_item{key = <<>>, value = ActualValue}} ->
             {Client, {ok, to_integer(ActualValue)}}
     end;
 
 
-transaction(Client, set, [Key, Value, ExpTime, TimeLimit]) ->
-    case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime}}, TimeLimit) of
-        {ok, {<<>>, <<>>}} ->
+transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
+    case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
+        {ok, #mero_item{key = <<>>, value = <<>>}} ->
             {Client, ok};
+        {ok, #mero_item{key = <<>>, value = undefined}} when CAS /= undefined ->
+            %% attempt to set a key using CAS, but key wasn't present.
+            {Client, {error, not_found}};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
         {error, Reason} ->
@@ -109,7 +112,7 @@ transaction(Client, set, [Key, Value, ExpTime, TimeLimit]) ->
 
 transaction(Client, add, [Key, Value, ExpTime, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_ADD, {Key, Value, ExpTime}}, TimeLimit) of
-        {ok, {<<>>, <<>>}} ->
+        {ok, #mero_item{key = <<>>, value = <<>>}} ->
             {Client, ok};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
@@ -119,7 +122,7 @@ transaction(Client, add, [Key, Value, ExpTime, TimeLimit]) ->
 
 transaction(Client, flush_all, [TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_FLUSH_ALL, {}}, TimeLimit) of
-        {ok, {<<>>, <<>>}} ->
+        {ok, #mero_item{key = <<>>, value = <<>>}} ->
             {Client, ok};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
@@ -219,9 +222,9 @@ pack({?MEMCACHE_ADD, {Key, Value, ExpTime}}) ->
     IntExpTime = value_to_integer(ExpTime),
     pack(<<16#DEADBEEF:32, IntExpTime:32>>, ?MEMCACHE_ADD, Key, Value);
 
-pack({?MEMCACHE_SET, {Key, Value, ExpTime}}) ->
+pack({?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}) ->
     IntExpTime = value_to_integer(ExpTime),
-    pack(<<16#DEADBEEF:32, IntExpTime:32>>, ?MEMCACHE_SET, Key, Value);
+    pack(<<16#DEADBEEF:32, IntExpTime:32>>, ?MEMCACHE_SET, Key, Value, CAS);
 
 pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     %% Flush inmediately by default
@@ -239,13 +242,28 @@ pack(Extras, Operator, Key) ->
     pack(Extras, Operator, Key, <<>>).
 
 pack(Extras, Operator, Key, Value) ->
+    pack(Extras, Operator, Key, Value, undefined).
+
+pack(Extras, Operator, Key, Value, undefined) ->
+    pack(Extras, Operator, Key, Value, 16#00);
+
+pack(Extras, Operator, Key, Value, CAS) ->
     KeySize = size(Key),
     ExtrasSize = size(Extras),
     Body = <<Extras:ExtrasSize/binary, Key/binary, Value/binary>>,
     BodySize = size(Body),
-    <<16#80:8, Operator:8, KeySize:16,
-    ExtrasSize:8, 16#00:8, 16#00:16,
-    BodySize:32, 16#00:32, 16#00:64, Body:BodySize/binary>>.
+    <<
+      16#80:8,      % magic (0)
+      Operator:8,   % opcode (1)
+      KeySize:16,   % key length (2,3)
+      ExtrasSize:8, % extra length (4)
+      16#00:8,      % data type (5)
+      16#00:16,     % reserved (6,7)
+      BodySize:32,  % total body (8-11)
+      16#00:32,     % opaque (12-15)
+      CAS:64,       % CAS (16-23)
+      Body:BodySize/binary
+    >>.
 
 
 send(Client, Data) ->
@@ -258,17 +276,34 @@ send(Client, Data) ->
     end.
 
 
+cas_value(16#00) ->
+    undefined;
+cas_value(undefined) ->
+    16#00;
+cas_value(Value) when is_integer(Value) andalso Value > 0 ->
+    Value.
+
+
 receive_response(Client, Op, TimeLimit) ->
     case recv_bytes(Client, 24, TimeLimit) of
-        <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
-        BodySize:32, _Opq:32, _CAS:64>> ->
+        <<
+          16#81:8,      % magic (0)
+          Op:8,         % opcode (1)
+          KeySize:16,   % key length (2,3)
+          ExtrasSize:8, % extra length (4)
+          _DT:8,        % data type (5)
+          Status:16,    % status (6,7)
+          BodySize:32,  % total body (8-11)
+          _Opq:32,      % opaque (12-15)
+          CAS:64        % CAS (16-23)
+        >> ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, Value/binary>> ->
                     case Status of
                         16#0001 ->
-                            {Key, undefined};
+                            #mero_item{key = Key, cas = cas_value(CAS)};
                         16#0000 ->
-                            {Key, Value};
+                            #mero_item{key = Key, value = Value, cas = cas_value(CAS)};
                         16#0002 ->
                             {error, already_exists};
                         16#0003 ->
@@ -362,12 +397,22 @@ async_response(Client, Keys, TimeLimit) ->
 
 receive_response(Client, TimeLimit, Keys, Acc) ->
     case recv_bytes(Client, 24, TimeLimit) of
-        <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
-        BodySize:32, _Opq:32, _CAS:64>> = Data ->
+        <<
+          16#81:8,      % magic (0)
+          Op:8,         % opcode (1)
+          KeySize:16,   % key length (2,3)
+          ExtrasSize:8, % extra length (4)
+          _DT:8,        % data type (5)
+          Status:16,    % status (6,7)
+          BodySize:32,  % total body (8-11)
+          _Opq:32,      % opaque (12-15)
+          CAS:64        % CAS (16-23)
+        >> = Data ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>> ->
                     {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
-                    Responses = [{Key, Value} | Acc],
+                    Responses = [#mero_item{key = Key, value = Value, cas = cas_value(CAS)}
+                                 | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
                         %% elasticache does not return the correct Op for

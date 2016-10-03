@@ -132,8 +132,8 @@ transaction(Client, add, [Key, Value, ExpTime, TimeLimit]) ->
             {error, Reason}
     end;
 
-transaction(Client, set, [Key, Value, ExpTime, TimeLimit]) ->
-    case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime}}, TimeLimit) of
+transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
+    case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
         {ok, stored} ->
             {Client, ok};
         {error, Reason} ->
@@ -194,10 +194,11 @@ transaction(Client, async_response, [Keys, Timeout]) ->
             {error, Reason};
         {ok, {error, Reason}} ->
             {Client, {error, Reason}};
-        {ok, {ok, FoundKeyValues}} ->
-             FoundKeys = [Key || {Key, _Value} <- FoundKeyValues],
+        {ok, {ok, FoundItems}} ->
+             FoundKeys = [Key || #mero_item{key = Key} <- FoundItems],
              NotFoundKeys = lists:subtract(Keys, FoundKeys),
-             Result = [{Key, undefined} || Key <- NotFoundKeys] ++ FoundKeyValues,
+             Result = [#mero_item{key = Key, value = undefined}
+                       || Key <- NotFoundKeys] ++ FoundItems,
              {Client, Result}
     end.
 
@@ -231,17 +232,24 @@ pack({?MEMCACHE_ADD, {Key, Initial, ExpTime}}) ->
     NBytes = integer_to_list(size(Initial)),
     [<<"add ">>, Key, <<" ">>, <<"00">>, <<" ">>, ExpTime,
         <<" ">>, NBytes, <<"\r\n">>, Initial, <<"\r\n">>];
-pack({?MEMCACHE_SET, {Key, Initial, ExpTime}}) ->
+pack({?MEMCACHE_SET, {Key, Initial, ExpTime, undefined}}) ->
     NBytes = integer_to_list(size(Initial)),
     [<<"set ">>, Key, <<" ">>, <<"00">>, <<" ">>, ExpTime,
      <<" ">>, NBytes, <<"\r\n">>, Initial, <<"\r\n">>];
+pack({?MEMCACHE_SET, {Key, Initial, ExpTime, CAS}}) when is_integer(CAS) ->
+    %% note: CAS should only be supplied if setting a value after looking it up.  if the
+    %% value has changed since we looked it up, the result of a cas command will be EXISTS
+    %% (otherwise STORED).
+    NBytes = integer_to_list(size(Initial)),
+    [<<"cas ">>, Key, <<" ">>, <<"00">>, <<" ">>, ExpTime,
+     <<" ">>, NBytes, <<" ">>, integer_to_binary(CAS), <<"\r\n">>, Initial, <<"\r\n">>];
 pack({?MEMCACHE_INCREMENT, {Key, Value}}) ->
     [<<"incr ">>, Key, <<" ">>, Value, <<"\r\n">>];
 pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     [<<"flush_all\r\n">>];
 pack({?MEMCACHE_GET, {Keys}}) when is_list(Keys) ->
     Query = lists:foldr(fun(Key, Acc) -> [Key, <<" ">> | Acc] end, [], Keys),
-    [<<"get ">>, Query, <<"\r\n">>].
+    [<<"gets ">>, Query, <<"\r\n">>].
 
 
 
@@ -287,10 +295,11 @@ parse_reply(Buffer, AccResult) ->
             case parse_command(Command) of
                 {ok, Status} when is_atom(Status) ->
                     {ok, Status, AccResult};
-                {ok, {value, Key, Bytes}} ->
+                {ok, {value, Key, Bytes, CAS}} ->
                     case split_command(BinaryRest) of
                         {[Value], BinaryRest2} when (size(Value) == Bytes) ->
-                            parse_reply(BinaryRest2, [{Key, Value} | AccResult]);
+                            parse_reply(BinaryRest2, [#mero_item{key = Key, value = Value, cas = CAS}
+                                                      | AccResult]);
                         {error, uncomplete} ->
                             {ok, Buffer, AccResult}
                     end;
@@ -319,7 +328,7 @@ parse_command([<<"SERVER_ERROR">> | Reason]) ->
     {error, Reason};
 
 parse_command([<<"EXISTS">>]) ->
-    {error, exists};
+    {error, already_exists};
 parse_command([<<"NOT_FOUND">>]) ->
     {error, not_found};
 parse_command([<<"NOT_STORED">>]) ->
@@ -331,7 +340,9 @@ parse_command([<<"STORED">>]) ->
 parse_command([<<"DELETED">>]) ->
     {ok, deleted};
 parse_command([<<"VALUE">>, Key, _Flag, Bytes]) ->
-    {ok, {value, Key, list_to_integer(binary_to_list(Bytes))}};
+    {ok, {value, Key, list_to_integer(binary_to_list(Bytes)), undefined}};
+parse_command([<<"VALUE">>, Key, _Flag, Bytes, CAS]) ->
+    {ok, {value, Key, list_to_integer(binary_to_list(Bytes)), binary_to_integer(CAS)}};
 parse_command([<<"OK">>]) ->
     {ok, ok};
 parse_command([<<"VERSION">> | Version]) ->
