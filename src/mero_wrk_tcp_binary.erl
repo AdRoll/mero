@@ -343,14 +343,7 @@ recv_bytes(Client, NumBytes, TimeLimit) ->
 
 
 value_to_integer(Value) ->
-    value_to_integer(Value, []).
-
-value_to_integer(<<>>, Acc) ->
-    list_to_integer(lists:reverse(Acc));
-value_to_integer(<<0, Rest/binary>>, Acc) ->
-    value_to_integer(Rest, Acc);
-value_to_integer(<<K, Rest/binary>>, Acc) ->
-    value_to_integer(Rest, [K | Acc]).
+    binary_to_integer(binary:replace(Value, <<0>>, <<>>)).
 
 to_integer(Binary) when is_binary(Binary) ->
     Size = bit_size(Binary),
