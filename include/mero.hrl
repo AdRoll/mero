@@ -30,6 +30,7 @@
 -define(MEMCACHERL_HRL, true).
 
 -define(MEMCACHE_INCREMENT, 16#05).
+-define(MEMCACHE_INCREMENTQ, 16#15).
 -define(MEMCACHE_GET, 16#00).
 -define(MEMCACHE_GETQ, 16#09).
 -define(MEMCACHE_GETK, 16#0C).
@@ -37,6 +38,7 @@
 -define(MEMCACHE_SET, 16#01).
 -define(MEMCACHE_ADD, 16#02).
 -define(MEMCACHE_DELETE, 16#04).
+-define(MEMCACHE_DELETEQ, 16#14).
 -define(MEMCACHE_FLUSH_ALL, 16#08).
 
 %%% If a connection attempt fails, or a connection is broken

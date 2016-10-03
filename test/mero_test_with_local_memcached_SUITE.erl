@@ -51,6 +51,8 @@ all() -> [
          %% flush_binary,
          %% flush_txt,
          %% delete_binary,
+         %% mdelete_binary,
+         %% mdelete_txt,
          %% delete_txt,
          %% mget_binary,
          %% mget_txt,
@@ -59,7 +61,9 @@ all() -> [
          %% increment_binary,
          %% increment_txt,
          %% increment_binary_with_initial,
-         %% increment_txt_with_initial
+         %% increment_txt_with_initial,
+         %% mincrement_binary,
+         %% mincrement_txt
     ].
 
 
@@ -147,11 +151,18 @@ delete_binary(Conf) ->
     Keys = keys(Conf),
     delete(cluster_binary, Keys).
 
+mdelete_binary(Conf) ->
+    Keys = keys(Conf),
+    mdelete(cluster_binary, Keys).
+
 
 delete_txt(Conf) ->
     Keys = keys(Conf),
     delete(cluster_txt, Keys).
 
+mdelete_txt(Conf) ->
+    Keys = keys(Conf),
+    mdelete(cluster_txt, Keys).
 
 mget_binary(Conf) ->
     Keys = keys(Conf),
@@ -177,6 +188,13 @@ increment_binary(Conf) ->
     Keys = keys(Conf),
     increment(cluster_binary, cluster_txt, Keys).
 
+mincrement_binary(Conf) ->
+    Keys = keys(Conf),
+    mincrement(cluster_binary, cluster_txt, Keys).
+
+mincrement_txt(Conf) ->
+    Keys = keys(Conf),
+    mincrement(cluster_txt, cluster_binary, Keys).
 
 increment_txt(Conf) ->
     Keys = keys(Conf),
@@ -247,6 +265,19 @@ delete(Cluster, Keys) ->
     [{Key, undefined} = mero:get(Cluster, Key) || Key <- Keys].
 
 
+mdelete(Cluster, Keys) ->
+    ct:log("Check set to adroll ~n"),
+    ct:log("state ~p", [mero:state()]),
+    [ok = mero:set(Cluster, Key, <<"Adroll">>, 11111, 1000)
+        || Key <- Keys],
+
+    ct:log("Delete ! ~n", []),
+    ok = mero:mdelete(Cluster, Keys, 1000),
+
+    ct:log("Checking empty keys ~n"),
+    [{Key, undefined} = mero:get(Cluster, Key) || Key <- Keys].
+
+
 mget(Cluster, ClusterAlt, Keys) ->
     [?assertMatch(ok, mero:set(Cluster, Key, Key, 11111, 1000))
         || Key <- Keys],
@@ -262,6 +293,13 @@ mget(Cluster, ClusterAlt, Keys) ->
          ?assertEqual({value, {Key, Key}}, lists:keysearch(Key, 1, ResultsAlt))
      end || Key <- Keys].
 
+mincrement(Cluster = cluster_txt, _ClusterAlt, Keys) ->
+    {error, not_supportable} = mero:mincrement_counter(Cluster, Keys);
+mincrement(Cluster = cluster_binary, _ClusterAlt, Keys) ->
+    ok = mero:mincrement_counter(Cluster, Keys),
+    MGetRet = lists:sort(mero:mget(Cluster, Keys)),
+    Expected = lists:sort([{K, <<"1">>} || K <- Keys]),
+    ?assertMatch(Expected, MGetRet).
 
 increment(Cluster, ClusterAlt, Keys) ->
     io:format("Increment +1 +1 +1 ~n"),

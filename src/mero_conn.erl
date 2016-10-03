@@ -31,12 +31,14 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -export([increment_counter/7,
-    get/3,
-    set/5,
-    delete/3,
-    add/5,
-    flush_all/2
-]).
+         mincrement_counter/7,
+         get/3,
+         set/5,
+         delete/3,
+         mdelete/3,
+         add/5,
+         flush_all/2
+        ]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -50,6 +52,17 @@ increment_counter(Name, Key, Value, Initial, ExpTime, Retries, Timeout) ->
     PoolName = mero_cluster:server(Name, Key),
     increment_counter_timelimit(PoolName, Key, Value, Initial, ExpTime, Retries, TimeLimit).
 
+mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
+    Payload = [{Shard, [{K, Value, Initial, ExpTime} || K <- Ks]} || {Shard, Ks} <- KeysGroupedByShards],
+    case async_by_shard(Name, Payload, TimeLimit,
+                          [async_increment, async_increment_error, async_blank_response,
+                           async_increment_response_error]) of
+        {error, [not_supportable], _} -> {error, not_supportable};
+        _Other -> ok
+    end.
+
 
 set(Name, Key, Value, ExpTime, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
@@ -60,7 +73,8 @@ set(Name, Key, Value, ExpTime, Timeout) ->
 get(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
-    async_by_shard_mget(Name, KeysGroupedByShards, TimeLimit).
+    async_by_shard(Name, KeysGroupedByShards, TimeLimit,
+                   [async_mget, async_mget_error, async_response, async_mget_response_error]).
 
 
 delete(Name, Key, Timeout) ->
@@ -68,6 +82,14 @@ delete(Name, Key, Timeout) ->
     PoolName = mero_cluster:server(Name, Key),
     pool_execute(PoolName, delete, [Key, TimeLimit], TimeLimit).
 
+
+mdelete(Name, Keys, Timeout) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
+    async_by_shard(Name, KeysGroupedByShards, TimeLimit,
+                   [async_delete, async_delete_error, async_blank_response,
+                    async_delete_response_error]),
+    ok.
 
 add(Name, Key, Value, ExpTime, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
@@ -95,18 +117,18 @@ increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLim
             {error, Reason}
     end.
 
-
-async_by_shard_mget(Name, KeysGroupedByShards, TimeLimit) ->
+async_by_shard(Name, KeysGroupedByShards, TimeLimit,
+               [AsyncOp, AsyncOpError, AsyncOpResponse, AsyncOpResponseError]) ->
     {Processed, Errors} =
-        lists:foldr(
+        lists:foldl(
             fun({ShardIdentifier, Keys}, {Processed, Errors}) ->
                 begin
                     PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
                     case mero_pool:checkout(PoolName, TimeLimit) of
                         {ok, Conn} ->
-                            case mero_pool:transaction(Conn, async_mget, [Keys]) of
+                            case mero_pool:transaction(Conn, AsyncOp, [Keys]) of
                                 {error, Reason} ->
-                                    mero_pool:close(Conn, async_mget_error),
+                                    mero_pool:close(Conn, AsyncOpError),
                                     mero_pool:checkin_closed(Conn),
                                     {Processed, [Reason | Errors]};
                                 {NConn, {error, Reason}} ->
@@ -123,11 +145,11 @@ async_by_shard_mget(Name, KeysGroupedByShards, TimeLimit) ->
             {[], []},
             KeysGroupedByShards),
     {ProcessedOut, ErrorsOut} =
-        lists:foldr(
+        lists:foldl(
         fun({Conn, Keys}, {ProcessedIn, ErrorsIn}) ->
-            case mero_pool:transaction(Conn, async_mget_response, [Keys, TimeLimit]) of
+            case mero_pool:transaction(Conn, AsyncOpResponse, [Keys, TimeLimit]) of
                 {error, Reason} ->
-                    mero_pool:close(Conn, async_mget_response_error),
+                    mero_pool:close(Conn, AsyncOpResponseError),
                     mero_pool:checkin_closed(Conn),
                     {ProcessedIn, [Reason | ErrorsIn]};
                 {Client, {error, Reason}} ->

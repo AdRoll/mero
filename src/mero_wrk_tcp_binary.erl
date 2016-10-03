@@ -137,8 +137,38 @@ transaction(Client, async_mget, [Keys]) ->
             {Client, ok}
     end;
 
-transaction(Client, async_mget_response, [Keys, Timeout]) ->
-    case async_mget_response(Client, Keys, Timeout) of
+transaction(Client, async_increment, [Keys]) ->
+    case async_increment(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
+transaction(Client, async_delete, [Keys]) ->
+    case async_delete(Client, Keys) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, ok} ->
+            {Client, ok}
+    end;
+
+transaction(Client, async_response, [Keys, Timeout]) ->
+    case async_response(Client, Keys, Timeout) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {ok, Results} ->
+            {Client, Results}
+    end;
+
+transaction(Client, async_blank_response, [Keys, Timeout]) ->
+    case async_blank_response(Client, Keys, Timeout) of
         {error, Reason} ->
             {error, Reason};
         {ok, {error, Reason}} ->
@@ -173,8 +203,17 @@ pack({?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}}) ->
     IntExpTime = value_to_integer(ExpTime),
     pack(<<IntValue:64, IntInitial:64, IntExpTime:32>>, ?MEMCACHE_INCREMENT, Key);
 
+pack({?MEMCACHE_INCREMENTQ, {Key, Value, Initial, ExpTime}}) ->
+    IntValue = value_to_integer(Value),
+    IntInitial = value_to_integer(Initial),
+    IntExpTime = value_to_integer(ExpTime),
+    pack(<<IntValue:64, IntInitial:64, IntExpTime:32>>, ?MEMCACHE_INCREMENTQ, Key);
+
 pack({?MEMCACHE_DELETE, {Key}}) ->
     pack(<<>>, ?MEMCACHE_DELETE, Key);
+
+pack({?MEMCACHE_DELETEQ, {Key}}) ->
+    pack(<<>>, ?MEMCACHE_DELETEQ, Key);
 
 pack({?MEMCACHE_ADD, {Key, Value, ExpTime}}) ->
     IntExpTime = value_to_integer(ExpTime),
@@ -237,13 +276,13 @@ receive_response(Client, Op, TimeLimit) ->
                         16#0004 ->
                             {error, invalid_arguments};
                         16#0005 ->
-                            {error, item_not_stored};
+                            {error, not_stored};
                         16#0006 ->
                             {error, incr_decr_on_non_numeric_value};
                         16#0081 ->
-                            {error, item_not_stor};
+                            {error, unknown_command};
                         16#0082 ->
-                            {error, item_not_stored};
+                            {error, out_of_memory};
                         Status ->
                             throw({failed, {response_status, Status}})
                     end;
@@ -271,12 +310,10 @@ recv_bytes(Client, NumBytes, TimeLimit) ->
 value_to_integer(Value) ->
     binary_to_integer(binary:replace(Value, <<0>>, <<>>)).
 
-
 to_integer(Binary) when is_binary(Binary) ->
     Size = bit_size(Binary),
     <<Value:Size/integer>> = Binary,
     Value.
-
 
 gen_tcp_recv(Socket, NumBytes, Timeout) ->
     gen_tcp:recv(Socket, NumBytes, Timeout).
@@ -290,6 +327,23 @@ async_mget(Client, Keys) ->
             {error, Reason}
     end.
 
+async_delete(Client, Keys) ->
+    try
+        {ok, lists:foldl(fun(K, ok) -> send(Client, pack({?MEMCACHE_DELETEQ, {K}})) end, ok, Keys)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
+
+async_increment(Client, Keys) ->
+    try
+        {ok, lists:foreach(fun({K, Value, Initial, ExpTime}) ->
+                                   send(Client, pack({?MEMCACHE_INCREMENTQ, {K, Value, Initial, ExpTime}}))
+                           end, Keys)}
+    catch
+        throw:{failed, Reason} ->
+            {error, Reason}
+    end.
 
 send_gets(Client, [Key]) ->
     ok = send(Client, pack({getk, Key}));
@@ -298,36 +352,36 @@ send_gets(Client, [Key | Keys]) ->
     send_gets(Client, Keys).
 
 
-async_mget_response(Client, Keys, TimeLimit) ->
+async_response(Client, Keys, TimeLimit) ->
     try
-        {ok, receive_mget_response(Client, TimeLimit, Keys, [])}
+        {ok, receive_response(Client, TimeLimit, Keys, [])}
     catch
         throw:{failed, Reason} ->
             {error, Reason}
     end.
 
-
-receive_mget_response(Client, TimeLimit, Keys, Acc) ->
+receive_response(Client, TimeLimit, Keys, Acc) ->
     case recv_bytes(Client, 24, TimeLimit) of
         <<16#81:8, Op:8, KeySize:16, ExtrasSize:8, _DT:8, Status:16,
         BodySize:32, _Opq:32, _CAS:64>> = Data ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>> ->
-                    {Key, Value} = case Status of
-                                       16#0001 ->
-                                           {Key, undefined};
-                                       16#0000 ->
-                                           {Key, ValueReceived};
-                                       Status ->
-                                           throw({failed, {response_status, Status}})
-                                   end,
+                    {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
                     Responses = [{Key, Value} | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
-                    % On silent we expect more values
+                        %% elasticache does not return the correct Op for
+                        %% INCREMENTQ, returning INCREMENT. Ignore both variants.
+                        ?MEMCACHE_DELETEQ ->
+                            receive_response(Client, TimeLimit, NKeys, Responses);
+                        ?MEMCACHE_INCREMENTQ ->
+                            receive_response(Client, TimeLimit, NKeys, Responses);
+                        ?MEMCACHE_INCREMENT ->
+                            receive_response(Client, TimeLimit, NKeys, Responses);
+                        %% On silent we expect more values
                         ?MEMCACHE_GETKQ ->
-                            receive_mget_response(Client, TimeLimit, NKeys, Responses);
-                    % This was the last one!
+                            receive_response(Client, TimeLimit, NKeys, Responses);
+                        %% This was the last one!
                         ?MEMCACHE_GETK ->
                             Responses ++ [{KeyIn, undefined} || KeyIn <- NKeys]
                     end;
@@ -337,3 +391,10 @@ receive_mget_response(Client, TimeLimit, Keys, Acc) ->
         Data ->
             throw({failed, {unexpected_header, Data}})
     end.
+
+async_blank_response(_Client, _Keys, _TimeLimit) ->
+    {ok, [ok]}.
+
+filter_by_status(16#0000, _Op, Key, ValueReceived)  -> {Key, ValueReceived};
+filter_by_status(16#0001, _Op, Key, _ValueReceived) -> {Key, undefined};
+filter_by_status(Status, _Op, _Key, _ValueReceived) -> throw({failed, {response_status, Status}}).
