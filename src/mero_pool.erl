@@ -393,8 +393,7 @@ spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
                        case (SleepTime > 0) of
                            true ->
                                %% Wait before reconnect
-                               random:seed(os:timestamp()),
-                               timer:sleep(random:uniform(SleepTime));
+                               timer:sleep(rand:uniform(SleepTime));
                            false ->
                                ignore
                        end,
