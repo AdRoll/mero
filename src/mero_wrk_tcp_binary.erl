@@ -96,6 +96,17 @@ transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]
             {Client, {ok, to_integer(ActualValue)}}
     end;
 
+transaction(Client, get, [Key, TimeLimit]) ->
+    case send_receive(Client, {?MEMCACHE_GET, {[Key]}}, TimeLimit) of
+        {ok, #mero_item{key = <<>>} = Result} ->
+            {Client, Result#mero_item{key = Key}};
+        {ok, #mero_item{} = Result} ->
+            {Client, Result};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {error, Reason} ->
+            {error, Reason}
+    end;
 
 transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
     case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
@@ -230,6 +241,9 @@ pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     %% Flush inmediately by default
     ExpirationTime = 16#00,
     pack(<<ExpirationTime:32>>, ?MEMCACHE_FLUSH_ALL, <<>>);
+
+pack({?MEMCACHE_GET, {[Key]}}) ->
+    pack(<<>>, ?MEMCACHE_GET, Key);
 
 pack({getkq, Key}) ->
     pack(<<>>, ?MEMCACHE_GETKQ, Key);

@@ -78,6 +78,16 @@ set(Name, Key, Value, ExpTime, Timeout, CAS) ->
     pool_execute(PoolName, set, [Key, Value, ExpTime, TimeLimit, CAS], TimeLimit).
 
 
+get(Name, [Key], Timeout) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    PoolName = mero_cluster:server(Name, Key),
+    case pool_execute(PoolName, get, [Key, TimeLimit], TimeLimit) of
+        {error, Reason} ->
+            {error, [Reason], []};
+        Value ->
+            [Value]
+    end;
+
 get(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
