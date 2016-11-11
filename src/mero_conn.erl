@@ -42,6 +42,12 @@
 
 -include_lib("mero/include/mero.hrl").
 
+-record(async_op, {
+          op :: atom(), % name of worker op which sends this request
+          op_error :: atom(), % name of error for errors occuring when sending request
+          response :: atom(), % name of worker op which reads response
+          response_error :: atom() % name of error for errors occuring when reading response
+         }).
 
 %%%=============================================================================
 %%% External functions
@@ -57,8 +63,10 @@ mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
     Payload = [{Shard, [{K, Value, Initial, ExpTime} || K <- Ks]} || {Shard, Ks} <- KeysGroupedByShards],
     case async_by_shard(Name, Payload, TimeLimit,
-                          [async_increment, async_increment_error, async_blank_response,
-                           async_increment_response_error]) of
+                        #async_op{op = async_increment,
+                                  op_error = async_increment_error,
+                                  response = async_blank_response,
+                                  response_error = async_increment_response_error}) of
         {error, [not_supportable], _} -> {error, not_supportable};
         _Other -> ok
     end.
@@ -74,7 +82,10 @@ get(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
     async_by_shard(Name, KeysGroupedByShards, TimeLimit,
-                   [async_mget, async_mget_error, async_response, async_mget_response_error]).
+                   #async_op{op = async_mget,
+                             op_error = async_mget_error,
+                             response = async_response,
+                             response_error = async_mget_response_error}).
 
 
 delete(Name, Key, Timeout) ->
@@ -87,8 +98,10 @@ mdelete(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
     async_by_shard(Name, KeysGroupedByShards, TimeLimit,
-                   [async_delete, async_delete_error, async_blank_response,
-                    async_delete_response_error]),
+                   #async_op{op = async_delete,
+                             op_error = async_delete_error,
+                             response = async_blank_response,
+                             response_error = async_delete_response_error}),
     ok.
 
 add(Name, Key, Value, ExpTime, Timeout) ->
@@ -118,7 +131,10 @@ increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLim
     end.
 
 async_by_shard(Name, KeysGroupedByShards, TimeLimit,
-               [AsyncOp, AsyncOpError, AsyncOpResponse, AsyncOpResponseError]) ->
+               #async_op{op = AsyncOp,
+                         op_error = AsyncOpError,
+                         response = AsyncOpResponse,
+                         response_error = AsyncOpResponseError}) ->
     {Processed, Errors} =
         lists:foldl(
             fun({ShardIdentifier, Keys}, {Processed, Errors}) ->
