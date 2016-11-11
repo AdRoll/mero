@@ -245,7 +245,7 @@ canned_responses(text, _Key, _Op, noop)           -> [];
 canned_responses(binary, _Key, Op, not_found) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
-    Status = 1,
+    Status = ?NOT_FOUND,
     BodyOut = <<>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
@@ -256,7 +256,7 @@ canned_responses(binary, _Key, Op, not_found) ->
 canned_responses(binary, _Key, Op, not_stored) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
-    Status = 5,
+    Status = ?NOT_STORED,
     BodyOut = <<>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
@@ -267,7 +267,7 @@ canned_responses(binary, _Key, Op, not_stored) ->
 canned_responses(binary, _Key, Op, stored) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
-    Status = 0,
+    Status = ?NO_ERROR,
     BodyOut = <<>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
@@ -278,7 +278,7 @@ canned_responses(binary, _Key, Op, stored) ->
 canned_responses(binary, _Key, Op, deleted) -> %% same as stored, intentionally
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
-    Status = 0,
+    Status = ?NO_ERROR,
     BodyOut = <<>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
@@ -289,7 +289,7 @@ canned_responses(binary, _Key, Op, deleted) -> %% same as stored, intentionally
 canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
-    Status = 0,
+    Status = ?NO_ERROR,
     BodyOut = <<ExtrasOut/binary, I:64/integer>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
@@ -300,7 +300,7 @@ canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
 canned_responses(binary, _Key, Op, already_exists) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
-    Status = 16#0002,
+    Status = ?KEY_EXISTS,
     BodyOut = <<>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
@@ -337,8 +337,8 @@ binary_response_get_keys(_Port, [], Acc, _WithCas) ->
     Acc;
 binary_response_get_keys(Port, [{Op, Key} | Keys], Acc, WithCas) ->
     {Status, Value, CAS} =  case get_key(Port, Key) of
-                                undefined -> {1, <<>>, undefined};
-                                {Val, StoredCAS} -> {0, Val, StoredCAS}
+                                undefined -> {?NOT_FOUND, <<>>, undefined};
+                                {Val, StoredCAS} -> {?NO_ERROR, Val, StoredCAS}
                             end,
     LValue = mero_util:to_bin(Value),
     ExtrasOut = <<>>,

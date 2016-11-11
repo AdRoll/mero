@@ -41,6 +41,16 @@
 -define(MEMCACHE_DELETEQ, 16#14).
 -define(MEMCACHE_FLUSH_ALL, 16#08).
 
+-define(NO_ERROR,          16#0000).
+-define(NOT_FOUND,         16#0001).
+-define(KEY_EXISTS,        16#0002).
+-define(VALUE_TOO_LARGE,   16#0003).
+-define(INVALID_ARGUMENTS, 16#0004).
+-define(NOT_STORED,        16#0005).
+-define(NON_NUMERIC_INCR,  16#0006).
+-define(UNKNOWN_COMMAND,   16#0081).
+-define(OOM,               16#0082).
+
 %%% If a connection attempt fails, or a connection is broken
 -define(RECONNECT_WAIT_TIME, 200).
 
