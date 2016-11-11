@@ -179,7 +179,7 @@ async_by_shard(Name, KeysGroupedByShards, TimeLimit,
                     mero_pool:checkin_closed(Conn),
                     {ProcessedIn, [Reason | ErrorsIn]};
                 {Client, {error, Reason}} ->
-                    mero_pool:checkin_closed(Client),
+                    mero_pool:checkin(Client),
                     {ProcessedIn, [Reason | ErrorsIn]};
                 {Client, Responses} when is_list(Responses) ->
                     mero_pool:checkin(Client),
