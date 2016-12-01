@@ -31,7 +31,8 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -export([start_link/1,
-         init/1]).
+         init/1,
+         auto_discover/2]).
 
 -behaviour(supervisor).
 
@@ -39,6 +40,12 @@
               {mero_cluster, cluster_size, 0},
               {mero_cluster, pools, 0},
               {mero_cluster, server, 1}]).
+
+-define(SOCKET_OPTIONS, [binary,
+                         {packet, raw},
+                         {active, false},
+                         {reuseaddr, true},
+                         {nodelay, true}]).
 
 %%%===================================================================
 %%% API functions
@@ -49,10 +56,24 @@
 -spec start_link(ClusterConfig :: list({ClusterName :: atom(),
                                         Config :: list()})) ->
     {ok, Pid :: pid()} | {error, Reason :: term()}.
-start_link(ClusterConfig) ->
+start_link(Config) ->
+    ClusterConfig = process_server_specs(Config),
+
     ok = mero_cluster:load_clusters(ClusterConfig),
     PoolDefs = mero_cluster:child_definitions(),
     supervisor:start_link({local, ?MODULE}, ?MODULE, [PoolDefs]).
+
+%% Given an elasticache config Endpoint and port, return parsed list of {host, port} nodes in cluster
+-spec auto_discover(string(), integer()) -> list({string(), integer()}).
+auto_discover(Endpoint, Port) ->
+    {ok, Socket} = gen_tcp:connect(Endpoint, Port, ?SOCKET_OPTIONS),
+    Msg = <<"config get cluster\n">>,
+    ok = gen_tcp:send(Socket, Msg),
+
+    ReqData = cluster_recv(Socket, _TotalRecvs = 10),
+    gen_tcp:close(Socket),
+
+    parse_cluster_nodes(ReqData).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -68,3 +89,60 @@ init([PoolDefs]) ->
 child(I, Type, {ClusterName, Host, Port, Name, WrkModule}) ->
     {Name, {I, start_link, [ClusterName, Host, Port, Name, WrkModule]}, permanent,
       5000, Type, [I]}.
+
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+
+%% Parse elasticache `config get cluster` result
+-spec parse_cluster_nodes(string()) -> list({string(), integer()}).
+parse_cluster_nodes(Data) ->
+    [_Header, _Mods, ClusterLine, _CarriageRet, _END] = re:split(Data, "\n", [trim]),
+
+    HostIpPorts = re:split(ClusterLine, " ", [trim]),
+    [begin [Host, _IP, Port] = re:split(HIP, "\\|", [trim]),
+        {binary_to_list(Host), binary_to_integer(Port)} end || HIP <- HostIpPorts].
+
+process_value({servers, {elasticache, ConfigEndpoint}}) ->
+    Hosts = auto_discover(ConfigEndpoint, 11211),
+    {servers, Hosts};
+process_value(V) ->
+    V.
+
+process_server_specs(L) ->
+    lists:foldl(fun ({ClusterName, AttrPlist}, Acc) ->
+                        [{ClusterName, [process_value(Attr)
+                                        || Attr <- AttrPlist]} | Acc]
+                end, [], L).
+
+cluster_recv(Socket, Recvs) when Recvs > 0 ->
+    Timeout = 1000,
+    {ok, Data} = gen_tcp:recv(Socket, 0, Timeout),
+    case binary:match(Data, <<"END\r\n">>) of
+        nomatch ->
+            binary_to_list(Data) ++ cluster_recv(Socket, Recvs - 1);
+        _Match ->
+            binary_to_list(Data)
+        end;
+cluster_recv(_Socket, Recvs) when Recvs =< 0 ->
+    no_cluster.
+
+
+
+%%%===================================================================
+%%% Unit tests
+%%%===================================================================
+
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+parse_cluster_nodes_test() ->
+    ClusterRaw = "CONFIG cluster 0 406\r\n1\nserver1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazonaws.com|10.101.101.00|11211 server3.cache.amazonaws.com|10.102.00.102|11211\n\r\nEND\r\n",
+
+    ExpectedParse = [{"server1.cache.amazonaws.com", 11211}, {"server2.cache.amazonaws.com", 11211}, {"server3.cache.amazonaws.com", 11211}],
+
+    ?assertEqual(ExpectedParse, parse_cluster_nodes(ClusterRaw)).
+
+-endif.
