@@ -69,6 +69,22 @@ algorithms available are `shard_phash2` and `shard_crc32`.
 
 ```
 
+Cluster Auto Discovery
+======================
+
+Configuration can also be implemented to support auto discovery of the cluster as opposed to hardcoding nodes. Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/AutoDiscovery.html)) and port as in the following example.
+
+```
+    [{cluster_b,
+        [{servers, {elasticache, "ConfigEndpointHostname.com", PortNumber}},
+             {sharding_algorithm, {mero, shard_crc32}},
+             {workers_per_shard, 1},
+             {pool_worker_module, mero_wrk_tcp_binary}]
+    },
+    ...
+]
+
+```
 
 Using Mero:
 ===============

@@ -24,10 +24,11 @@ clean:
 
 test: logs_clean all
 	@$(REBAR)  skip_deps=true ct
+	@$(REBAR)  skip_deps=true verbose=1 eunit
 
 testfast:
 	@$(REBAR)  skip_deps=true ct
+	@$(REBAR)  skip_deps=true eunit
 
 xref:
 	@$(REBAR) skip_deps=true xref
-
