@@ -66,6 +66,7 @@ all() -> [
          %% mincrement_txt,
          %% cas_binary,
          %% cas_txt
+         %% mgets_binary
     ].
 
 
@@ -224,6 +225,10 @@ cas_txt(Conf) ->
 cas_binary(Conf) ->
     Keys = keys(Conf),
     cas(cluster_binary, cluster_txt, Keys).
+
+mgets_binary(Conf) ->
+    Keys = keys(Conf),
+    mgets(cluster_binary, cluster_txt, Keys).
 
 
 %%%=============================================================================
@@ -392,6 +397,14 @@ cas(Cluster, ClusterAlt, Keys) ->
          ?assertNotEqual(CAS, NCAS)
      end
      || Key <- Keys].
+
+
+%% our test server doesn't emulate a real memcached server with 100% accuracy.
+mgets(Cluster, _ClusterAlt, Keys) ->
+    Expected = lists:keysort(1, [{Key, undefined, undefined}
+                                 || Key <- Keys]),
+    ?assertEqual(Expected, lists:keysort(1, mero:mgets(Cluster, Keys, 1000))).
+
 
 
 %%%=============================================================================

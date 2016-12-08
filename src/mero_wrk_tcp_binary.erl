@@ -428,7 +428,7 @@ receive_response(Client, TimeLimit, Keys, Acc) ->
                             receive_response(Client, TimeLimit, NKeys, Responses);
                         %% This was the last one!
                         ?MEMCACHE_GETK ->
-                            Responses ++ [{KeyIn, undefined} || KeyIn <- NKeys]
+                            Responses ++ [#mero_item{key = KeyIn} || KeyIn <- NKeys]
                     end;
                 Data ->
                     throw({failed, {unexpected_body, Data}})
