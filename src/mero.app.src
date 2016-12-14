@@ -8,7 +8,8 @@
   {applications, [
                   kernel,
                   stdlib,
-                  inets
+                  inets,
+                  dynamic_compile
                  ]},
   {mod, {mero, []}},
   {env, [
