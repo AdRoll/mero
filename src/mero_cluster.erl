@@ -217,8 +217,7 @@ shard_identifier(Name, Key) ->
 -spec random_integer(Max :: integer()) ->
     integer().
 random_integer(Max) when Max > 0 ->
-    random:seed(os:timestamp()),
-    random:uniform(Max) - 1.
+    rand:uniform(Max) - 1.
 
 
 

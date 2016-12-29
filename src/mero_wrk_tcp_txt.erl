@@ -132,6 +132,16 @@ transaction(Client, add, [Key, Value, ExpTime, TimeLimit]) ->
             {error, Reason}
     end;
 
+transaction(Client, get, [Key, TimeLimit]) ->
+    case send_receive(Client, {?MEMCACHE_GET, {[Key]}}, TimeLimit) of
+        {ok, [Found]} ->
+            {Client, Found};
+        {ok, []} ->
+            {Client, #mero_item{key = Key}};
+        {error, Reason} ->
+            {error, Reason}
+    end;
+
 transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
     case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
         {ok, stored} ->

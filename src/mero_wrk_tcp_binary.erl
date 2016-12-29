@@ -96,6 +96,17 @@ transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]
             {Client, {ok, to_integer(ActualValue)}}
     end;
 
+transaction(Client, get, [Key, TimeLimit]) ->
+    case send_receive(Client, {?MEMCACHE_GET, {[Key]}}, TimeLimit) of
+        {ok, #mero_item{key = <<>>} = Result} ->
+            {Client, Result#mero_item{key = Key}};
+        {ok, #mero_item{} = Result} ->
+            {Client, Result};
+        {ok, {error, Reason}} ->
+            {Client, {error, Reason}};
+        {error, Reason} ->
+            {error, Reason}
+    end;
 
 transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
     case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
@@ -231,6 +242,9 @@ pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     ExpirationTime = 16#00,
     pack(<<ExpirationTime:32>>, ?MEMCACHE_FLUSH_ALL, <<>>);
 
+pack({?MEMCACHE_GET, {[Key]}}) ->
+    pack(<<>>, ?MEMCACHE_GET, Key);
+
 pack({getkq, Key}) ->
     pack(<<>>, ?MEMCACHE_GETKQ, Key);
 
@@ -300,23 +314,23 @@ receive_response(Client, Op, TimeLimit) ->
             case recv_bytes(Client, BodySize, TimeLimit) of
                 <<_Extras:ExtrasSize/binary, Key:KeySize/binary, Value/binary>> ->
                     case Status of
-                        16#0001 ->
-                            #mero_item{key = Key, cas = cas_value(CAS)};
-                        16#0000 ->
+                        ?NO_ERROR ->
                             #mero_item{key = Key, value = Value, cas = cas_value(CAS)};
-                        16#0002 ->
+                        ?NOT_FOUND ->
+                            #mero_item{key = Key, cas = cas_value(CAS)};
+                        ?KEY_EXISTS ->
                             {error, already_exists};
-                        16#0003 ->
+                        ?VALUE_TOO_LARGE ->
                             {error, value_too_large};
-                        16#0004 ->
+                        ?INVALID_ARGUMENTS ->
                             {error, invalid_arguments};
-                        16#0005 ->
+                        ?NOT_STORED ->
                             {error, not_stored};
-                        16#0006 ->
+                        ?NON_NUMERIC_INCR ->
                             {error, incr_decr_on_non_numeric_value};
-                        16#0081 ->
+                        ?UNKNOWN_COMMAND ->
                             {error, unknown_command};
-                        16#0082 ->
+                        ?OOM ->
                             {error, out_of_memory};
                         Status ->
                             throw({failed, {response_status, Status}})
@@ -440,6 +454,6 @@ receive_response(Client, TimeLimit, Keys, Acc) ->
 async_blank_response(_Client, _Keys, _TimeLimit) ->
     {ok, [ok]}.
 
-filter_by_status(16#0000, _Op, Key, ValueReceived)  -> {Key, ValueReceived};
-filter_by_status(16#0001, _Op, Key, _ValueReceived) -> {Key, undefined};
+filter_by_status(?NO_ERROR,  _Op, Key, ValueReceived)  -> {Key, ValueReceived};
+filter_by_status(?NOT_FOUND, _Op, Key, _ValueReceived) -> {Key, undefined};
 filter_by_status(Status, _Op, _Key, _ValueReceived) -> throw({failed, {response_status, Status}}).
