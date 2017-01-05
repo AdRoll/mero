@@ -67,6 +67,9 @@ all() -> [
          %% cas_binary,
          %% cas_txt
          %% mgets_binary
+         %% madd_binary,
+         %% mset_binary,
+         %% mcas_binary
     ].
 
 
@@ -229,6 +232,18 @@ cas_binary(Conf) ->
 mgets_binary(Conf) ->
     Keys = keys(Conf),
     mgets(cluster_binary, cluster_txt, Keys).
+
+madd_binary(Conf) ->
+    Keys = keys(Conf),
+    madd(cluster_binary, cluster_txt, Keys).
+
+mset_binary(Conf) ->
+    Keys = keys(Conf),
+    mset(cluster_binary, cluster_txt, Keys).
+
+mcas_binary(Conf) ->
+    Keys = keys(Conf),
+    mcas(cluster_binary, cluster_txt, Keys).
 
 
 %%%=============================================================================
@@ -399,12 +414,47 @@ cas(Cluster, ClusterAlt, Keys) ->
      || Key <- Keys].
 
 
-%% our test server doesn't emulate a real memcached server with 100% accuracy.
+%% this is needed b/c our test server doesn't emulate a real memcached server with 100%
+%% accuracy.
 mgets(Cluster, _ClusterAlt, Keys) ->
     Expected = lists:keysort(1, [{Key, undefined, undefined}
                                  || Key <- Keys]),
     ?assertEqual(Expected, lists:keysort(1, mero:mgets(Cluster, Keys, 1000))).
 
+
+madd(Cluster, _ClusterAlt, Keys) ->
+    Expected = lists:duplicate(length(Keys), ok) ++ [{error, already_exists}],
+    KVs = [{Key, <<"xyzzy">>, 1000}
+           || Key <- Keys] ++ [{hd(Keys), <<"flub">>, 1000}],
+    ?assertEqual(Expected, mero:madd(Cluster, KVs, 1000)),
+    ?assertEqual({hd(Keys), <<"xyzzy">>}, mero:get(Cluster, hd(Keys), 1000)).
+
+
+mset(Cluster, _ClusterAlt, Keys) ->
+    KVs = [{Key, Key, 1000}
+           || Key <- Keys],
+    Expected = lists:duplicate(length(Keys), ok),
+    ?assertEqual(Expected, mero:mset(Cluster, KVs, 1000)),
+    ?assertEqual(lists:keysort(1, [{Key, Key}
+                                   || Key <- Keys]),
+                 lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
+
+
+mcas(Cluster, _ClusterAlt, Keys) ->
+    mero:mset(Cluster, [{Key, Key, 1000}
+                        || Key <- Keys], 1000),
+    Stored = mero:mgets(Cluster, Keys, 1000),
+    FailedUpdate = {element(1, hd(Stored)), <<"xyzzy">>, 1000, 12345},
+    Updates = [FailedUpdate
+               | [{Key, <<Key/binary, Key/binary>>, 1000, CAS}
+                  || {Key, _, CAS} <- tl(Stored)]] ++ [FailedUpdate],
+    Expected = [{error, already_exists}
+                | lists:duplicate(length(Stored) - 1, ok)] ++ [{error, already_exists}],
+    ?assertEqual(Expected, mero:mcas(Cluster, Updates, 1000)),
+    ?assertEqual(lists:keysort(1, [{element(1, hd(Stored)), element(1, hd(Stored))}
+                                   | [{Key, <<Key/binary, Key/binary>>}
+                                      || {Key, _, _} <- tl(Stored)]]),
+                 lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
 
 
 %%%=============================================================================
