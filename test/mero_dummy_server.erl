@@ -51,8 +51,6 @@
 
 -define(TCP_SEND_TIMEOUT, 15000).
 -define(FULLSWEEP_AFTER_OPT, {fullsweep_after, 10}).
--define(OP_Increment, 16#05).
--define(OP_Get, 16#00).
 
 -define(ETS, ?MODULE).
 
@@ -234,26 +232,27 @@ parse(Request) ->
 
 %%%% Response
 
-canned_responses(text, _Key, _Op, not_found)      -> ["NOT_FOUND", <<"\r\n">>];
-canned_responses(text, _Key, _Op, not_stored)     -> ["NOT_STORED", <<"\r\n">>];
-canned_responses(text, _Key, _Op, stored)         -> [<<"STORED">>, <<"\r\n">>];
-canned_responses(text, _Key, _Op, already_exists) -> [<<"EXISTS">>, <<"\r\n">>];
-canned_responses(text, _Key, _Op, deleted)        -> [<<"DELETED">>, <<"\r\n">>];
-canned_responses(text, _Key, _Op, {incr, I})      -> [mero_util:to_bin(I), <<"\r\n">>];
-canned_responses(text, _Key, _Op, noop)           -> [];
+canned_responses(text, _Index, _Key, _Op, not_found)      -> ["NOT_FOUND", <<"\r\n">>];
+canned_responses(text, _Index, _Key, _Op, not_stored)     -> ["NOT_STORED", <<"\r\n">>];
+canned_responses(text, _Index, _Key, _Op, stored)         -> [<<"STORED">>, <<"\r\n">>];
+canned_responses(text, _Index, _Key, _Op, already_exists) -> [<<"EXISTS">>, <<"\r\n">>];
+canned_responses(text, _Index, _Key, _Op, deleted)        -> [<<"DELETED">>, <<"\r\n">>];
+canned_responses(text, _Index, _Key, _Op, {incr, I})      -> [mero_util:to_bin(I), <<"\r\n">>];
+canned_responses(text, _Index, _Key, _Op, noop)           -> [];
 
-canned_responses(binary, _Key, Op, not_found) ->
+
+canned_responses(binary, Index, _Key, Op, not_found) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NOT_FOUND,
     BodyOut = <<>>,
     BodySizeOut = size(BodyOut),
     KeySize = 0,
-
     <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+      BodySizeOut:32, (opaque(Index)):32,
+      0:64, BodyOut/binary>>;
 
-canned_responses(binary, _Key, Op, not_stored) ->
+canned_responses(binary, Index, _Key, Op, not_stored) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NOT_STORED,
@@ -262,9 +261,10 @@ canned_responses(binary, _Key, Op, not_stored) ->
     KeySize = 0,
 
     <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+      BodySizeOut:32, (opaque(Index)):32,
+      0:64, BodyOut/binary>>;
 
-canned_responses(binary, _Key, Op, stored) ->
+canned_responses(binary, Index, _Key, Op, stored) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NO_ERROR,
@@ -273,9 +273,10 @@ canned_responses(binary, _Key, Op, stored) ->
     KeySize = 0,
 
     <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+      BodySizeOut:32, (opaque(Index)):32,
+      0:64, BodyOut/binary>>;
 
-canned_responses(binary, _Key, Op, deleted) -> %% same as stored, intentionally
+canned_responses(binary, Index, _Key, Op, deleted) -> %% same as stored, intentionally
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NO_ERROR,
@@ -284,9 +285,10 @@ canned_responses(binary, _Key, Op, deleted) -> %% same as stored, intentionally
     KeySize = 0,
 
     <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+      BodySizeOut:32, (opaque(Index)):32,
+      0:64, BodyOut/binary>>;
 
-canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
+canned_responses(binary, Index, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NO_ERROR,
@@ -295,9 +297,10 @@ canned_responses(binary, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
     KeySize = 0,
 
     <<16#81:8, ?MEMCACHE_INCREMENT:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+      BodySizeOut:32, (opaque(Index)):32,
+      0:64, BodyOut/binary>>;
 
-canned_responses(binary, _Key, Op, already_exists) ->
+canned_responses(binary, Index, _Key, Op, already_exists) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?KEY_EXISTS,
@@ -306,9 +309,23 @@ canned_responses(binary, _Key, Op, already_exists) ->
     KeySize = 0,
 
     <<16#81:8, Op:8, KeySize:16, ExtrasSizeOut:8, 0, Status:16,
-      BodySizeOut:32, 0:32, 0:64, BodyOut/binary>>;
+      BodySizeOut:32, (opaque(Index)):32,
+      0:64, BodyOut/binary>>;
 
-canned_responses(binary, _Key, _Op, noop)       -> [].
+canned_responses(binary, _Index, _Key, _Op, noop)       -> [].
+
+
+opaque(undefined) ->
+    16#00;
+opaque(Index) when is_integer(Index) ->
+    Index.
+
+
+unless_quiet(true, _) ->
+    <<>>;
+unless_quiet(false, Value) ->
+    Value.
+
 
 text_response_get_keys(_Port, [], Acc, _WithCas) ->
     [Acc,  "END\r\n"];
@@ -379,41 +396,41 @@ response(Port, Request) ->
                 binary ->
                     binary_response_get_keys(Port, Keys, [], true)
             end;
-        {Kind, {set, Key, Bytes}} ->
+        {Kind, {set, Key, Bytes, Index, Quiet}} ->
             put_key(Port, Key, Bytes),
-            canned_responses(Kind, Key, ?MEMCACHE_SET, stored);
-        {Kind, {cas, Key, Bytes, CAS}} ->
+            unless_quiet(Quiet, canned_responses(Kind, Index, Key, ?MEMCACHE_SET, stored));
+        {Kind, {cas, Key, Bytes, CAS, Index, Quiet}} ->
             case get_key(Port, Key) of
                 undefined ->
                     ct:log("cas of non-existent key ~p", [Key]),
-                    canned_responses(Kind, Key, ?MEMCACHE_SET, not_found);
+                    canned_responses(Kind, Index, Key, ?MEMCACHE_SET, not_found);
                 {_, CAS} ->
                     ct:log("cas of existing key ~p with correct token ~p", [Key, CAS]),
                     put_key(Port, Key, Bytes, CAS + 1),
-                    canned_responses(Kind, Key, ?MEMCACHE_SET, stored);
+                    unless_quiet(Quiet, canned_responses(Kind, Index, Key, ?MEMCACHE_SET, stored));
                 {_, ExpectedCAS} ->
                     ct:log("cas of existing key ~p with incorrect token ~p (wanted ~p)",
                            [Key, CAS, ExpectedCAS]),
-                    canned_responses(Kind, Key, ?MEMCACHE_SET, already_exists)
+                    canned_responses(Kind, Index, Key, ?MEMCACHE_SET, already_exists)
             end;
         {Kind, {delete, Key}} ->
             ct:log("deleting ~p", [Key]),
             case get_key(Port, Key) of
                 undefined ->
                     ct:log("was not present"),
-                    canned_responses(Kind, Key, ?MEMCACHE_DELETE, not_found);
+                    canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, not_found);
                 {_Value, _} ->
                     ct:log("key was present"),
                     put_key(Port, Key, undefined, undefined),
-                    canned_responses(Kind, Key, ?MEMCACHE_DELETE, deleted)
+                    canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, deleted)
             end;
-        {Kind, {add, Key, Bytes}} ->
+        {Kind, {add, Key, Bytes, Index, Quiet}} ->
             case get_key(Port, Key) of
                 undefined ->
                     put_key(Port, Key, Bytes, undefined),
-                    canned_responses(Kind, Key, ?MEMCACHE_ADD, stored);
+                    unless_quiet(Quiet, canned_responses(Kind, Index, Key, ?MEMCACHE_ADD, stored));
                 {_Value, _} ->
-                    canned_responses(Kind, Key, ?MEMCACHE_ADD, not_stored)
+                    canned_responses(Kind, Index, Key, ?MEMCACHE_ADD, not_stored)
             end;
         {Kind, {incr, Key, ExpTime, Initial, Bytes}} ->
             case get_key(Port, Key) of
@@ -421,15 +438,15 @@ response(Port, Request) ->
                     %% Return error
                     case ExpTime of
                         4294967295 -> %% 32 bits, all 1
-                            canned_responses(Kind, Key, ?MEMCACHE_INCREMENT, not_found);
+                            canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, not_found);
                         _ ->
                             put_key(Port, Key, Initial),
-                            canned_responses(Kind, Key, ?MEMCACHE_INCREMENT, {incr, Initial})
+                            canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, {incr, Initial})
                     end;
                 {Value, _} ->
                     Result = mero_util:to_int(Value) + mero_util:to_int(Bytes),
                     put_key(Port, Key, Result),
-                    canned_responses(Kind, Key, ?MEMCACHE_INCREMENT, {incr, Result})
+                    canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, {incr, Result})
             end
     end.
 
@@ -438,9 +455,9 @@ response(Port, Request) ->
 
 parse_text([<<"get">> | Keys]) -> {[], {get, Keys}};
 parse_text([<<"gets">> | Keys]) -> {[], {gets, Keys}};
-parse_text([<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {set, Key, Bytes}};
-parse_text([<<"cas">>, Key, _Flag, _ExpTime, _NBytes, CAS, Bytes]) -> {[], {cas, Key, Bytes, binary_to_integer(CAS)}};
-parse_text([<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {add, Key, Bytes}};
+parse_text([<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {set, Key, Bytes, undefined, false}};
+parse_text([<<"cas">>, Key, _Flag, _ExpTime, _NBytes, CAS, Bytes]) -> {[], {cas, Key, Bytes, binary_to_integer(CAS), undefined, false}};
+parse_text([<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {add, Key, Bytes, undefined, false}};
 parse_text([<<"delete">>, Key]) -> {[], {delete, Key}};
 parse_text([<<"delete">>, Key, <<"noreply">>, <<>> | Rest]) ->
     parse_multi_delete_text([Key], Rest);
@@ -471,23 +488,29 @@ parse_binary(<<16#80:8, ?MEMCACHE_GETK:8, _/binary>> = Bin) ->
     {[], {get, parse_get([], Bin)}};
 parse_binary(<<16#80:8, ?MEMCACHE_GETKQ:8, _/binary>> = Bin) ->
     {[], {get, parse_get([], Bin)}};
-parse_binary(<<16#80:8, ?MEMCACHE_SET:8, KeySize:16,
+parse_binary(<<16#80:8, Op:8, KeySize:16,
                ExtrasSize:8, 16#00:8, 16#00:16,
-               _BodySize:32, 16#00:32, CAS:64,
+               _BodySize:32, Index:32, CAS:64,
                _Extras:ExtrasSize/binary,
-               Key:KeySize/binary, Value/binary>>) ->
+               Key:KeySize/binary, Value/binary>>)
+  when Op == ?MEMCACHE_SET;
+       Op == ?MEMCACHE_SETQ ->
+    Quiet = Op == ?MEMCACHE_SETQ,
     case CAS of
         16#00 ->
-            {[], {set, Key, Value}};
+            {[], {set, Key, Value, Index, Quiet}};
         _ ->
-            {[], {cas, Key, Value, CAS}}
+            {[], {cas, Key, Value, CAS, Index, Quiet}}
     end;
-parse_binary(<<16#80:8, ?MEMCACHE_ADD:8, KeySize:16,
+parse_binary(<<16#80:8, Op:8, KeySize:16,
                ExtrasSize:8, 16#00:8, 16#00:16,
-               _BodySize:32, 16#00:32, 16#00:64,
+               _BodySize:32, Index:32, 16#00:64,
                _Extras:ExtrasSize/binary,
-               Key:KeySize/binary, Value/binary>>) ->
-    {[], {add, Key, Value}};
+               Key:KeySize/binary, Value/binary>>)
+  when Op == ?MEMCACHE_ADD;
+       Op == ?MEMCACHE_ADDQ ->
+    Quiet = Op == ?MEMCACHE_ADDQ,
+    {[], {add, Key, Value, Index, Quiet}};
 parse_binary(<<16#80:8, ?MEMCACHE_DELETE:8, KeySize:16,
                ExtrasSize:8, 16#00:8, 16#00:16,
                _BodySize:32, 16#00:32, 16#00:64,
