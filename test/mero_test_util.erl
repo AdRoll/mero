@@ -95,7 +95,7 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
             end, Acc, HostPortList)
       end, [], ClusterConfig),
 
-  ok = application:start(mero),
+  {ok, _} = application:ensure_all_started(mero),
 
   %% Wait for the connections
   [ wait_for_pool_state(PoolName, MinConn, MinConn, 0, 0)
