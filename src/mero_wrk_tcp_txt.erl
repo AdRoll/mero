@@ -158,6 +158,13 @@ transaction(Client, flush_all, [TimeLimit]) ->
             {error, Reason}
     end;
 
+%% mset/madd are currently only supported by the binary protocol implementation.
+transaction(Client, async_mset, _) ->
+    {Client, {error, unsupported_operation}};
+
+transaction(Client, async_madd, _) ->
+    {Client, {error, unsupported_operation}};
+
 transaction(Client, async_mget, [Keys]) ->
     case async_mget(Client, Keys) of
         {error, Reason} ->

@@ -50,9 +50,9 @@
          mget/3,
          mgets/2,
          mgets/3,
-         set/5,
-         cas/6,
-         add/5,
+         set/5, mset/3,
+         cas/6, mcas/3,
+         add/5, madd/3,
          flush_all/1,
          shard_phash2/2,
          shard_crc32/2
@@ -164,6 +164,22 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
     mero_conn:add(ClusterName, Key, Value, BExpTime, Timeout).
 
 
+-spec madd(ClusterName :: atom(),
+           [{Key :: binary(),
+             Value :: binary(),
+             ExpTime :: integer()}],
+           Timeout :: integer()) ->
+    [ok | {error, Reason :: term()}].
+madd(ClusterName, KVEs, Timeout)
+    when is_atom(ClusterName) ->
+    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime))}
+         || {Key, Value, ExpTime} <- KVEs,
+            is_binary(Key),
+            is_binary(Value),
+            is_integer(ExpTime)],
+    mero_conn:madd(ClusterName, L, Timeout).
+
+
 -spec set(ClusterName :: atom(),
           Key :: binary(),
           Value :: binary(),
@@ -172,6 +188,18 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
     ok | {error, Reason :: term()}.
 set(ClusterName, Key, Value, ExpTime, Timeout) ->
     cas(ClusterName, Key, Value, ExpTime, Timeout, undefined).
+
+
+-spec mset(ClusterName :: atom(),
+           [{Key :: binary(),
+             Value :: binary(),
+             ExpTime :: integer()}], % value is in seconds
+           Timeout :: integer()) ->
+    [ok | {error, Reason :: term()}].
+mset(ClusterName, KVEs, Timeout) ->
+    L = [{Key, Value, ExpTime, undefined}
+         || {Key, Value, ExpTime} <- KVEs],
+    mcas(ClusterName, L, Timeout).
 
 
 -spec cas(ClusterName :: atom(),
@@ -186,6 +214,24 @@ cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     %% note: if CAS is undefined, this will be an unconditional set:
     mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout, CAS).
+
+
+-spec mcas(ClusterName :: atom(),
+           [{Key :: binary(),
+             Value :: binary(),
+             ExpTime :: integer(), % value is in seconds
+             CAS :: cas_token()}],
+           Timeout :: integer()) ->
+    [ok | {error, Reason :: term()}].
+mcas(ClusterName, KVECs, Timeout)
+     when is_atom(ClusterName) ->
+    %% note: if CAS is undefined, the corresponding set will be conditional.
+    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
+         || {Key, Value, ExpTime, CAS} <- KVECs,
+            is_binary(Key),
+            is_binary(Value),
+            is_integer(ExpTime)],
+    mero_conn:mset(ClusterName, L, Timeout).
 
 
 %% @doc: Increments a counter: initial value is 1, steps of 1, timeout defaults to 24 hours.

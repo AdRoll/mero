@@ -33,10 +33,10 @@
 -export([increment_counter/7,
          mincrement_counter/7,
          get/3,
-         set/6,
+         set/6, mset/3,
          delete/3,
          mdelete/3,
-         add/5,
+         add/5, madd/3,
          flush_all/2
         ]).
 
@@ -78,6 +78,15 @@ set(Name, Key, Value, ExpTime, Timeout, CAS) ->
     pool_execute(PoolName, set, [Key, Value, ExpTime, TimeLimit, CAS], TimeLimit).
 
 
+mset(Name, KVECs, Timeout) ->
+    mset_(Name, KVECs, Timeout, async_mset).
+
+
+madd(Name, KVEs, Timeout) ->
+    mset_(Name, [{Key, Value, ExpTime, undefined}
+                 || {Key, Value, ExpTime} <- KVEs], Timeout, async_madd).
+
+
 get(Name, [Key], Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
@@ -94,7 +103,7 @@ get(Name, Keys, Timeout) ->
     async_by_shard(Name, KeysGroupedByShards, TimeLimit,
                    #async_op{op = async_mget,
                              op_error = async_mget_error,
-                             response = async_response,
+                             response = async_mget_response,
                              response_error = async_mget_response_error}).
 
 
@@ -130,6 +139,31 @@ flush_all(Name, Timeout) ->
 %%% Internal functions
 %%%=============================================================================
 
+mset_(Name, KVECs, Timeout, Op) ->
+    TimeLimit = mero_conf:add_now(Timeout),
+    Requests = lists:zip(lists:seq(1, length(KVECs)), KVECs),
+    %% we number each request according to its original position so we can return results
+    %% in the same order:
+    NKVECs = [{N, Key, Value, ExpTime, CAS}
+              || {N, {Key, Value, ExpTime, CAS}} <- Requests],
+    ItemsGroupedByShards = mero_cluster:group_by_shards(Name, NKVECs, 2),
+    Processed = case async_by_shard(Name, ItemsGroupedByShards, TimeLimit,
+                                    #async_op{op = Op,
+                                              op_error = async_mset_error,
+                                              response = async_mset_response,
+                                              response_error = async_mset_response_error}) of
+                    {error, _ErrorsOut, ProcessedOut} ->
+                        ProcessedOut;
+                    ProcessedOut ->
+                        ProcessedOut
+                end,
+    tuple_to_list(lists:foldl(fun ({N, Result}, Acc) ->
+                                      setelement(N, Acc, Result)
+                              end,
+                              list_to_tuple(lists:duplicate(length(KVECs), {error, failed})),
+                              Processed)).
+
+
 increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLimit) ->
     case pool_execute(Name, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit], TimeLimit) of
         {ok, ActualValue} ->
@@ -140,19 +174,19 @@ increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLim
             {error, Reason}
     end.
 
-async_by_shard(Name, KeysGroupedByShards, TimeLimit,
+async_by_shard(Name, ItemsGroupedByShards, TimeLimit,
                #async_op{op = AsyncOp,
                          op_error = AsyncOpError,
                          response = AsyncOpResponse,
                          response_error = AsyncOpResponseError}) ->
     {Processed, Errors} =
         lists:foldl(
-            fun({ShardIdentifier, Keys}, {Processed, Errors}) ->
+            fun({ShardIdentifier, Items}, {Processed, Errors}) ->
                 begin
                     PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
                     case mero_pool:checkout(PoolName, TimeLimit) of
                         {ok, Conn} ->
-                            case mero_pool:transaction(Conn, AsyncOp, [Keys]) of
+                            case mero_pool:transaction(Conn, AsyncOp, [Items]) of
                                 {error, Reason} ->
                                     mero_pool:close(Conn, AsyncOpError),
                                     mero_pool:checkin_closed(Conn),
@@ -161,7 +195,7 @@ async_by_shard(Name, KeysGroupedByShards, TimeLimit,
                                     mero_pool:checkin(NConn),
                                     {Processed, [Reason | Errors]};
                                 {NConn, ok} ->
-                                    {[{NConn, Keys} | Processed], Errors}
+                                    {[{NConn, Items} | Processed], Errors}
                             end;
                         {error, Reason} ->
                             {Processed, [Reason | Errors]}
@@ -169,11 +203,11 @@ async_by_shard(Name, KeysGroupedByShards, TimeLimit,
                 end
             end,
             {[], []},
-            KeysGroupedByShards),
+            ItemsGroupedByShards),
     {ProcessedOut, ErrorsOut} =
         lists:foldl(
-        fun({Conn, Keys}, {ProcessedIn, ErrorsIn}) ->
-            case mero_pool:transaction(Conn, AsyncOpResponse, [Keys, TimeLimit]) of
+        fun({Conn, Items}, {ProcessedIn, ErrorsIn}) ->
+            case mero_pool:transaction(Conn, AsyncOpResponse, [Items, TimeLimit]) of
                 {error, Reason} ->
                     mero_pool:close(Conn, AsyncOpResponseError),
                     mero_pool:checkin_closed(Conn),
