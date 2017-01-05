@@ -448,7 +448,7 @@ response(Port, Request) ->
                         false -> canned_responses(Kind, Index, Key, Op, stored)
                     end;
                 {_Value, _} ->
-                    canned_responses(Kind, Index, Key, Op, not_stored)
+                    canned_responses(Kind, Index, Key, Op, already_exists)
             end;
         {Kind, {incr, Key, ExpTime, Initial, Bytes}} ->
             case get_key(Port, Key) of
