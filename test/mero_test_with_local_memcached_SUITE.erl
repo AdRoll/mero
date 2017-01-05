@@ -65,8 +65,8 @@ all() -> [
          %% mincrement_binary,
          %% mincrement_txt,
          %% cas_binary,
-         %% cas_txt
-         %% mgets_binary
+         %% cas_txt,
+         %% mgets_binary,
          %% madd_binary,
          %% mset_binary,
          %% mcas_binary
@@ -235,7 +235,8 @@ mgets_binary(Conf) ->
 
 madd_binary(Conf) ->
     Keys = keys(Conf),
-    madd(cluster_binary, cluster_txt, Keys).
+    madd(cluster_binary, cluster_txt, Keys),
+    madd_moving(cluster_binary, cluster_txt, Keys).
 
 mset_binary(Conf) ->
     Keys = keys(Conf),
@@ -428,6 +429,37 @@ madd(Cluster, _ClusterAlt, Keys) ->
            || Key <- Keys] ++ [{hd(Keys), <<"flub">>, 1000}],
     ?assertEqual(Expected, mero:madd(Cluster, KVs, 1000)),
     ?assertEqual({hd(Keys), <<"xyzzy">>}, mero:get(Cluster, hd(Keys), 1000)).
+
+
+madd_moving(Cluster, _ClusterAlt, _Keys) ->
+    %% with one existing key, add new keys repeatedly, moving the
+    %% position of the existing key each time:
+    ExistingKey = key(),
+    MakeKeys = fun (Start, Count) ->
+                       [<<"key", (integer_to_binary(I))/binary>>
+                        || I <- lists:seq(Start, Start + Count - 1)]
+               end,
+    Total = 100,
+    lists:foreach(fun ({Start, N}) ->
+                          mero:flush_all(Cluster),
+                          ok = mero:add(Cluster, ExistingKey, ExistingKey, 1000, 1000),
+                          CurKeys = MakeKeys(Start, N)
+                              ++ [ExistingKey]
+                              ++ MakeKeys(Start + N + 1, Total - N - 1),
+                          ExpectedResult = [case Key of
+                                                ExistingKey -> {error, already_exists};
+                                                _ -> ok
+                                            end
+                                            || Key <- CurKeys],
+                          ?assertEqual(ExpectedResult,
+                                       mero:madd(Cluster, [{Key, Key, 1000}
+                                                           || Key <- CurKeys], 1000)),
+                          ?assertEqual(lists:keysort(1, [{Key, Key}
+                                                         || Key <- CurKeys]),
+                                       lists:keysort(1, mero:mget(Cluster, CurKeys, 1000)))
+                  end,
+                  [{1, N}
+                   || N <- lists:seq(1, Total - 1)]).
 
 
 mset(Cluster, _ClusterAlt, Keys) ->
