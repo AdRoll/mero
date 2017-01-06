@@ -225,7 +225,7 @@ cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
     [ok | {error, Reason :: term()}].
 mcas(ClusterName, KVECs, Timeout)
      when is_atom(ClusterName) ->
-    %% note: if CAS is undefined, the corresponding set will be conditional.
+    %% note: if CAS is undefined, the corresponding set will be unconditional.
     L = [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
          || {Key, Value, ExpTime, CAS} <- KVECs,
             is_binary(Key),
