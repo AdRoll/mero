@@ -77,7 +77,10 @@ groups() ->
        multiget_undefineds,
        set,
        undefined_counter,
-       cas
+       cas,
+       madd,
+       mset,
+       mcas
       ]
      }
     ].
@@ -136,7 +139,6 @@ init_per_testcase(_Module, Conf) ->
 end_per_testcase(_Module, Conf) ->
     {ok, Pids} = proplists:get_value(pids, Conf),
     mero_test_util:stop_servers(Pids),
-    mero_dummy_server:reset_all_keys(),
     ok = application:stop(mero),
     ok.
 
@@ -341,21 +343,78 @@ increment(_Conf) ->
 
 
 add(_Conf) ->
-    ?assertMatch(ok, mero:add(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
+    ?assertEqual(ok, mero:add(cluster, <<"11">>, <<"Adroll">>, 11111, 1000)),
     ct:log("First not stored"),
-    ?assertMatch({error, not_stored}, mero:add(cluster, <<"11">>, <<"Adroll2">>, 111111, 1000)),
+    ?assertEqual({error, already_exists}, mero:add(cluster, <<"11">>, <<"Adroll2">>, 111111, 1000)),
+    await_connected(cluster),
     ct:log("Second not stored"),
-    ?assertMatch({error, not_stored}, mero:add(cluster, <<"11">>, <<"Adroll2">>, 111111, 1000)),
-    ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
+    ?assertEqual({error, already_exists}, mero:add(cluster, <<"11">>, <<"Adroll2">>, 111111, 1000)),
+    await_connected(cluster),
+    ?assertEqual({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
 
-    % ?assertMatch({<<"11">>, <<"Adroll">>}, mero:get(cluster, <<"11">>)),
-    ok.
-m() ->
-    ?assertMatch(ok,  mero:delete(cluster, <<"11">>, 1000)),
-    ?assertMatch({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
+    ?assertEqual(ok,  mero:delete(cluster, <<"11">>, 1000)),
+    ?assertEqual({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
 
-    ?assertMatch(ok, mero:add(cluster, <<"11">>, <<"Adroll3">>, 11111, 1000)),
-    ?assertMatch({<<"11">>, <<"Adroll3">>}, mero:get(cluster, <<"11">>)).
+    ?assertEqual(ok, mero:add(cluster, <<"11">>, <<"Adroll3">>, 11111, 1000)),
+    ?assertEqual({<<"11">>, <<"Adroll3">>}, mero:get(cluster, <<"11">>)).
+
+
+madd(_) ->
+    %% with one existing key, add new keys repeatedly, moving the
+    %% position of the existing key each time:
+    ExistingKey = key(),
+    MakeKeys = fun (Start, Count) ->
+                       [<<"key", (integer_to_binary(I))/binary>>
+                        || I <- lists:seq(Start, Start + Count - 1)]
+               end,
+    Total = 10,
+    lists:foreach(fun ({Start, N}) ->
+                          mero:flush_all(cluster),
+                          ok = mero:add(cluster, ExistingKey, ExistingKey, 10000, 1000),
+                          Keys = MakeKeys(Start, N)
+                              ++ [ExistingKey]
+                              ++ MakeKeys(Start + N + 1, Total - N - 1),
+                          Expected = [case Key of
+                                          ExistingKey -> {error, already_exists};
+                                          _ -> ok
+                                      end
+                                      || Key <- Keys],
+                          ?assertEqual(Expected,
+                                       mero:madd(cluster, [{Key, Key, 10000}
+                                                           || Key <- Keys], 5000)),
+                          ?assertEqual(lists:keysort(1, [{Key, Key}
+                                                         || Key <- Keys]),
+                                       lists:keysort(1, mero:mget(cluster, Keys, 5000)))
+                  end,
+                  [{1, N}
+                   || N <- lists:seq(1, Total - 1)]).
+
+
+mset(_) ->
+    Keys = [key() || _ <- lists:seq(1, 10)],
+    Updates = [{Key, Key, 10000} || Key <- Keys],
+    Expected = lists:duplicate(length(Updates), ok),
+    ?assertEqual(Expected, mero:mset(cluster, Updates, 5000)).
+
+
+mcas(_) ->
+    Keys = [key() || _ <- lists:seq(1, 10)],
+    Updates = [{Key, Key, 10000} || Key <- Keys],
+    ?assertEqual(lists:duplicate(length(Updates), ok),
+                 mero:mset(cluster, Updates, 5000)),
+    await_connected(cluster),
+    KVCs = mero:mgets(cluster, Keys, 5000),
+    FailingKeys = [hd(Keys), lists:nth(length(Keys), Keys)],
+    {NUpdates, Expected} =
+        lists:unzip([case lists:member(Key, FailingKeys) of
+                         true ->
+                             {{Key, <<"should not update">>, 10000, CAS + 1}, {error, already_exists}};
+                         false ->
+                             {{Key, <<Key/binary, Key/binary>>, 10000, CAS}, ok}
+                     end
+                     || {Key, _, CAS} <- KVCs]),
+    ?assertEqual(Expected,
+                 mero:mcas(cluster, NUpdates, 5000)).
 
 
 %%%=============================================================================
