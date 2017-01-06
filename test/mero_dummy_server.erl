@@ -108,7 +108,7 @@ handle_call({get_key, Port, Key}, _From, #state{keys = Keys} = State) ->
 
 handle_call({flush_all, Port}, _From, #state{keys = Keys} = State) ->
     ct:log("~p flushing all keys", [Port]),
-    NKeys = lists:filter(fun ({{Port, _}, _}) -> false;
+    NKeys = lists:filter(fun ({{KeyPort, _}, _}) when KeyPort == Port -> false;
                              (_) -> true
                          end, Keys),
     ct:log("new keys: ~p", [NKeys]),
