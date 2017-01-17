@@ -112,7 +112,7 @@
     shard_identifier/2,
     server/2,
     one_pool_of_each_shard_of_cluster/1,
-    group_by_shards/2,
+    group_by_shards/2, group_by_shards/3,
     pool_worker_module/1,
     random_pool_of_shard/2,
     clusters/0]).
@@ -190,7 +190,12 @@ server(Name, Key) ->
 -spec group_by_shards(ClusterName :: atom(), Keys :: list(binary())) ->
     [{PoolName ::atom(), Keys :: list(binary())}].
 group_by_shards(ClusterName, Keys) ->
-    group_by_shards(ClusterName, Keys, []).
+    group_by_shards_(ClusterName, Keys, undefined, []).
+
+-spec group_by_shards(ClusterName :: atom(), Items :: list(tuple()), KeyPos :: pos_integer()) ->
+    [{PoolName ::atom(), Items :: list(tuple())}].
+group_by_shards(ClusterName, Items, KeyPos) ->
+    group_by_shards_(ClusterName, Items, KeyPos, []).
 
 
 one_pool_of_each_shard_of_cluster(ClusterName) ->
@@ -225,16 +230,22 @@ random_integer(Max) when Max > 0 ->
 %%% private functions
 %%%===================================================================
 
-group_by_shards(_ClusterName, [], Acc) ->
+group_by_shards_(_ClusterName, [], _, Acc) ->
     Acc;
-group_by_shards(ClusterName, [Key | Keys], Acc) ->
+group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
+    Key = case KeyPos of
+              undefined ->
+                  Item;
+              N when is_integer(N), N > 0 ->
+                  element(N, Item)
+          end,
     Identifier = mero_cluster:shard_identifier(ClusterName, Key),
     case lists:keyfind(Identifier, 1, Acc) of
         false ->
-            group_by_shards(ClusterName, Keys, [{Identifier, [Key]} | Acc]);
+            group_by_shards_(ClusterName, Items, KeyPos, [{Identifier, [Item]} | Acc]);
         {Identifier, List} ->
-            group_by_shards(ClusterName, Keys,
-                lists:keyreplace(Identifier, 1, Acc, {Identifier, List ++ [Key]}))
+            group_by_shards_(ClusterName, Items, KeyPos,
+                lists:keyreplace(Identifier, 1, Acc, {Identifier, List ++ [Item]}))
     end.
 
 worker_defs(ClusterConfig) ->

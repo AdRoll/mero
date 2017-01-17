@@ -158,6 +158,13 @@ transaction(Client, flush_all, [TimeLimit]) ->
             {error, Reason}
     end;
 
+%% mset/madd are currently only supported by the binary protocol implementation.
+transaction(Client, async_mset, _) ->
+    {Client, {error, unsupported_operation}};
+
+transaction(Client, async_madd, _) ->
+    {Client, {error, unsupported_operation}};
+
 transaction(Client, async_mget, [Keys]) ->
     case async_mget(Client, Keys) of
         {error, Reason} ->
@@ -198,8 +205,8 @@ transaction(Client, async_blank_response, [Keys, Timeout]) ->
             {Client, Results}
     end;
 
-transaction(Client, async_response, [Keys, Timeout]) ->
-    case async_response(Client, Keys, Timeout) of
+transaction(Client, async_mget_response, [Keys, Timeout]) ->
+    case async_mget_response(Client, Keys, Timeout) of
         {error, Reason} ->
             {error, Reason};
         {ok, {error, Reason}} ->
@@ -402,7 +409,7 @@ async_increment(_Client, _Keys) ->
 async_blank_response(_Client, _Keys, _TimeLimit) ->
     {ok, [ok]}.
 
-async_response(Client, Keys, TimeLimit) ->
+async_mget_response(Client, Keys, TimeLimit) ->
     try
         {ok, receive_response(Client, {?MEMCACHE_GET, {Keys}}, TimeLimit, <<>>, [])}
     catch

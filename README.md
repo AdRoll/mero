@@ -188,6 +188,16 @@ ok
     cmd: {2,{<<"key">>,<<"value">>,<<"1000">>}}
     reason: already_exists
 
+> {mero:madd(default, [{<<"foo">>, <<"bar">>, 1000},
+                       {<<"bar">>, <<"foo">>, 1000},
+                       {<<"foo">>, <<"baz">>, 1000}], 5000),
+   mero:mget(default, [<<"foo">>, <<"bar">>], 5000)}.
+{[ok,ok,{error,already_exists}],
+ [{<<"bar">>,<<"foo">>},{<<"foo">>,<<"bar">>}]}
+
+> mero:mcas(default, [{<<"xyzzy">>, <<"bar">>, 0, 360391},
+                      {<<"qwer">>, <<"asdfsdf">>, 0, 360390}], 5000).
+[ok,{error,already_exists}]
 ```
 
 
