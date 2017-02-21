@@ -436,11 +436,14 @@ async_increment(Client, Keys) ->
     end.
 
 
-send_quietly_butlast(Client, [Item], _QuietOp, NoisyOp) ->
-    ok = send(Client, pack({NoisyOp, Item}));
-send_quietly_butlast(Client, [Item | Items], QuietOp, NoisyOp) ->
-    ok = send(Client, pack({QuietOp, Item})),
-    send_quietly_butlast(Client, Items, QuietOp, NoisyOp).
+
+multipack([Item], _QuietOp, NoisyOp) ->
+    [pack({NoisyOp, Item})];
+multipack([Item|Rest], QuietOp, NoisyOp) ->
+    [pack({QuietOp, Item}) | multipack(Rest, QuietOp, NoisyOp)].
+ 
+send_quietly_butlast(Client, Items, QuietOp, NoisyOp) ->
+    ok = send(Client, multipack(Items, QuietOp, NoisyOp)).
 
 
 send_mset(Client, Items) ->
