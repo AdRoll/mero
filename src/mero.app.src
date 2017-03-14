@@ -8,9 +8,9 @@
   {applications, [
                   kernel,
                   stdlib,
-                  inets,
-                  dynamic_compile
+                  inets
                  ]},
+  {included_applications, [dynamic_compile]},
   {mod, {mero, []}},
   {env, [
       {cluster_config,
