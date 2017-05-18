@@ -102,7 +102,7 @@ get(ClusterName, Key) ->
 
 -spec mget(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary()}]
-    | {error, Reason :: term(), ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
+    | {error, [Reason :: term()], ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     Extract = fun (Items) ->
                       [{Key, Value}
@@ -138,7 +138,7 @@ gets(ClusterName, Key) ->
 
 -spec mgets(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}]
-    | {error, Reason :: term(),
+    | {error, [Reason :: term()],
        ProcessedKeyValues :: [{Key :: binary(), Value :: binary(), CAS :: cas_token()}]}.
 mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     Extract = fun (Items) ->
