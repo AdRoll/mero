@@ -1,34 +1,24 @@
-REBAR=./rebar
+REBAR=./rebar3
 
-all: deps compile xref
+all: compile
 
 docs:
 	erl -noshell -run edoc_run application "'$(APP_NAME)'" '"."' '$(VSN)' -s init stop
 
-deps:
-	@$(REBAR) update-deps
-	@$(REBAR) get-deps
-
 compile:
 	$(REBAR) compile
 
-deep_clean: logs_clean
-	@rm -rf deps*
+deep_clean:
+	@rm -rf _build/*
 	@$(REBAR) clean
-
-logs_clean:
-	@rm -rf logs/*
 
 clean:
 	@$(REBAR) clean
 
-test: logs_clean all
-	@$(REBAR)  skip_deps=true ct
-	@$(REBAR)  skip_deps=true verbose=1 eunit
-
-testfast:
-	@$(REBAR)  skip_deps=true ct
-	@$(REBAR)  skip_deps=true eunit
+.PHONY: test
+test:
+	@$(REBAR)  eunit
+	@$(REBAR)  ct
 
 xref:
-	@$(REBAR) skip_deps=true xref
+	@$(REBAR) xref

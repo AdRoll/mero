@@ -1,0 +1,8 @@
+[{<<"dynamic_compile">>,
+  {git,"https://github.com/jkvor/dynamic_compile.git",
+       {ref,"d13d29c03d321e154adffb8eaa4b88b154a811fd"}},
+  0},
+ {<<"proc">>,
+  {git,"https://github.com/miriampena/proc.git",
+       {ref,"300c0d8a7dd4f23e42d33d11affdb26c3bcfbd67"}},
+  0}].
