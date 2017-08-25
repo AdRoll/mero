@@ -54,6 +54,7 @@
 
 %% API functions
 connect(Host, Port, CallbackInfo) ->
+    ?LOG_EVENT(CallbackInfo, [socket, connecting]),
     case gen_tcp:connect(Host, Port, ?SOCKET_OPTIONS) of
         {ok, Socket} ->
             ?LOG_EVENT(CallbackInfo, [socket, connect, ok]),

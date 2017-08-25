@@ -54,6 +54,7 @@
 
 %% API functions
 connect(Host, Port, CallbackInfo) ->
+    ?LOG_EVENT(CallbackInfo, [socket, connecting]),
     case gen_tcp:connect(Host, Port, ?SOCKET_OPTIONS) of
         {ok, Socket} ->
             ?LOG_EVENT(CallbackInfo, [socket, connect, ok]),
@@ -441,7 +442,7 @@ multipack([Item], _QuietOp, NoisyOp) ->
     [pack({NoisyOp, Item})];
 multipack([Item|Rest], QuietOp, NoisyOp) ->
     [pack({QuietOp, Item}) | multipack(Rest, QuietOp, NoisyOp)].
- 
+
 send_quietly_butlast(Client, Items, QuietOp, NoisyOp) ->
     ok = send(Client, multipack(Items, QuietOp, NoisyOp)).
 
