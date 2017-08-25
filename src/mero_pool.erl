@@ -419,8 +419,9 @@ try_connect(Pool, WrkModule, Host, Port, CallbackInfo) ->
                                                             pool = Pool,
                                                             updated = os:timestamp()
                                                            }});
-                {error, _Reason} ->
-                    safe_send(Pool, connect_failed)
+                {error, Reason} ->
+                    safe_send(Pool, connect_failed),
+                    WrkModule:close(Client, Reason)
             end;
         {error, _Reason} ->
             safe_send(Pool, connect_failed)
