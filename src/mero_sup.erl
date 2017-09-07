@@ -30,6 +30,8 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+-include_lib("mero/include/mero.hrl").
+
 -export([start_link/1,
          init/1]).
 
@@ -78,8 +80,11 @@ child(I, Type, {ClusterName, Host, Port, Name, WrkModule}) ->
 %%%===================================================================
 
 %% Given an elasticache config Endpoint and port, return parsed list of {host, port} nodes in cluster
--spec get_cluster_config(string(), integer()) -> list({string(), integer()}).
-get_cluster_config(ConfigHost, ConfigPort) ->
+-spec get_cluster_config(atom(), string(), integer()) -> list({string(), integer()}).
+get_cluster_config(ClusterName, ConfigHost, ConfigPort) ->
+    {StatMod, StatFun} = mero_conf:stat_callback(),
+    StatCallbackInfo = ?CALLBACK_CONTEXT(StatMod, StatFun, ClusterName,
+                                         ConfigHost, ConfigPort),
     {ok, [{banner, <<"CONFIG cluster", _/binary>>},
           {version, VersionLine},
           {hosts, HostLine},
@@ -87,33 +92,41 @@ get_cluster_config(ConfigHost, ConfigPort) ->
           {eom, <<"END\r\n">>}]} =
         request_response(ConfigHost, ConfigPort,
                          <<"config get cluster\n">>,
-                         [banner, version, hosts, crlf, eom]),
+                         [banner, version, hosts, crlf, eom],
+                         StatCallbackInfo),
     {_Version, Hosts} = parse_cluster_config(HostLine, VersionLine),
     Hosts.
 
 process_server_specs(L) ->
     lists:foldl(fun ({ClusterName, AttrPlist}, Acc) ->
-                        [{ClusterName, [process_value(Attr)
+                        [{ClusterName, [process_value(ClusterName, Attr)
                                         || Attr <- AttrPlist]} | Acc]
                 end, [], L).
 
-process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
-    HostsPorts = get_cluster_config(ConfigEndpoint, ConfigPort),
+process_value(ClusterName, {servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
+    HostsPorts = get_cluster_config(ClusterName, ConfigEndpoint, ConfigPort),
     {servers, HostsPorts};
-process_value(V) ->
+process_value(_, V) ->
     V.
 
-request_response(Host, Port, Command, Names) ->
+request_response(Host, Port, Command, Names, StatCallbackInfo) ->
     Opts = [binary, {packet, line}, {active, false}],
-    {ok, Socket} = gen_tcp:connect(Host, Port, Opts),
-    ok = gen_tcp:send(Socket, Command),
-    Lines = [{Name, begin
-                        {ok, Line} = gen_tcp:recv(Socket, 0, 1000),
-                        Line
-                    end}
-             || Name <- Names],
-    ok = gen_tcp:close(Socket),
-    {ok, Lines}.
+    ?LOG_EVENT(StatCallbackInfo, [socket, connecting]),
+    case gen_tcp:connect(Host, Port, Opts) of
+        {ok, Socket} ->
+            ?LOG_EVENT(StatCallbackInfo, [socket, connect, ok]),
+            ok = gen_tcp:send(Socket, Command),
+            Lines = [{Name, begin
+                                {ok, Line} = gen_tcp:recv(Socket, 0, 1000),
+                                Line
+                            end}
+                     || Name <- Names],
+            ok = gen_tcp:close(Socket),
+            {ok, Lines};
+        {error, Reason} ->
+            ?LOG_EVENT(StatCallbackInfo, [socket, connect, error, {reason, Reason}]),
+            {error, Reason}
+    end.
 
 %% Parse host and version lines to return version and list of {host, port} cluster nodes
 -spec parse_cluster_config(binary(), binary()) -> {integer(), [{string(), integer()}]}.
