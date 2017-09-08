@@ -111,10 +111,10 @@ process_value(_, V) ->
 
 request_response(Host, Port, Command, Names, StatCallbackInfo) ->
     Opts = [binary, {packet, line}, {active, false}],
-    ?LOG_EVENT(StatCallbackInfo, [socket, connecting]),
+    ?LOG_EVENT(StatCallbackInfo, [socket, connecting, {client, ?MODULE}]),
     case gen_tcp:connect(Host, Port, Opts) of
         {ok, Socket} ->
-            ?LOG_EVENT(StatCallbackInfo, [socket, connect, ok]),
+            ?LOG_EVENT(StatCallbackInfo, [socket, connect, ok, {client, ?MODULE}]),
             ok = gen_tcp:send(Socket, Command),
             Lines = [{Name, begin
                                 {ok, Line} = gen_tcp:recv(Socket, 0, 1000),
@@ -124,7 +124,8 @@ request_response(Host, Port, Command, Names, StatCallbackInfo) ->
             ok = gen_tcp:close(Socket),
             {ok, Lines};
         {error, Reason} ->
-            ?LOG_EVENT(StatCallbackInfo, [socket, connect, error, {reason, Reason}]),
+            ?LOG_EVENT(StatCallbackInfo, [socket, connect, error,
+                                          {client, ?MODULE}, {reason, Reason}]),
             {error, Reason}
     end.
 

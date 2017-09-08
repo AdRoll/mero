@@ -54,13 +54,14 @@
 
 %% API functions
 connect(Host, Port, CallbackInfo) ->
-    ?LOG_EVENT(CallbackInfo, [socket, connecting]),
+    ?LOG_EVENT(CallbackInfo, [socket, connecting, {client, ?MODULE}]),
     case gen_tcp:connect(Host, Port, ?SOCKET_OPTIONS) of
         {ok, Socket} ->
-            ?LOG_EVENT(CallbackInfo, [socket, connect, ok]),
+            ?LOG_EVENT(CallbackInfo, [socket, connect, ok, {client, ?MODULE}]),
             {ok, #client{socket = Socket, event_callback = CallbackInfo}};
         {error, Reason} ->
-            ?LOG_EVENT(CallbackInfo, [socket, connect, error, {reason, Reason}]),
+            ?LOG_EVENT(CallbackInfo, [socket, connect, error,
+                                      {client, ?MODULE}, {reason, Reason}]),
             {error, Reason}
     end.
 
