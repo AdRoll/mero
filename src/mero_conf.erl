@@ -58,7 +58,8 @@
          add_now/1,
          add_now/2,
          millis_to/1,
-         millis_to/2]).
+         millis_to/2,
+         process_server_specs/1]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -205,6 +206,11 @@ millis_to(TimeLimit, Then) ->
     _ -> 0
   end.
 
+process_server_specs(L) ->
+    lists:foldl(fun ({ClusterName, AttrPlist}, Acc) ->
+        [{ClusterName, [process_value(Attr)
+            || Attr <- AttrPlist]} | Acc]
+                end, [], L).
 
 %%%=============================================================================
 %%% Internal functions
@@ -217,3 +223,27 @@ get_env(Key) ->
         undefined ->
             exit({undefined_configuration, Key})
     end.
+
+
+process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
+    process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
+process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
+    HostsPorts = lists:foldr(
+        fun(HostConfig, Acc) ->
+            {Host, Port, ClusterSpeedFactor} =
+                case HostConfig of
+                    {HostIn, PortIn, ClusterSpeedFactorIn} when is_integer(ClusterSpeedFactorIn) ->
+                        {HostIn, PortIn, ClusterSpeedFactorIn};
+                    {HostIn, PortIn} ->
+                        {HostIn, PortIn, 1}
+
+                end,
+            lists:duplicate(ClusterSpeedFactor, mero_elasticache:get_cluster_config(Host, Port)) ++ Acc
+        end,
+        [],
+        ConfigList),
+    {servers, lists:concat(HostsPorts)};
+process_value(V) ->
+    V.
+
+
