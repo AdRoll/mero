@@ -88,9 +88,8 @@ butlast(Bin) -> binary:part(Bin, {0, size(Bin) - 1}).
 -include_lib("eunit/include/eunit.hrl").
 
 get_cluster_config_test() ->
-    VersionLine = <<"1\n">>,
     HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazonaws.com|10.101.101.00|11211 server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
-    ExpectedParse = {1, [{"server1.cache.amazonaws.com", 11211}, {"server2.cache.amazonaws.com", 11211}, {"server3.cache.amazonaws.com", 11211}]},
-    ?assertEqual(ExpectedParse, parse_cluster_config(HostLine, VersionLine)).
+    ExpectedParse = [{"server1.cache.amazonaws.com", 11211}, {"server2.cache.amazonaws.com", 11211}, {"server3.cache.amazonaws.com", 11211}],
+    ?assertEqual(ExpectedParse, parse_cluster_config(HostLine)).
 
 -endif.
