@@ -50,6 +50,7 @@
                                         Config :: list()})) ->
     {ok, Pid :: pid()} | {error, Reason :: term()}.
 start_link(Config) ->
+
     ClusterConfig = mero_conf:process_server_specs(Config),
 
     ok = mero_cluster:load_clusters(ClusterConfig),
