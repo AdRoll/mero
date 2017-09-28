@@ -96,7 +96,7 @@ parse_cluster_entries([H|T], Accum) ->
                     case catch erlang:list_to_integer(Port) of
                         {'EXIT', _} ->
                             {error, bad_port};
-                        P when P < 1 ->
+                        P when P < 1 orelse P > 65535 ->
                             {error, bad_port};
                         P ->
                             parse_cluster_entries(T, [{Host, IPAddr, P}|Accum])
@@ -143,8 +143,14 @@ get_non_integer_port_config_test() ->
                  "server3.cache.amazonaws.com|10.102.00.102|1l211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
 
-get_bad_port_config_test() ->
+get_bad_low_port_config_test() ->
     HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|0 "
+                 "server2.cache.amazonaws.com|10.101.101.0|11211 "
+                 "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
+
+get_bad_high_port_config_test() ->
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|72000 "
                  "server2.cache.amazonaws.com|10.101.101.0|11211 "
                  "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
