@@ -238,7 +238,7 @@ process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
                         {HostIn, PortIn, 1}
 
                 end,
-            lists:duplicate(ClusterSpeedFactor, mero_elasticache:get_cluster_config(Host, Port)) ++ Acc
+            lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port)) ++ Acc
         end,
         [],
         ConfigList),
@@ -246,4 +246,10 @@ process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
 process_value(V) ->
     V.
 
-
+get_elasticache_cluster_config(Host, Port) ->
+    case mero_elasticache:get_cluster_config(Host, Port) of
+        {ok, Entries} ->
+            Entries;
+        {error, Reason} ->
+            throw(Reason)
+    end.
