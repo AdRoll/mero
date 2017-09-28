@@ -245,5 +245,3 @@ process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
     {servers, lists:concat(HostsPorts)};
 process_value(V) ->
     V.
-
-

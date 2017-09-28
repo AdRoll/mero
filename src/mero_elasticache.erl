@@ -57,9 +57,9 @@ get_cluster_config(ConfigHost, ConfigPort) ->
 request_response(Host, Port, Command, Names) ->
     Opts = [binary, {packet, line}, {active, false}, {recbuf, 5000}],
     {ok, Socket} = gen_tcp:connect(Host, Port, Opts),
-    ok = gen_tcp_send(Socket, Command),
+    ok = gen_tcp:send(Socket, Command),
     Lines = [{Name, begin
-                        {ok, Line} = gen_tcp_recv(Socket),
+                        {ok, Line} = gen_tcp:recv(Socket, 0, 10000),
                         Line
                     end}
         || Name <- Names],
@@ -79,12 +79,6 @@ parse_cluster_config(HostLine) ->
 butlast(<<>>) -> <<>>;
 butlast(Bin) -> binary:part(Bin, {0, size(Bin) - 1}).
 
-gen_tcp_send(Socket, Command) ->
-    gen_tcp:send(Socket, Command).
-
-gen_tcp_recv(Socket) ->
-    gen_tcp:recv(Socket, 0, 10000).
-
 %%%===================================================================
 %%% Unit tests
 %%%===================================================================
@@ -94,8 +88,12 @@ gen_tcp_recv(Socket) ->
 -include_lib("eunit/include/eunit.hrl").
 
 get_cluster_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazonaws.com|10.101.101.00|11211 server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
-    ExpectedParse = [{"server1.cache.amazonaws.com", 11211}, {"server2.cache.amazonaws.com", 11211}, {"server3.cache.amazonaws.com", 11211}],
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazonaws.com|",
+        "10.101.101.00|11211 server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    ExpectedParse = [
+        {"server1.cache.amazonaws.com", 11211},
+        {"server2.cache.amazonaws.com", 11211},
+        {"server3.cache.amazonaws.com", 11211}],
     ?assertEqual(ExpectedParse, parse_cluster_config(HostLine)).
 
 -endif.
