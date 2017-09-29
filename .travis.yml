@@ -10,7 +10,7 @@ notifications:
   email: miriam.pena@adroll.com
 
 script:
-  - revar -V
+  - rebar -V
   - erl -version
   - make test"
 
