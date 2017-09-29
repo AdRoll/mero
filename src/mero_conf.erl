@@ -209,8 +209,7 @@ millis_to(TimeLimit, Then) ->
 process_server_specs(L) ->
     lists:foldl(
         fun({ClusterName, AttrPlist}, Acc) ->
-            [{ClusterName, [process_value(Attr)
-                || Attr <- AttrPlist]} | Acc]
+            [{ClusterName, [process_value(Attr) || Attr <- AttrPlist]} | Acc]
         end, [], L).
 
 %%%=============================================================================
