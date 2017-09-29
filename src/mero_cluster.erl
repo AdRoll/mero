@@ -249,10 +249,11 @@ group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
     end.
 
 worker_defs(ClusterConfig) ->
-    lists:foldl(fun(Cluster, Acc) ->
-        Def = get_server_defs(Cluster),
-        Acc ++ Def
-    end, [], ClusterConfig).
+    lists:foldl(
+        fun(Cluster, Acc) ->
+            Def = get_server_defs(Cluster),
+            Acc ++ Def
+        end, [], ClusterConfig).
 
 get_server_defs({ClusterName, ClusterConfig}) ->
 
@@ -262,67 +263,72 @@ get_server_defs({ClusterName, ClusterConfig}) ->
     SortedServers = lists:sort(Servers),
 
     {Elements, _} = lists:foldl(
-        fun({Host, Port}, {Acc, ShardSizeAcc}) ->
-            Elements =
-                [begin
-                     WorkerName = worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
-                     {ClusterName, ShardSizeAcc, ReplicationNumber,
-                         {ClusterName, Host, Port, WorkerName, WorkerModule}}
-                 end || ReplicationNumber <- lists:seq(0, (Workers - 1))],
-            {Acc ++ Elements, ShardSizeAcc + 1}
+        fun
+            ({Host, Port}, {Acc, ShardSizeAcc}) ->
+                Elements =
+                    [begin
+                         WorkerName = worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
+                         {ClusterName, ShardSizeAcc, ReplicationNumber,
+                             {ClusterName, Host, Port, WorkerName, WorkerModule}}
+                     end || ReplicationNumber <- lists:seq(0, (Workers - 1))],
+                {Acc ++ Elements, ShardSizeAcc + 1}
         end, {[], 0}, SortedServers),
     Elements.
 
 cluster_shards_function(ClusterConfig) ->
-    lists:foldl(fun
-        ({ClusterName, Config}, []) ->
-            Servers = length(get_config(servers, Config)),
-            [io_lib:format("cluster_shards(~p) -> ~p.\n\n",
-                [ClusterName, Servers])];
-        ({ClusterNameIn, Config}, Acc) ->
-            Servers = length(get_config(servers, Config)),
-            [io_lib:format("cluster_shards(~p) -> ~p;\n",
-                [ClusterNameIn, Servers]) | Acc]
-    end, [], lists:reverse(ClusterConfig)).
+    lists:foldl(
+        fun
+            ({ClusterName, Config}, []) ->
+                Servers = length(get_config(servers, Config)),
+                [io_lib:format("cluster_shards(~p) -> ~p.\n\n",
+                    [ClusterName, Servers])];
+            ({ClusterNameIn, Config}, Acc) ->
+                Servers = length(get_config(servers, Config)),
+                [io_lib:format("cluster_shards(~p) -> ~p;\n",
+                    [ClusterNameIn, Servers]) | Acc]
+        end, [], lists:reverse(ClusterConfig)).
 
 
 workers_per_shard_function(ClusterConfig) ->
-    lists:foldl(fun
-        ({ClusterName, Config}, []) ->
-            WorkersPerServer = get_config(workers_per_shard, Config),
-            [io_lib:format("workers_per_shard(~p) -> ~p.\n\n",
-                [ClusterName, WorkersPerServer])];
-        ({ClusterNameIn, Config}, Acc) ->
-            WorkersPerServer = get_config(workers_per_shard, Config),
-            [io_lib:format("workers_per_shard(~p) -> ~p;\n",
-                [ClusterNameIn, WorkersPerServer]) | Acc]
-    end, [], lists:reverse(ClusterConfig)).
+    lists:foldl(
+        fun
+            ({ClusterName, Config}, []) ->
+                WorkersPerServer = get_config(workers_per_shard, Config),
+                [io_lib:format("workers_per_shard(~p) -> ~p.\n\n",
+                    [ClusterName, WorkersPerServer])];
+            ({ClusterNameIn, Config}, Acc) ->
+                WorkersPerServer = get_config(workers_per_shard, Config),
+                [io_lib:format("workers_per_shard(~p) -> ~p;\n",
+                    [ClusterNameIn, WorkersPerServer]) | Acc]
+        end, [], lists:reverse(ClusterConfig)).
 
 
 sharding_algorithm_function(ClusterConfig) ->
-    lists:foldl(fun
-        ({ClusterName, Config}, []) ->
-            {Module, Function} = get_config(sharding_algorithm, Config),
-            [io_lib:format("sharding_algorithm(~p) -> {~p, ~p}.\n\n",
-                [ClusterName, Module, Function])];
-        ({ClusterNameIn, Config}, Acc) ->
-            {Module, Function} = get_config(sharding_algorithm, Config),
-            [io_lib:format("sharding_algorithm(~p) -> {~p, ~p};\n",
-                [ClusterNameIn, Module, Function]) | Acc]
-    end, [], lists:reverse(ClusterConfig)).
+    lists:foldl(
+        fun
+            ({ClusterName, Config}, []) ->
+                {Module, Function} = get_config(sharding_algorithm, Config),
+                [io_lib:format("sharding_algorithm(~p) -> {~p, ~p}.\n\n",
+                    [ClusterName, Module, Function])];
+            ({ClusterNameIn, Config}, Acc) ->
+                {Module, Function} = get_config(sharding_algorithm, Config),
+                [io_lib:format("sharding_algorithm(~p) -> {~p, ~p};\n",
+                    [ClusterNameIn, Module, Function]) | Acc]
+        end, [], lists:reverse(ClusterConfig)).
 
 
 pool_worker_module_function(ClusterConfig) ->
-    lists:foldl(fun
-        ({ClusterName, Config}, []) ->
-            Module = get_config(pool_worker_module, Config),
-            [io_lib:format("pool_worker_module(~p) -> ~p.\n\n",
-                [ClusterName, Module])];
-        ({ClusterNameIn, Config}, Acc) ->
-            Module = get_config(pool_worker_module, Config),
-            [io_lib:format("pool_worker_module(~p) -> ~p;\n",
-                [ClusterNameIn, Module]) | Acc]
-    end, [], lists:reverse(ClusterConfig)).
+    lists:foldl(
+        fun
+            ({ClusterName, Config}, []) ->
+                Module = get_config(pool_worker_module, Config),
+                [io_lib:format("pool_worker_module(~p) -> ~p.\n\n",
+                    [ClusterName, Module])];
+            ({ClusterNameIn, Config}, Acc) ->
+                Module = get_config(pool_worker_module, Config),
+                [io_lib:format("pool_worker_module(~p) -> ~p;\n",
+                    [ClusterNameIn, Module]) | Acc]
+        end, [], lists:reverse(ClusterConfig)).
 
 clusters_function(ClusterConfig) ->
     Clusters = [ClusterName || {ClusterName, _} <- ClusterConfig],
@@ -336,15 +342,16 @@ child_definitions_function(WorkerDefs) ->
 
 worker_by_index_function(WorkerDefs) ->
     lists:flatten(
-        lists:foldr(fun
-            ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, []) ->
-                io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p.\n\n",
-                    [Name, ShardSizeAcc, ReplicationNumber, WorkerName]);
-            ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, Acc) ->
-                Clause = io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p;\n",
-                    [Name, ShardSizeAcc, ReplicationNumber, WorkerName]),
-                [Clause, Acc]
-        end, [], WorkerDefs)
+        lists:foldr(
+            fun
+                ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, []) ->
+                    io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p.\n\n",
+                        [Name, ShardSizeAcc, ReplicationNumber, WorkerName]);
+                ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, Acc) ->
+                    Clause = io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p;\n",
+                        [Name, ShardSizeAcc, ReplicationNumber, WorkerName]),
+                    [Clause, Acc]
+            end, [], WorkerDefs)
     ).
 
 get_config(Type, ClusterConfig) ->
