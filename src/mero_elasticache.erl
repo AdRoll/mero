@@ -104,7 +104,7 @@ parse_cluster_entries([H|T], Accum) ->
                 {error, _} ->
                     {error, bad_ip}
             end;
-        _ ->
+        _BadClusterEntry ->
             {error, bad_cluster_entry}
     end.
 
@@ -142,7 +142,6 @@ get_bad_low_port_config_test() ->
                  "server2.cache.amazonaws.com|10.101.101.0|11211 "
                  "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
->>>>>>> 88e376a411017c80d59c39dd38cfa305158c9747
 
 get_bad_high_port_config_test() ->
     HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|72000 "

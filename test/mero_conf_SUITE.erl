@@ -65,7 +65,7 @@ init_per_testcase(_, Conf) ->
         "a3.com|10.102.00.102|11211\n">>,
 
     HostLineb = <<"b1.com|10.100.100.100|11211 ",
-        "b2.com|10.101.101.00|11211 ">>,
+        "b2.com|10.101.101.00|11211\n">>,
 
     HostLinec = <<"c1.com|10.100.100.100|11211 ",
         "c2.com|10.101.101.00|11211 ",
@@ -84,10 +84,6 @@ init_per_testcase(_, Conf) ->
                 {crlf, <<"\r\n">>},
                 {eom, <<"END\r\n">>}]
         end),
-
-    dbg:tracer(), dbg:p(all, c),
-    dbg:tpl(mero_conf, x),
-
     Conf.
 
 end_per_testcase(diff, _Conf) ->
