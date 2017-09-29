@@ -12,5 +12,5 @@ notifications:
 script:
   - rebar -V
   - erl -version
-  - make test"
+  - make test
 
