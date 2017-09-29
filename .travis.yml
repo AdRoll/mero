@@ -8,7 +8,7 @@ otp_release:
    - 18.3
 
 notifications:
-  email: miriam.pena@adroll.com
+  email: rtb-team+travis@adroll.com
 
 script:
   - rebar -V
