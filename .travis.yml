@@ -5,6 +5,7 @@ os:
 
 otp_release:
    - 19.3
+   - 18.3
 
 notifications:
   email: miriam.pena@adroll.com
@@ -13,4 +14,11 @@ script:
   - rebar -V
   - erl -version
   - make test
+  - make logs_clean
+  - make deps
+  - make compile
+  - make xref
+  - make eunit
+  - make ct
+
 
