@@ -121,7 +121,7 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_suite(Conf) ->
-    ok = application:start(inets),
+    application:start(inets),
     Conf.
 
 end_per_suite(_Conf) ->

@@ -1,8 +1,4 @@
-.eunit
-deps
-logs/*
-*.o
-*.beam
-*.plt
+_build
 erl_crash.dump
-ebin/*.app
+.idea
+*.iml
