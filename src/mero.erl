@@ -310,8 +310,8 @@ shard_crc32(Key, ShardSize) ->
 %% @doc: Returns the state of the sockets of a Cluster
 state(ClusterName) ->
     {Links, Monitors, Free, Connected, Connecting, Failed, MessageQueue} =
-        lists:foldr(fun
-            ({Cluster, _, _, Pool, _},
+        lists:foldr(
+            fun({Cluster, _, _, Pool, _},
                 {ALinks, AMonitors, AFree, AConnected, AConnecting, AFailed, AMessageQueue})
                 when (Cluster == ClusterName) ->
                 begin
@@ -326,8 +326,9 @@ state(ClusterName) ->
                         AMessageQueue + proplists:get_value(message_queue_len, St)}
 
                 end;
-            (_, Acc) -> Acc
-        end, {0,0,0,0,0,0,0}, mero_cluster:child_definitions()),
+                (_, Acc) ->
+                    Acc
+            end, {0, 0, 0, 0, 0, 0, 0}, mero_cluster:child_definitions()),
     [
      {links, Links},
      {monitors, Monitors},
@@ -344,12 +345,12 @@ state() ->
 
 deep_state(ClusterName) ->
     lists:foldr(
-      fun
-          ({Cluster, _, _, Pool, _}, Acc) when (Cluster == ClusterName) ->
-                       St = mero_pool:state(Pool),
-                       [[{pool, Pool} | St] | Acc];
-          (_, Acc) -> Acc
-               end, [], mero_cluster:child_definitions()).
+        fun({Cluster, _, _, Pool, _}, Acc) when (Cluster == ClusterName) ->
+            St = mero_pool:state(Pool),
+            [[{pool, Pool} | St] | Acc];
+            (_, Acc) ->
+                Acc
+        end, [], mero_cluster:child_definitions()).
 
 
 %% @doc: Returns the state of the sockets for all clusters
