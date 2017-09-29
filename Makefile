@@ -22,9 +22,13 @@ logs_clean:
 clean:
 	@$(REBAR) clean
 
-test: logs_clean all
+ct:
 	@$(REBAR)  skip_deps=true ct
-	@$(REBAR)  skip_deps=true verbose=1 eunit
+
+eunit:
+	@$(REBAR)  skip_deps=true eunit
+
+test: logs_clean all ct eunit
 
 testfast:
 	@$(REBAR)  skip_deps=true ct
