@@ -3,5 +3,8 @@ language: erlang
 notifications:
   email: miriam.pena@adroll.com
 
-otp-release:
-  - 19.2
+script: "make test"
+
+otp_release:
+   - 18.2
+   - 19.2
