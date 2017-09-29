@@ -5,8 +5,6 @@ os:
 
 otp_release:
    - 19.3
-   - 18.3
-
 
 notifications:
   email: miriam.pena@adroll.com
