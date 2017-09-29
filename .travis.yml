@@ -1,0 +1,7 @@
+language: erlang
+
+notifications:
+  email: miriam.pena@adroll.com
+
+otp-release:
+  - 19.3
