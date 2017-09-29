@@ -72,7 +72,8 @@ algorithms available are `shard_phash2` and `shard_crc32`.
 Cluster Auto Discovery
 ======================
 
-Configuration can also be implemented to support auto discovery of the cluster as opposed to hardcoding nodes. Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/AutoDiscovery.html)) and port as in the following example.
+Configuration can also be implemented to support auto discovery of the cluster as opposed to hardcoding nodes.
+Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/AutoDiscovery.html)) and port as in the following example.
 
 ```
     [{cluster_b,
@@ -85,6 +86,30 @@ Configuration can also be implemented to support auto discovery of the cluster a
 ]
 
 ```
+Multiple clusters Auto Discovery
+===============================
+
+We also support the setup of multiple pyhisical clusters with autodiscovery assigned to the same logical cluster.
+It could be the case in which some of these pyhisical clusters perform better than others, in which you can use a
+third argument called the ClusterSpeedFactor which has to be a small integer. The default ClusterSpeedFactor is 1.
+
+If an alternate cluster is 2 times faster than the fist one -it can have twice as many cpus or memory-, you can set it up
+with a ClusterSpeedFactor of 2. This will create 2 times more workers for that "faster cluster", which in practice will
+send twice as many connections & requests to that cluster than to the other weaker clusters.
+
+```
+    [{cluster_c,
+        [{servers,
+           {elasticache,
+            [{"ConfigEndpointHostname.com", 11211},
+             {"ConfigEndpointHostnameAltThatPerforms2TimesBetter.com", 11211, 2},
+             {"ConfigEndpointHostnameAltThatPerforms3TimesBetter.com", 11211, 3}]
+            }},
+         {sharding_algorithm, {mero, shard_crc32}},
+         {workers_per_shard, 1},
+         {pool_worker_module, mero_wrk_tcp_binary}]}]
+```
+
 
 Using Mero:
 ===============
