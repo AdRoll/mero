@@ -4,4 +4,4 @@ notifications:
   email: miriam.pena@adroll.com
 
 otp-release:
-  - 19.3
+  - 19.2
