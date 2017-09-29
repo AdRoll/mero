@@ -1,4 +1,6 @@
 language: erlang
+os:
+  - linux
 
 notifications:
   email: miriam.pena@adroll.com
@@ -6,5 +8,4 @@ notifications:
 script: "make test"
 
 otp_release:
-   - 18.2
-   - 19.2
+   - 19.3
