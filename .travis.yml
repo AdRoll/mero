@@ -14,10 +14,5 @@ notifications:
 script:
   - rebar -V
   - erl -version
-  - make logs_clean
-  - make deps
-  - make compile
-  - make xref
-  - make eunit
-  - make ct
+  - make test
 
