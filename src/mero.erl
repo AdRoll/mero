@@ -55,7 +55,9 @@
          add/5, madd/3,
          flush_all/1,
          shard_phash2/2,
-         shard_crc32/2
+         shard_crc32/2,
+         clustering_key/1,
+         storage_key/1
         ]).
 
 -export([state/0,
@@ -66,6 +68,13 @@
 -include_lib("mero/include/mero.hrl").
 
 -type cas_token() :: undefined | integer().
+
+%% {ClusteringKey, Key}. ClusteringKey is used to select the memcached node
+%% where to store the data, and Key is used to store the data in that
+%% node.  If a single binary Key is used,  then ClusteringKey = Key.
+-type mero_key() :: binary() | {ClusteringKey :: binary(), Key :: binary()}.
+
+-export_type([mero_key/0]).
 
 %%%=============================================================================
 %%% Application behaviour
@@ -86,7 +95,7 @@ stop(_State) ->
 %%% External functions
 %%%=============================================================================
 
--spec get(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->
+-spec get(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
                  {Key :: binary(), Value :: undefined | binary()}
                      | {error, Reason :: term()}.
 get(ClusterName, Key, Timeout) ->
@@ -100,7 +109,7 @@ get(ClusterName, Key) ->
     get(ClusterName, Key, mero_conf:timeout_read()).
 
 
--spec mget(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
+-spec mget(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary()}]
     | {error, [Reason :: term()], ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
@@ -118,7 +127,7 @@ mget(ClusterName, Keys) ->
     mget(ClusterName, Keys, mero_conf:timeout_read()).
 
 
--spec gets(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->
+-spec gets(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
                   {Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}
                       | {error, Reason :: term()}.
 gets(ClusterName, Key, Timeout) ->
@@ -136,7 +145,7 @@ gets(ClusterName, Key) ->
     gets(ClusterName, Key, mero_conf:timeout_read()).
 
 
--spec mgets(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) ->
+-spec mgets(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
     [{Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}]
     | {error, [Reason :: term()],
        ProcessedKeyValues :: [{Key :: binary(), Value :: binary(), CAS :: cas_token()}]}.
@@ -155,17 +164,17 @@ mgets(ClusterName, Keys) ->
     mgets(ClusterName, Keys, mero_conf:timeout_read()).
 
 
--spec add(ClusterName :: atom(), Key :: binary(), Value :: binary(), ExpTime :: integer(),
+-spec add(ClusterName :: atom(), Key :: mero_key(), Value :: binary(), ExpTime :: integer(),
     Timeout :: integer()) ->
     ok | {error, Reason :: term()}.
 add(ClusterName, Key, Value, ExpTime, Timeout)
-    when is_binary(Key), is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
+    when is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     mero_conn:add(ClusterName, Key, Value, BExpTime, Timeout).
 
 
 -spec madd(ClusterName :: atom(),
-           [{Key :: binary(),
+           [{Key :: mero_key(),
              Value :: binary(),
              ExpTime :: integer()}],
            Timeout :: integer()) ->
@@ -181,7 +190,7 @@ madd(ClusterName, KVEs, Timeout)
 
 
 -spec set(ClusterName :: atom(),
-          Key :: binary(),
+          Key :: mero_key(),
           Value :: binary(),
           ExpTime :: integer(), % value is in seconds
           Timeout :: integer()) ->
@@ -191,7 +200,7 @@ set(ClusterName, Key, Value, ExpTime, Timeout) ->
 
 
 -spec mset(ClusterName :: atom(),
-           [{Key :: binary(),
+           [{Key :: mero_key(),
              Value :: binary(),
              ExpTime :: integer()}], % value is in seconds
            Timeout :: integer()) ->
@@ -203,21 +212,21 @@ mset(ClusterName, KVEs, Timeout) ->
 
 
 -spec cas(ClusterName :: atom(),
-          Key :: binary(),
+          Key :: mero_key(),
           Value :: binary(),
           ExpTime :: integer(), % value is in seconds
           Timeout :: integer(),
           CAS :: cas_token()) ->
     ok | {error, Reason :: term()}.
 cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
-    when is_binary(Key), is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
+    when is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     %% note: if CAS is undefined, this will be an unconditional set:
     mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout, CAS).
 
 
 -spec mcas(ClusterName :: atom(),
-           [{Key :: binary(),
+           [{Key :: mero_key(),
              Value :: binary(),
              ExpTime :: integer(), % value is in seconds
              CAS :: cas_token()}],
@@ -236,32 +245,32 @@ mcas(ClusterName, KVECs, Timeout)
 
 %% @doc: Increments a counter: initial value is 1, steps of 1, timeout defaults to 24 hours.
 %%    3 retries.
--spec increment_counter(ClusterName :: atom(), Key :: binary()) ->
+-spec increment_counter(ClusterName :: atom(), Key :: mero_key()) ->
     ok | {error, Reason :: term()}.
-increment_counter(ClusterName, Key) when is_atom(ClusterName), is_binary(Key) ->
+increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
     increment_counter(ClusterName, Key, 1, 1, mero_conf:key_expiration_time(),
                       mero_conf:write_retries(), mero_conf:timeout_write()).
 
 
--spec increment_counter(ClusterName :: atom(), Key :: binary(), Value :: integer(),
+-spec increment_counter(ClusterName :: atom(), Key :: mero_key(), Value :: integer(),
     Initial :: integer(), ExpTime :: integer(),
     Retries :: integer(), Timeout :: integer()) ->
         ok | {error, Reason :: term()}.
 increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
-  when is_binary(Key), is_integer(Value), is_integer(ExpTime), is_atom(ClusterName),
+  when is_integer(Value), is_integer(ExpTime), is_atom(ClusterName),
     (Initial >= 0), (Value >=0) ->
     BValue = list_to_binary(integer_to_list(Value)),
     BInitial = list_to_binary(integer_to_list(Initial)),
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
     mero_conn:increment_counter(ClusterName, Key, BValue, BInitial, BExpTime, Retries, Timeout).
 
--spec mincrement_counter(ClusterName :: atom(), Key :: [binary()]) ->
+-spec mincrement_counter(ClusterName :: atom(), Key :: [mero_key()]) ->
     ok | {error, Reason :: term()}.
 mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) ->
     mincrement_counter(ClusterName, Keys, 1, 1, mero_conf:key_expiration_time(),
                        mero_conf:write_retries(), mero_conf:timeout_write()).
 
--spec mincrement_counter(ClusterName :: atom(), Keys :: [binary()], Value :: integer(),
+-spec mincrement_counter(ClusterName :: atom(), Keys :: [mero_key()], Value :: integer(),
                          Initial :: integer(), ExpTime :: integer(),
                          Retries :: integer(), Timeout :: integer()) ->
                                 ok | {error, Reason :: term()}.
@@ -274,12 +283,12 @@ mincrement_counter(ClusterName, Keys, Value, Initial, ExpTime, Retries, Timeout)
     mero_conn:mincrement_counter(ClusterName, Keys, BValue, BInitial, BExpTime, Retries, Timeout).
 
 
--spec delete(ClusterName :: atom(), Key :: binary(), Timeout :: integer()) ->
+-spec delete(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
     ok | {error, Reason :: term()}.
-delete(ClusterName, Key, Timeout) when is_binary(Key), is_atom(ClusterName) ->
+delete(ClusterName, Key, Timeout) when is_atom(ClusterName) ->
     mero_conn:delete(ClusterName, Key, Timeout).
 
--spec mdelete(ClusterName :: atom(), Keys :: [binary()], Timeout :: integer()) -> ok.
+-spec mdelete(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) -> ok.
 mdelete(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     mero_conn:mdelete(ClusterName, Keys, Timeout).
 
@@ -293,6 +302,18 @@ flush_all(ClusterName) ->
 %%%=============================================================================
 %%% Sharding algorithms
 %%%=============================================================================
+
+-spec clustering_key(Key :: mero_key()) -> binary().
+clustering_key({ClusteringKey, _}) ->
+    ClusteringKey;
+clustering_key(Key) when is_binary(Key) ->
+    Key.
+
+-spec storage_key(Key :: mero_key()) -> binary().
+storage_key({_ClusteringKey, Key}) ->
+    Key;
+storage_key(Key) when is_binary(Key) ->
+    Key.
 
 -spec shard_phash2(Key :: binary(), ShardSize :: pos_integer()) -> pos_integer().
 shard_phash2(Key, ShardSize) ->
