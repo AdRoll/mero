@@ -52,23 +52,18 @@
                                         Config :: list()})) ->
     {ok, Pid :: pid()} | {error, Reason :: term()}.
 start_link(Config) ->
-    ClusterConfig = process_server_specs(Config),
-
+    ClusterConfig = mero_conf:process_server_specs(Config),
     ok = mero_cluster:load_clusters(ClusterConfig),
     PoolDefs = mero_cluster:child_definitions(),
     supervisor:start_link({local, ?MODULE}, ?MODULE, [PoolDefs]).
-
 
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
 
 init([PoolDefs]) ->
-    Childs = [ child(mero_pool, worker, PoolDef)
-               || PoolDef <- PoolDefs],
+    Childs = [child(mero_pool, worker, PoolDef) || PoolDef <- PoolDefs],
     {ok, {{one_for_one, 10, 10}, Childs}}.
-
-
 
 child(I, Type, {ClusterName, Host, Port, Name, WrkModule}) ->
     {Name, {I, start_link, [ClusterName, Host, Port, Name, WrkModule]}, permanent,
