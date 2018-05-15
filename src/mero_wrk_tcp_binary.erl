@@ -375,7 +375,7 @@ recv_bytes(Client, NumBytes, Buffer, TimeLimit) ->
             {Data, Rest};
         _ ->
             Timeout = mero_conf:millis_to(TimeLimit),
-            case gen_tcp_recv(Client#client.socket, 0, Timeout) of
+            case gen_tcp_recv(Client#client.socket, Timeout) of
                 {ok, Bin} ->
                     recv_bytes(Client, NumBytes, <<Buffer/binary, Bin/binary>>, TimeLimit);
                 {error, Reason} ->
@@ -395,8 +395,8 @@ to_integer(Binary) when is_binary(Binary) ->
     <<Value:Size/integer>> = Binary,
     Value.
 
-gen_tcp_recv(Socket, NumBytes, Timeout) ->
-    gen_tcp:recv(Socket, NumBytes, Timeout).
+gen_tcp_recv(Socket, Timeout) ->
+    gen_tcp:recv(Socket, 0, Timeout).
 
 
 async_mset(Client, NKVECs) ->
