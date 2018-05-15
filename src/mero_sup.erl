@@ -66,3 +66,4 @@ init([PoolDefs]) ->
 child(I, Type, {ClusterName, Host, Port, Name, WrkModule}) ->
     {Name, {I, start_link, [ClusterName, Host, Port, Name, WrkModule]}, permanent,
       5000, Type, [I]}.
+
