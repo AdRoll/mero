@@ -56,12 +56,12 @@
 increment_counter(Name, Key, Value, Initial, ExpTime, Retries, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    increment_counter_timelimit(PoolName, Key, Value, Initial, ExpTime, Retries, TimeLimit).
+    increment_counter_timelimit(PoolName, mero:storage_key(Key), Value, Initial, ExpTime, Retries, TimeLimit).
 
 mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
-    Payload = [{Shard, [{K, Value, Initial, ExpTime} || K <- Ks]} || {Shard, Ks} <- KeysGroupedByShards],
+    Payload = [{Shard, [{mero:storage_key(K), Value, Initial, ExpTime} || K <- Ks]} || {Shard, Ks} <- KeysGroupedByShards],
     case async_by_shard(Name, Payload, TimeLimit,
                         #async_op{op = async_increment,
                                   op_error = async_increment_error,
@@ -75,7 +75,7 @@ mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
 set(Name, Key, Value, ExpTime, Timeout, CAS) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName, set, [Key, Value, ExpTime, TimeLimit, CAS], TimeLimit).
+    pool_execute(PoolName, set, [mero:storage_key(Key), Value, ExpTime, TimeLimit, CAS], TimeLimit).
 
 
 mset(Name, KVECs, Timeout) ->
@@ -90,7 +90,7 @@ madd(Name, KVEs, Timeout) ->
 get(Name, [Key], Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    case pool_execute(PoolName, get, [Key, TimeLimit], TimeLimit) of
+    case pool_execute(PoolName, get, [mero:storage_key(Key), TimeLimit], TimeLimit) of
         {error, Reason} ->
             {error, [Reason], []};
         Value ->
@@ -110,7 +110,7 @@ get(Name, Keys, Timeout) ->
 delete(Name, Key, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName, delete, [Key, TimeLimit], TimeLimit).
+    pool_execute(PoolName, delete, [mero:storage_key(Key), TimeLimit], TimeLimit).
 
 
 mdelete(Name, Keys, Timeout) ->
@@ -126,7 +126,7 @@ mdelete(Name, Keys, Timeout) ->
 add(Name, Key, Value, ExpTime, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName, add, [Key, Value, ExpTime, TimeLimit], TimeLimit).
+    pool_execute(PoolName, add, [mero:storage_key(Key), Value, ExpTime, TimeLimit], TimeLimit).
 
 
 flush_all(Name, Timeout) ->
