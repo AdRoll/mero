@@ -30,8 +30,6 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--include_lib("mero/include/mero.hrl").
-
 -export([start_link/1,
          init/1]).
 
