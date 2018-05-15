@@ -181,13 +181,13 @@ clusters() ->
 sharding_algorithm(Name) ->
     mero_cluster_util:sharding_algorithm(Name).
 %% Selects a worker based on the cluster identifier and the key.
--spec server(Name :: atom(), Key :: binary()) ->
+-spec server(Name :: atom(), Key :: mero:mero_key()) ->
     Server :: atom().
 server(Name, Key) ->
     ShardIdentifier = shard_identifier(Name, Key),
     random_pool_of_shard(Name, ShardIdentifier).
 
--spec group_by_shards(ClusterName :: atom(), Keys :: list(binary())) ->
+-spec group_by_shards(ClusterName :: atom(), Keys :: list(mero:mero_key())) ->
     [{PoolName ::atom(), Keys :: list(binary())}].
 group_by_shards(ClusterName, Keys) ->
     group_by_shards_(ClusterName, Keys, undefined, []).
@@ -213,9 +213,10 @@ total_workers(Name) ->
     mero_cluster_util:cluster_shards(Name) *
         mero_cluster_util:workers_per_shard(Name).
 
+-spec shard_identifier(Name :: atom(), Key :: mero:mero_key()) -> pos_integer().
 shard_identifier(Name, Key) ->
     {Module, Function} = mero_cluster_util:sharding_algorithm(Name),
-    apply(Module, Function, [Key, mero_cluster_util:cluster_shards(Name)]).
+    apply(Module, Function, [mero:clustering_key(Key), mero_cluster_util:cluster_shards(Name)]).
 
 
 %% @doc: Returns an integer between 0 and max -1
@@ -230,6 +231,11 @@ random_integer(Max) when Max > 0 ->
 %%% private functions
 %%%===================================================================
 
+key_to_storage_key(undefined, Key, Key) ->
+    mero:storage_key(Key);
+key_to_storage_key(KeyPos, Item, Key) ->
+    erlang:setelement(KeyPos, Item, mero:storage_key(Key)).
+
 group_by_shards_(_ClusterName, [], _, Acc) ->
     Acc;
 group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
@@ -240,12 +246,13 @@ group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
                   element(N, Item)
           end,
     Identifier = mero_cluster:shard_identifier(ClusterName, Key),
+    Item2 = key_to_storage_key(KeyPos, Item, Key),
     case lists:keyfind(Identifier, 1, Acc) of
         false ->
-            group_by_shards_(ClusterName, Items, KeyPos, [{Identifier, [Item]} | Acc]);
+            group_by_shards_(ClusterName, Items, KeyPos, [{Identifier, [Item2]} | Acc]);
         {Identifier, List} ->
             group_by_shards_(ClusterName, Items, KeyPos,
-                lists:keyreplace(Identifier, 1, Acc, {Identifier, List ++ [Item]}))
+                lists:keyreplace(Identifier, 1, Acc, {Identifier, List ++ [Item2]}))
     end.
 
 worker_defs(ClusterConfig) ->
