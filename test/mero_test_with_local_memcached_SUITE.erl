@@ -104,7 +104,6 @@ all() -> [
     %% mcas_binary
 ].
 
-
 init_per_suite(Conf) ->
     application:load(mero),
     ok = mero_conf:cluster_config(

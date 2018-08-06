@@ -52,6 +52,7 @@
     multiget_undefineds/1,
     set/1,
     undefined_counter/1,
+    cas/1,
     mincrease_counter/1,
     cas/1,
     madd/1,
