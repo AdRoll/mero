@@ -33,7 +33,17 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--compile(export_all).
+-export([
+    all/0,
+    init_per_testcase/2,
+    end_per_testcase/2,
+    diff/1,
+    process_server_specs_a_compatible/1,
+    process_server_specs_a/1,
+    process_server_specs_a_alternate/1,
+    process_server_specs_a_b/1,
+    process_server_specs_a_b_c/1
+]).
 
 all() -> [
     diff,
@@ -44,20 +54,8 @@ all() -> [
     process_server_specs_a_b_c
 ].
 
-
-suite() ->
-    [{timetrap, {seconds, 1}}].
-
-
-init_per_suite(Conf) ->
-    Conf.
-
-end_per_suite(_Conf) ->
-    ok.
-
 init_per_testcase(diff, Conf) ->
     Conf;
-
 init_per_testcase(_, Conf) ->
     meck:new(mero_elasticache, [passthrough]),
     HostLinea = <<"a1.com|10.100.100.100|11211 ",

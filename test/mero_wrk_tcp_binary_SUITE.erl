@@ -33,25 +33,24 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--compile(export_all).
+-export([
+    all/0,
+    init_per_testcase/2,
+    end_per_testcase/2,
+    mero_get_not_found/1,
+    mero_get_found/1,
+    mero_set/1,
+    mero_mget/1
+]).
+
+-export([stats/1]).
 
 all() -> [
-          mero_get_not_found,
-          mero_get_found,
-          mero_set,
-          mero_mget
-        ].
-
-
-suite() ->
-    [{timetrap, {seconds,1}}].
-
-
-init_per_suite(Conf) ->
-    Conf.
-
-end_per_suite(_Conf) ->
-    ok.
+    mero_get_not_found,
+    mero_get_found,
+    mero_set,
+    mero_mget
+].
 
 init_per_testcase(_, Conf) ->
     meck:new(gen_tcp, [unstick]),

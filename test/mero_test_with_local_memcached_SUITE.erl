@@ -33,7 +33,39 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 
--compile(export_all).
+-export([
+    all/0,
+    init_per_suite/1,
+    end_per_suite/1,
+    init_per_testcase/2,
+    end_per_testcase/2,
+    get_undefined_binary/1,
+    get_undefined_txt/1,
+    get_set_binary/1,
+    get_set_txt/1,
+    flush_binary/1,
+    flush_txt/1,
+    delete_binary/1,
+    mdelete_binary/1,
+    mdelete_txt/1,
+    delete_txt/1,
+    mget_binary/1,
+    mget_txt/1,
+    add_binary/1,
+    add_txt/1,
+    increment_binary/1,
+    increment_txt/1,
+    increment_binary_with_initial/1,
+    increment_txt_with_initial/1,
+    mincrement_binary/1,
+    mincrement_txt/1,
+    cas_binary/1,
+    cas_txt/1,
+    mgets_binary/1,
+    madd_binary/1,
+    mset_binary/1,
+    mcas_binary/1
+]).
 
 -define(HOST, "127.0.0.1").
 -define(PORT, 11911).
@@ -44,37 +76,34 @@
 
 %% TODO: Uncomment these if you want to test agains a specific memcache server
 all() -> [
-         %% get_undefined_binary,
-         %% get_undefined_txt,
-         %% get_set_binary,
-         %% get_set_txt,
-         %% flush_binary,
-         %% flush_txt,
-         %% delete_binary,
-         %% mdelete_binary,
-         %% mdelete_txt,
-         %% delete_txt,
-         %% mget_binary,
-         %% mget_txt,
-         %% add_binary,
-         %% add_txt,
-         %% increment_binary,
-         %% increment_txt,
-         %% increment_binary_with_initial,
-         %% increment_txt_with_initial,
-         %% mincrement_binary,
-         %% mincrement_txt,
-         %% cas_binary,
-         %% cas_txt,
-         %% mgets_binary,
-         %% madd_binary,
-         %% mset_binary,
-         %% mcas_binary
-    ].
+    %% get_undefined_binary,
+    %% get_undefined_txt,
+    %% get_set_binary,
+    %% get_set_txt,
+    %% flush_binary,
+    %% flush_txt,
+    %% delete_binary,
+    %% mdelete_binary,
+    %% mdelete_txt,
+    %% delete_txt,
+    %% mget_binary,
+    %% mget_txt,
+    %% add_binary,
+    %% add_txt,
+    %% increment_binary,
+    %% increment_txt,
+    %% increment_binary_with_initial,
+    %% increment_txt_with_initial,
+    %% mincrement_binary,
+    %% mincrement_txt,
+    %% cas_binary,
+    %% cas_txt,
+    %% mgets_binary,
+    %% madd_binary,
+    %% mset_binary,
+    %% mcas_binary
+].
 
-
-suite() ->
-    [{timetrap, {seconds, 15}}].
 
 init_per_suite(Conf) ->
     application:load(mero),

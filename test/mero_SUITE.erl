@@ -33,7 +33,32 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 
--compile(export_all).
+-export([
+    all/0,
+    groups/0,
+    init_per_group/2,
+    end_per_group/2,
+    init_per_testcase/2,
+    end_per_testcase/2,
+    add/1,
+    delete/1,
+    get_undefineds/1,
+    increase_counter/1,
+    increase_counter_clustered_key/1,
+    increment/1,
+    mdelete/1,
+    multiget_defineds/1,
+    multiget_defineds_clustered_keys/1,
+    multiget_undefineds/1,
+    set/1,
+    undefined_counter/1,
+    cas/1,
+    mincrease_counter/1,
+    cas/1,
+    madd/1,
+    mset/1,
+    mcas/1
+]).
 
 -define(HOST, "127.0.0.1").
 -define(PORT, 11911).
@@ -88,9 +113,6 @@ groups() ->
       ]
      }
     ].
-
-suite() ->
-    [{timetrap, {seconds, 15}}].
 
 init_per_group(text_protocol, Config) ->
     ClusterConfig = [{cluster,

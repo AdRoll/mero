@@ -33,39 +33,24 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--compile(export_all).
+-export([
+    all/0,
+    load_cluster/1,
+    shard_phash2/1,
+    shard_crc32/1,
+    select_pool/1,
+    group_by_shards/1,
+    group_by_shards_clustered_key/1
+]).
 
 all() -> [
-         load_cluster,
-         shard_phash2,
-         shard_crc32,
-         select_pool,
-         group_by_shards,
-         group_by_shards_clustered_key
-    ].
-
-
-suite() ->
-    [{timetrap, {seconds, 5}}].
-
-
-init_per_suite(Conf) ->
-    Conf.
-
-end_per_suite(_Conf) ->
-    ok.
-
-
-init_per_testcase(_, Conf) ->
-    Conf.
-
-
-end_per_testcase(_, _Conf) ->
-    ok.
-
-%%%=============================================================================
-%%% Tests
-%%%=============================================================================
+    load_cluster,
+    shard_phash2,
+    shard_crc32,
+    select_pool,
+    group_by_shards,
+    group_by_shards_clustered_key
+].
 
 %% Just tests if the application can be started and when it does that
 %% the mero_cluster module is generated correctly.
