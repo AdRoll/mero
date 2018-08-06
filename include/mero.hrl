@@ -59,8 +59,8 @@
 %%% Default timeout for instrospection functions
 -define(DEFAULT_TIMEOUT, 5000).
 
--define(LOG_EVENT(MF, KeyAndTags), begin
-                                  {StatModule, StatFunction, GlobalTags} = MF,
+-define(LOG_EVENT(MFA, KeyAndTags), begin
+                                  {StatModule, StatFunction, GlobalTags} = MFA,
                                   apply(StatModule, StatFunction, [KeyAndTags ++ GlobalTags])
                                 end).
 

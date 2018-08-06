@@ -170,8 +170,6 @@ transaction(Client, async_mget, [Keys]) ->
     case async_mget(Client, Keys) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
@@ -180,38 +178,21 @@ transaction(Client, async_delete, [Keys]) ->
     case async_delete(Client, Keys) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
 
 transaction(Client, async_increment, [Keys]) ->
-    case async_increment(Client, Keys) of
-        {error, Reason} ->
-            {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
-        {ok, ok} ->
-            {Client, ok}
-    end;
+    async_increment(Client, Keys);
 
 transaction(Client, async_blank_response, [Keys, Timeout]) ->
-    case async_blank_response(Client, Keys, Timeout) of
-        {error, Reason} ->
-            {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
-        {ok, Results} ->
-            {Client, Results}
-    end;
+    {ok, Results} = async_blank_response(Client, Keys, Timeout),
+    {Client, Results};
 
 transaction(Client, async_mget_response, [Keys, Timeout]) ->
     case async_mget_response(Client, Keys, Timeout) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, {ok, FoundItems}} ->
              FoundKeys = [Key || #mero_item{key = Key} <- FoundItems],
              NotFoundKeys = lists:subtract(Keys, FoundKeys),

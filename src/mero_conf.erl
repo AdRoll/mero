@@ -159,7 +159,7 @@ expiration_interval(Val) ->
     application:set_env(mero, expiration_interval, Val).
 
 %% @doc: Maximum time that a connection can be inactive before closing it (millis)
--spec connection_unused_max_time() -> integer().
+-spec connection_unused_max_time() -> timeout().
 connection_unused_max_time() ->
     get_env(connection_unused_max_time).
 

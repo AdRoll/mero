@@ -40,7 +40,7 @@
          close/2]).
 
 
--record(client, {socket, pool, event_callback :: module()}).
+-record(client, {socket, pool, event_callback :: {module(), atom(), [term()]}}).
 
 -define(SOCKET_OPTIONS, [binary,
                          {packet, raw},
@@ -147,8 +147,6 @@ transaction(Client, async_mset, [KVECs]) ->
     case async_mset(Client, KVECs) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
@@ -157,8 +155,6 @@ transaction(Client, async_madd, [KVECs]) ->
     case async_madd(Client, KVECs) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
@@ -167,8 +163,6 @@ transaction(Client, async_mget, [Keys]) ->
     case async_mget(Client, Keys) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
@@ -177,8 +171,6 @@ transaction(Client, async_increment, [Keys]) ->
     case async_increment(Client, Keys) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
@@ -187,8 +179,6 @@ transaction(Client, async_delete, [Keys]) ->
     case async_delete(Client, Keys) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, ok} ->
             {Client, ok}
     end;
@@ -197,28 +187,18 @@ transaction(Client, async_mget_response, [Keys, Timeout]) ->
     case async_mget_response(Client, Keys, Timeout) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, Results} ->
             {Client, Results}
     end;
 
 transaction(Client, async_blank_response, [Keys, Timeout]) ->
-    case async_blank_response(Client, Keys, Timeout) of
-        {error, Reason} ->
-            {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
-        {ok, Results} ->
-            {Client, Results}
-    end;
+    {ok, Results} = async_blank_response(Client, Keys, Timeout),
+    {Client, Results};
 
 transaction(Client, async_mset_response, [Items, Timeout]) ->
     case async_mset_response(Client, Items, Timeout) of
         {error, Reason} ->
             {error, Reason};
-        {ok, {error, Reason}} ->
-            {Client, {error, Reason}};
         {ok, Results} ->
             {Client, Results}
     end.
@@ -333,8 +313,6 @@ send(Client, Data) ->
 
 cas_value(16#00) ->
     undefined;
-cas_value(undefined) ->
-    16#00;
 cas_value(Value) when is_integer(Value) andalso Value > 0 ->
     Value.
 

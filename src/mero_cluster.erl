@@ -109,14 +109,12 @@
     sharding_algorithm/1,
     load_clusters/1,
     total_workers/1,
-    shard_identifier/2,
     server/2,
     one_pool_of_each_shard_of_cluster/1,
     group_by_shards/2, group_by_shards/3,
     pool_worker_module/1,
     random_pool_of_shard/2,
     clusters/0]).
-
 
 -ignore_xref([
     {mero_cluster_util, cluster_shards, 1},
@@ -213,23 +211,20 @@ total_workers(Name) ->
     mero_cluster_util:cluster_shards(Name) *
         mero_cluster_util:workers_per_shard(Name).
 
--spec shard_identifier(Name :: atom(), Key :: mero:mero_key()) -> pos_integer().
-shard_identifier(Name, Key) ->
-    {Module, Function} = mero_cluster_util:sharding_algorithm(Name),
-    apply(Module, Function, [mero:clustering_key(Key), mero_cluster_util:cluster_shards(Name)]).
-
-
 %% @doc: Returns an integer between 0 and max -1
 -spec random_integer(Max :: integer()) ->
     integer().
 random_integer(Max) when Max > 0 ->
     rand:uniform(Max) - 1.
 
-
-
 %%%===================================================================
 %%% private functions
 %%%===================================================================
+
+shard_identifier(Name, Key) ->
+    {Module, Function} = mero_cluster_util:sharding_algorithm(Name),
+    apply(Module, Function, [mero:clustering_key(Key), mero_cluster_util:cluster_shards(Name)]).
+
 
 key_to_storage_key(undefined, Key, Key) ->
     mero:storage_key(Key);
@@ -245,7 +240,7 @@ group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
               N when is_integer(N), N > 0 ->
                   element(N, Item)
           end,
-    Identifier = mero_cluster:shard_identifier(ClusterName, Key),
+    Identifier = shard_identifier(ClusterName, Key),
     Item2 = key_to_storage_key(KeyPos, Item, Key),
     case lists:keyfind(Identifier, 1, Acc) of
         false ->
