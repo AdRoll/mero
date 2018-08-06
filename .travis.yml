@@ -4,6 +4,8 @@ os:
   - linux
 
 otp_release:
+   - 21.0.2
+   - 20.1
    - 19.3
    - 18.3
 
@@ -11,14 +13,11 @@ notifications:
   email: rtb-team+travis@adroll.com
 
 script:
-  - rebar -V
+  - rebar3 --version
   - erl -version
-  - make test
-  - make logs_clean
-  - make deps
-  - make compile
-  - make xref
-  - make eunit
-  - make ct
+  - rebar3 compile
+  - rebar3 xref
+  - rebar3 eunit
+  - rebar3 ct
 
 

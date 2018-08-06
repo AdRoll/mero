@@ -9,6 +9,7 @@
                   kernel,
                   stdlib,
                   inets,
+                  crypto,
                   dynamic_compile
                  ]},
   {mod, {mero, []}},

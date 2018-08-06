@@ -113,19 +113,17 @@ send twice as many connections & requests to that cluster than to the other weak
 
 Using Mero:
 ===============
+Mero is a regular OTP application, managed with [rebar3](http://rebar3.org/). Therefore you can do stuff like...
 
-```
-make
-
-make test
-
+```shell
+rebar3 do compile, xref, eunit, ct
 ```
 
 There are three ways to start this application:
 
- - From an erlang shell:
-```
-erl -pa ebin/ -pa deps/*/ebin/ -s inets -s mero
+### From an erlang shell
+```erlang
+$rebar3 shell
 
 > mero:increment_counter(default, <<"key">>).
 {ok,1}
@@ -226,14 +224,13 @@ ok
 ```
 
 
- - Set the configuration in the mero.app.src file and start the application inside your
-OTP node.
+### Inside a Node
+Set the configuration in the mero.app.src file and start the application inside your OTP node as a regular OTP app.
 
+### As an OTP included application
+Pass the ClusterConfiguration as a parameter to the supervisor of the application.
 
- - As an OTP included application, pass the ClusterConfiguration as a parameter to the
-supervisor of the application.
-
-```
+```erlang
 mero_sup:start_link([{default,[{servers,[{"localhost",11211}]},
                                    {sharding_algorithm,{mero,shard_crc32}},
                                    {workers_per_shard,1},
@@ -244,6 +241,6 @@ mero_sup:start_link([{default,[{servers,[{"localhost",11211}]},
 Testing the library against a local memcached server:
 =====================================================
 
-Warning: This will erase all the contents of the memcached server it connects to ("localhost" by default).
-Uncomment the test cases at suite test/mero_test_with_local_memcached_SUITE.erl
+**Warning:** This will erase all the contents of the memcached server it connects to (`"localhost"` by default).
 
+To run tests using a real memcached server, uncomment the test cases at `test/mero_test_with_local_memcached_SUITE.erl`

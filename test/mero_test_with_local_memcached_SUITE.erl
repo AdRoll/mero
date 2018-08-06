@@ -77,8 +77,6 @@ suite() ->
     [{timetrap, {seconds, 15}}].
 
 init_per_suite(Conf) ->
-    ok = application:start(inets),
-
     application:load(mero),
     ok = mero_conf:cluster_config(
         [{cluster_binary,
@@ -98,15 +96,12 @@ init_per_suite(Conf) ->
     ok = mero_conf:connection_unused_max_time(10000),
     ok = mero_conf:timeout_read(1000),
     ok = mero_conf:timeout_write(1000),
-    ok = application:start(mero),
+    {ok, _} = application:ensure_all_started(mero),
     timer:sleep(5000),
     Conf.
 
-
 end_per_suite(_Conf) ->
-
     ok = application:stop(mero),
-    ok = application:stop(inets),
     ok.
 
 
