@@ -62,15 +62,6 @@ all() -> [
 suite() -> [{timetrap, {seconds, 5}}].
 
 
-init_per_suite(Conf) ->
-  ok = application:start(inets),
-  Conf.
-
-end_per_suite(_Conf) ->
-  ok = application:stop(inets),
-  ok.
-
-
 init_per_testcase(_, Conf) ->
   application:load(mero),
   Conf.

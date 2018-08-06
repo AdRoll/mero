@@ -124,14 +124,6 @@ init_per_group(binary_protocol, Config) ->
 end_per_group(_GroupName, _Config) ->
     ok.
 
-init_per_suite(Conf) ->
-    ok = application:start(inets),
-    Conf.
-
-end_per_suite(_Conf) ->
-    ok = application:stop(inets),
-    ok.
-
 init_per_testcase(_Module, Conf) ->
     application:load(mero),
     ClusterConfig = ?config(cluster_config, Conf),

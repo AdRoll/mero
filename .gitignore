@@ -1,8 +1,6 @@
+_build/
 .eunit
-deps
-logs/*
 *.o
 *.beam
 *.plt
 erl_crash.dump
-ebin/*.app

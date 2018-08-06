@@ -1,0 +1,6 @@
+{"1.1.0",
+[{<<"dynamic_compile">>,{pkg,<<"dynamic_compile">>,<<"1.0.0">>},0}]}.
+[
+{pkg_hash,[
+ {<<"dynamic_compile">>, <<"8171B2CB4953EA3ED2EF63F5B26ABF677ACD0CA32210C2A08A7A8406A743F76B">>}]}
+].
