@@ -209,8 +209,7 @@ checkout_checkin(_) ->
   mero_test_util:wait_for_pool_state(?POOL, 1, 1, 0, 0),
 
   ct:log("Another process is allowed to checkout a new connection"),
-  ?assertMatch({ok, _Conn2},
-    proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})).
+  ?assertMatch({ok, _}, proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})).
 
 
 %% A little more complex than the previous. Tests that new connections are created
@@ -302,9 +301,9 @@ checkout_timeout(_) ->
     ct:log("A process timesout"),
     {error, pool_timeout} = proc:exec(P1, {mero_pool, checkout, [?POOL, ?TIMELIMIT(0)]}),
     mero_test_util:wait_for_pool_state(?POOL, 2, 2, 0, 0),
-    ?assertMatch({ok, _Conn}, mero_pool:checkout(?POOL, ?TIMELIMIT(3))),
+    ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(3))),
     mero_test_util:wait_for_pool_state(?POOL, 1, 2, 0, 0),
-    ?assertMatch({ok, _Conn}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
+    ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
     mero_test_util:wait_for_pool_state(?POOL, 0, 2, 0, 0).
 
 

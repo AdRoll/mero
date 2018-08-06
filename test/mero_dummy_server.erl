@@ -494,7 +494,8 @@ response(Parent, Port, Request) ->
                             canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, not_found);
                         _ ->
                             put_key(Parent, Port, Key, Initial),
-                            canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, {incr, Initial})
+                            canned_responses(
+                                Kind, undefined, Key, ?MEMCACHE_INCREMENT, {incr, Initial})
                     end;
                 {Value, _} ->
                     Result = mero_util:to_int(Value) + mero_util:to_int(Bytes),
@@ -507,16 +508,24 @@ response(Parent, Port, Request) ->
 
 %%% Parse
 
-parse_text([<<"get">> | Keys]) -> {[], {get, Keys}};
-parse_text([<<"gets">> | Keys]) -> {[], {gets, Keys}};
-parse_text([<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {set, Key, Bytes, undefined, false}};
-parse_text([<<"cas">>, Key, _Flag, _ExpTime, _NBytes, CAS, Bytes]) -> {[], {cas, Key, Bytes, binary_to_integer(CAS), undefined, false}};
-parse_text([<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) -> {[], {add, Key, Bytes, undefined, false}};
-parse_text([<<"delete">>, Key]) -> {[], {delete, Key}};
+parse_text([<<"get">> | Keys]) ->
+    {[], {get, Keys}};
+parse_text([<<"gets">> | Keys]) ->
+    {[], {gets, Keys}};
+parse_text([<<"set">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) ->
+    {[], {set, Key, Bytes, undefined, false}};
+parse_text([<<"cas">>, Key, _Flag, _ExpTime, _NBytes, CAS, Bytes]) ->
+    {[], {cas, Key, Bytes, binary_to_integer(CAS), undefined, false}};
+parse_text([<<"add">>, Key, _Flag, _ExpTime, _NBytes, Bytes]) ->
+    {[], {add, Key, Bytes, undefined, false}};
+parse_text([<<"delete">>, Key]) ->
+    {[], {delete, Key}};
 parse_text([<<"delete">>, Key, <<"noreply">>, <<>> | Rest]) ->
     parse_multi_delete_text([Key], Rest);
-parse_text([<<"incr">>, Key, Value]) -> {[], {incr, Key, 100, Value, Value}};
-parse_text([<<"flush_all">>]) -> {[], flush_all}.
+parse_text([<<"incr">>, Key, Value]) ->
+    {[], {incr, Key, 100, Value, Value}};
+parse_text([<<"flush_all">>]) ->
+    {[], flush_all}.
 
 parse_multi_delete_text(Acc, []) ->
     {Acc, undefined};

@@ -52,7 +52,6 @@
     multiget_undefineds/1,
     set/1,
     undefined_counter/1,
-    cas/1,
     mincrease_counter/1,
     cas/1,
     madd/1,
@@ -329,8 +328,10 @@ multiget_defineds(_Conf) ->
                 {<<"16">>, <<"3">>},
                 {<<"12">>, <<"1">>},
                 {<<"11">>, <<"1">>}],
-    ?assertEqual(Expected, mero:mget(cluster,
-                                     [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>,<<"17">>], 1000)).
+    ?assertEqual(
+        Expected,
+        mero:mget(cluster, [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>,<<"17">>], 1000)
+    ).
 
 multiget_defineds_clustered_keys(_Conf) ->
     ?assertMatch({ok, 1}, mero:increment_counter(cluster, {<<"1">>, <<"11">>})),
@@ -455,15 +456,15 @@ mcas(_) ->
     KVCs = mero:mgets(cluster, Keys, 5000),
     FailingKeys = [hd(Keys), lists:nth(length(Keys), Keys)],
     {NUpdates, Expected} =
-        lists:unzip([case lists:member(Key, FailingKeys) of
-                         true ->
-                             {{Key, <<"should not update">>, 10000, CAS + 1}, {error, already_exists}};
-                         false ->
-                             {{Key, <<Key/binary, Key/binary>>, 10000, CAS}, ok}
-                     end
-                     || {Key, _, CAS} <- KVCs]),
-    ?assertEqual(Expected,
-                 mero:mcas(cluster, NUpdates, 5000)).
+        lists:unzip([
+            case lists:member(Key, FailingKeys) of
+                true ->
+                    {{Key, <<"should not update">>, 10000, CAS + 1}, {error, already_exists}};
+                false ->
+                    {{Key, <<Key/binary, Key/binary>>, 10000, CAS}, ok}
+            end || {Key, _, CAS} <- KVCs]
+        ),
+    ?assertEqual(Expected, mero:mcas(cluster, NUpdates, 5000)).
 
 
 %%%=============================================================================

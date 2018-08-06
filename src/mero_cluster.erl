@@ -269,7 +269,8 @@ get_server_defs({ClusterName, ClusterConfig}) ->
             ({Host, Port}, {Acc, ShardSizeAcc}) ->
                 Elements =
                     [begin
-                         WorkerName = worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
+                         WorkerName =
+                            worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
                          {ClusterName, ShardSizeAcc, ReplicationNumber,
                              {ClusterName, Host, Port, WorkerName, WorkerModule}}
                      end || ReplicationNumber <- lists:seq(0, (Workers - 1))],
@@ -346,10 +347,10 @@ worker_by_index_function(WorkerDefs) ->
     lists:flatten(
         lists:foldr(
             fun
-                ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, []) ->
+                ({Name, ShardSizeAcc, ReplicationNumber, {_, _, _, WorkerName, _}}, []) ->
                     io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p.\n\n",
                         [Name, ShardSizeAcc, ReplicationNumber, WorkerName]);
-                ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, Acc) ->
+                ({Name, ShardSizeAcc, ReplicationNumber, {_, _, _, WorkerName, _}}, Acc) ->
                     Clause = io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p;\n",
                         [Name, ShardSizeAcc, ReplicationNumber, WorkerName]),
                     [Clause, Acc]

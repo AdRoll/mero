@@ -55,17 +55,25 @@ all() -> [
 %% Just tests if the application can be started and when it does that
 %% the mero_cluster module is generated correctly.
 load_cluster(_Conf) ->
-    Config = [{cluster,
-        [{servers, [{"localhost", 11996}, {"localhost", 11997}, {"localhost", 11998}, {"localhost", 11999}]},
+    Config = [
+        {cluster, [
+            {servers, [
+                {"localhost", 11996},
+                {"localhost", 11997},
+                {"localhost", 11998},
+                {"localhost", 11999}
+            ]},
             {sharding_algorithm, {mero, shard_phash2}},
             {workers_per_shard, 3},
-            {pool_worker_module, mero_wrk_tcp_txt}]},
-        {cluster2,
-            [{servers, [{"localhost", 11995}]},
-                {sharding_algorithm, {mero, shard_crc32}},
-                {workers_per_shard, 2},
-                {pool_worker_module, mero_wrk_tcp_txt}]
-        }],
+            {pool_worker_module, mero_wrk_tcp_txt}
+        ]},
+        {cluster2, [
+            {servers, [{"localhost", 11995}]},
+            {sharding_algorithm, {mero, shard_crc32}},
+            {workers_per_shard, 2},
+            {pool_worker_module, mero_wrk_tcp_txt}
+        ]}
+    ],
     mero_cluster:load_clusters(Config),
     ?assertMatch(4, mero_cluster:cluster_shards(cluster)),
     ?assertMatch(1, mero_cluster:cluster_shards(cluster2)),
@@ -184,18 +192,27 @@ group_by_shards_clustered_key(_Conf) ->
                 {workers_per_shard, 1},
                 {pool_worker_module, mero_wrk_tcp_txt}]}],
     mero_cluster:load_clusters(Config),
-    ?assertEqual([
-        {0, [<<"K6">>]},
-        {1, [<<"K1">>,<<"K2">>,<<"K3">>,<<"K4">>,<<"K5">>,<<"K7">>,
-             <<"K8">>,<<"K9">> ]}],
+    ?assertEqual(
+        [
+            {0, [<<"K6">>]},
+            {1, [<<"K1">>,<<"K2">>,<<"K3">>,<<"K4">>,<<"K5">>,<<"K7">>,<<"K8">>,<<"K9">>]}
+        ],
         mero_cluster:group_by_shards(cluster,
             [{<<"1">>, <<"K1">>}, {<<"2">>, <<"K2">>}, {<<"3">>, <<"K3">>},
              {<<"4">>, <<"K4">>}, {<<"5">>, <<"K5">>}, {<<"6">>, <<"K6">>},
-             {<<"7">>, <<"K7">>}, {<<"8">>, <<"K8">>}, {<<"9">>, <<"K9">>}])),
-    ?assertEqual([{0, [{x, <<"K6">>}, {y, <<"K13">>}]},
-                  {1, [{a, <<"K1">>}, {b, <<"K2">>}]}],
-                 mero_cluster:group_by_shards(cluster,
-                                              [{a, {<<"1">>, <<"K1">>}}, {b, {<<"2">>, <<"K2">>}},
-                                               {x, {<<"6">>, <<"K6">>}}, {y, {<<"13">>, <<"K13">>}}],
-                                              2)),
+             {<<"7">>, <<"K7">>}, {<<"8">>, <<"K8">>}, {<<"9">>, <<"K9">>}])
+    ),
+    ?assertEqual(
+        [{0, [{x, <<"K6">>}, {y, <<"K13">>}]}, {1, [{a, <<"K1">>}, {b, <<"K2">>}]}],
+        mero_cluster:group_by_shards(
+            cluster,
+            [
+                {a, {<<"1">>, <<"K1">>}},
+                {b, {<<"2">>, <<"K2">>}},
+                {x, {<<"6">>, <<"K6">>}},
+                {y, {<<"13">>, <<"K13">>}}
+            ],
+            2
+        )
+    ),
     ok.

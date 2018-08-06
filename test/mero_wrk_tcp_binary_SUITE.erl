@@ -121,25 +121,34 @@ test_response_parsing(Buffer, ExpectedResult, {MemcachedOp, MemcachedOpArgs}) ->
       end, [10, 2, 1024]).
 
 mero_get_not_found(_Conf) ->
-    test_response_parsing(?GET_NOT_FOUND_RESPONSE,
-                          #mero_item{key =  <<"aa">>, value = undefined},
-                          {get, [<<"aa">>, mero_conf:add_now(100)]}
-                         ).
+    test_response_parsing(
+        ?GET_NOT_FOUND_RESPONSE,
+        #mero_item{key =  <<"aa">>, value = undefined},
+        {get, [<<"aa">>, mero_conf:add_now(100)]}
+    ).
 
 mero_get_found(_Conf) ->
-    test_response_parsing(?GET_FOUND_RESPONSE,
-                          #mero_item{key = <<"aa">>, value = <<"some cached value">>, cas = 31198},
-                          {get, [<<"aa">>, mero_conf:add_now(100)]}).
+    test_response_parsing(
+        ?GET_FOUND_RESPONSE,
+        #mero_item{key = <<"aa">>, value = <<"some cached value">>, cas = 31198},
+        {get, [<<"aa">>, mero_conf:add_now(100)]}
+    ).
 
 mero_set(_Conf) ->
-    test_response_parsing(?SET_RESPONSE,
-                          ok,
-                          {set, [<<"aa">>, <<"some cached value">>, <<"1000">>, mero_conf:add_now(100), 31198]}).
+    test_response_parsing(
+        ?SET_RESPONSE,
+        ok,
+        {set, [<<"aa">>, <<"some cached value">>, <<"1000">>, mero_conf:add_now(100), 31198]}
+    ).
 
 mero_mget(_Conf) ->
-    test_response_parsing(?MGET_RESPONSE,
-                          [#mero_item{key = <<"c">>, value = undefined},
-                           #mero_item{key = <<"aa">>, value = <<"some cached value">>, cas = 31198},
-                           #mero_item{key = <<"b">>, value = undefined}],
-                          {async_mget_response, [[<<"b">>, <<"aa">>,<<"c">>], mero_conf:add_now(100)]}).
+    test_response_parsing(
+        ?MGET_RESPONSE,
+        [
+            #mero_item{key = <<"c">>, value = undefined},
+            #mero_item{key = <<"aa">>, value = <<"some cached value">>, cas = 31198},
+            #mero_item{key = <<"b">>, value = undefined}
+        ],
+        {async_mget_response, [[<<"b">>, <<"aa">>,<<"c">>], mero_conf:add_now(100)]}
+    ).
 
