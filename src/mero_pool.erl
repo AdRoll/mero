@@ -75,7 +75,7 @@
 
                   reconnect_wait_time :: non_neg_integer(),
                   worker_module :: atom(),
-                  callback_info :: {module(), Function :: atom()},
+                  callback_info :: {module(), Function :: atom(), Args :: [term()]},
                   pool :: term()}).
 
 %%%=============================================================================
@@ -145,6 +145,7 @@ system_continue(Parent, Deb, State) ->
     pool_loop(State, Parent, Deb).
 
 
+-spec system_terminate(term(), _, _, _) -> no_return().
 system_terminate(Reason, _Parent, _Deb, _State) ->
     exit(Reason).
 
@@ -164,8 +165,7 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
             {Module, Function} = mero_conf:stat_callback(),
             CallBackInfo = ?CALLBACK_CONTEXT(Module, Function, ClusterName, Host, Port),
             Initial = mero_conf:initial_connections_per_pool(),
-            spawn_connections(PoolName, WrkModule, Host, Port, CallBackInfo,
-                              Initial),
+            spawn_connections(PoolName, WrkModule, Host, Port, CallBackInfo, Initial),
             proc_lib:init_ack(Parent, {ok, self()}),
             State = #pool_st{
                        cluster = ClusterName,
@@ -447,14 +447,14 @@ schedule_expiration(State) ->
     State.
 
 
-expire_connections(#pool_st{free = Conns, pool = Pool, num_connected = Num, callback_info = CallbackInfo} = State) ->
+expire_connections(#pool_st{free = Conns, pool = Pool, num_connected = Num} = State) ->
     Now = os:timestamp(),
     try conn_time_to_live(Pool) of
         TTL ->
             case lists:foldl(fun filter_expired/2, {Now, TTL, [], []}, Conns) of
                 {_, _, [], _} -> State;
                 {_, _, ExpConns, ActConns} ->
-                    spawn_link(fun() -> close_connections(CallbackInfo, ExpConns) end),
+                    spawn_link(fun() -> close_connections(ExpConns) end),
                     maybe_spawn_connect(
                       State#pool_st{free = ActConns,
                                     num_connected = Num - length(ExpConns)})
@@ -485,11 +485,10 @@ filter_expired(#conn{updated = Updated} = Conn, {Now, TTL, ExpConns, ActConns}) 
 safe_send(PoolName, Cmd) ->
     catch PoolName ! Cmd.
 
-close_connections(_CallbackInfo, []) -> ok;
-
-close_connections(CallbackInfo, [Conn | Conns]) ->
+close_connections([]) -> ok;
+close_connections([Conn | Conns]) ->
     catch close(Conn, expire),
-    close_connections(CallbackInfo, Conns).
+    close_connections(Conns).
 
 is_config_valid() ->
     Initial = mero_conf:initial_connections_per_pool(),
