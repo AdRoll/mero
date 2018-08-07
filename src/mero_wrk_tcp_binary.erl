@@ -32,6 +32,7 @@
 
 -include_lib("mero/include/mero.hrl").
 
+-behavior(mero_pool).
 
 %%% Start/stop functions
 -export([connect/3,
@@ -71,7 +72,9 @@ controlling_process(Client, Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            ?LOG_EVENT(Client#client.event_callback, [socket, controlling_process, error, {reason, Reason}]),
+            ?LOG_EVENT(
+                Client#client.event_callback,
+                [socket, controlling_process, error, {reason, Reason}]),
             {error, Reason}
     end.
 
@@ -357,7 +360,8 @@ recv_bytes(Client, NumBytes, Buffer, TimeLimit) ->
                 {ok, Bin} ->
                     recv_bytes(Client, NumBytes, <<Buffer/binary, Bin/binary>>, TimeLimit);
                 {error, Reason} ->
-                    ?LOG_EVENT(Client#client.event_callback, [memcached_receive_error, {reason, Reason}]),
+                    ?LOG_EVENT(
+                        Client#client.event_callback, [memcached_receive_error, {reason, Reason}]),
                     throw({failed, {receive_bytes, Reason}})
             end
     end.
@@ -410,10 +414,13 @@ async_delete(Client, Keys) ->
     end.
 
 async_increment(Client, Keys) ->
-    try
-        {ok, lists:foreach(fun({K, Value, Initial, ExpTime}) ->
-                                   send(Client, pack({?MEMCACHE_INCREMENTQ, {K, Value, Initial, ExpTime}}))
-                           end, Keys)}
+    try {
+            ok,
+            lists:foreach(
+                fun({K, Value, Initial, ExpTime}) ->
+                    send(Client, pack({?MEMCACHE_INCREMENTQ, {K, Value, Initial, ExpTime}}))
+                end, Keys)
+        }
     catch
         throw:{failed, Reason} ->
             {error, Reason}
@@ -466,7 +473,10 @@ receive_mget_response(Client, TimeLimit, Keys, Buffer, Acc) ->
           CAS:64        % CAS (16-23)
         >>, BufferRest} = Data ->
             case recv_bytes(Client, BodySize, BufferRest, TimeLimit) of
-                {<<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>>, BufferRest2} ->
+                {
+                    <<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>>,
+                    BufferRest2
+                } ->
                     {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
                     Responses = [#mero_item{key = Key, value = Value, cas = cas_value(CAS)}
                                  | Acc],
@@ -525,7 +535,7 @@ receive_mset_response(Client, TimeLimit, NKVECs, Buffer, Acc) ->
           _CAS:64       % CAS (16-23)
         >>, Rest} ->
             case recv_bytes(Client, BodySize, Rest, TimeLimit) of
-                {<<_Extras:ExtrasSize/binary, _Key:KeySize/binary, _ValueReceived/binary>>, Rest2} ->
+                {<<_Extras:ExtrasSize/binary, _Key:KeySize/binary, _Value/binary>>, Rest2} ->
                     %% the response to set/add/replace should have no extras, no key, and
                     %% no value, but may have a body if an error occurred.
                     NAcc = [{Index, response_status(StatusCode)} | Acc],

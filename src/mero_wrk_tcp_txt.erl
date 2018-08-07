@@ -32,6 +32,7 @@
 
 -include_lib("mero/include/mero.hrl").
 
+-behavior(mero_pool).
 
 %%% Start/stop functions
 -export([connect/3,
@@ -70,7 +71,9 @@ controlling_process(Client, Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            ?LOG_EVENT(Client#client.event_callback, [socket, controlling_process, error, {reason, Reason}]),
+            ?LOG_EVENT(
+                Client#client.event_callback,
+                [socket, controlling_process, error, {reason, Reason}]),
             {error, Reason}
     end.
 
@@ -277,7 +280,8 @@ receive_response(Client, Op, TimeLimit, AccBinary, AccResult) ->
                 {ok, NBuffer, NAccResult} ->
                     receive_response(Client, Op, TimeLimit, NBuffer, NAccResult);
                 {error, Reason} ->
-                    ?LOG_EVENT(Client#client.event_callback, [socket, rcv, error, {reason, Reason}]),
+                    ?LOG_EVENT(
+                        Client#client.event_callback, [socket, rcv, error, {reason, Reason}]),
                     throw({failed, Reason})
             end;
         {error, Reason} ->
@@ -297,8 +301,10 @@ parse_reply(Buffer, AccResult) ->
                 {ok, {value, Key, Bytes, CAS}} ->
                     case split_command(BinaryRest) of
                         {[Value], BinaryRest2} when (size(Value) == Bytes) ->
-                            parse_reply(BinaryRest2, [#mero_item{key = Key, value = Value, cas = CAS}
-                                                      | AccResult]);
+                            parse_reply(
+                                BinaryRest2,
+                                [#mero_item{key = Key, value = Value, cas = CAS} | AccResult]
+                            );
                         {error, uncomplete} ->
                             {ok, Buffer, AccResult}
                     end;

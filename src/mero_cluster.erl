@@ -269,7 +269,8 @@ get_server_defs({ClusterName, ClusterConfig}) ->
             ({Host, Port}, {Acc, ShardSizeAcc}) ->
                 Elements =
                     [begin
-                         WorkerName = worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
+                         WorkerName =
+                            worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
                          {ClusterName, ShardSizeAcc, ReplicationNumber,
                              {ClusterName, Host, Port, WorkerName, WorkerModule}}
                      end || ReplicationNumber <- lists:seq(0, (Workers - 1))],
@@ -343,17 +344,20 @@ child_definitions_function(WorkerDefs) ->
 
 
 worker_by_index_function(WorkerDefs) ->
-    lists:flatten(
-        lists:foldr(
-            fun
-                ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, []) ->
-                    io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p.\n\n",
-                        [Name, ShardSizeAcc, ReplicationNumber, WorkerName]);
-                ({Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}}, Acc) ->
-                    Clause = io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p;\n",
-                        [Name, ShardSizeAcc, ReplicationNumber, WorkerName]),
-                    [Clause, Acc]
-            end, [], WorkerDefs)
+    lists:foldr(
+        fun
+            (WorkerDef, []) ->
+                worker_by_index_clause(WorkerDef, ".");
+            (WorkerDef, Acc) ->
+                [worker_by_index_clause(WorkerDef, ";"), Acc]
+        end, [], WorkerDefs).
+
+worker_by_index_clause(
+    {Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}},
+    Separator) ->
+    io_lib:format(
+        "worker_by_index(~p, ~p, ~p) -> ~p~s\n\n",
+        [Name, ShardSizeAcc, ReplicationNumber, WorkerName, Separator]
     ).
 
 get_config(Type, ClusterConfig) ->

@@ -46,16 +46,21 @@
 
 -include_lib("mero/include/mero.hrl").
 
+-type mfargs() :: {module(), Function :: atom(), Args :: [term()]}.
+-type client() :: term().
+-type host() :: inet:socket_address() | inet:hostname().
+
 -record(conn, {updated :: erlang:timestamp(),
                pool :: module(),
                worker_module :: module(),
-               client :: term()}).
+               client :: client()}).
+-type conn() :: #conn{}.
 
 -record(pool_st, {cluster,
-                  host,
-                  port,
-                  max_connections,
-                  min_connections,
+                  host :: host(),
+                  port :: inet:port_number(),
+                  max_connections :: non_neg_integer(),
+                  min_connections :: non_neg_integer(),
 
                   %% List of free connections
                   free :: list(term()),
@@ -75,8 +80,13 @@
 
                   reconnect_wait_time :: non_neg_integer(),
                   worker_module :: atom(),
-                  callback_info :: {module(), Function :: atom(), Args :: [term()]},
+                  callback_info :: mfargs(),
                   pool :: term()}).
+
+-callback transaction(client(), atom(), [term()]) -> {error, term()} | {client(), {ok, any()}}.
+-callback close(client(), Reason :: term()) -> _.
+-callback connect(host(), inet:port_number(), mfargs()) -> {ok, client()} | {error, term()}.
+-callback controlling_process(client(), Parent::pid()) -> ok | {error, term()}.
 
 %%%=============================================================================
 %%% External functions
@@ -86,8 +96,7 @@ start_link(ClusterName, Host, Port, PoolName, WorkerModule) ->
     proc_lib:start_link(?MODULE, init, [self(), ClusterName, Host, Port, PoolName, WorkerModule]).
 
 %% @doc Checks out an element of the pool.
--spec checkout(atom(), TimeLimit :: tuple()) ->
-                      {ok, #conn{}} | {error, Reason :: term()}.
+-spec checkout(atom(), TimeLimit :: tuple()) -> {ok, conn()} | {error, Reason :: term()}.
 checkout(PoolName, TimeLimit) ->
     Timeout = mero_conf:millis_to(TimeLimit),
     MRef = erlang:monitor(process, PoolName),
@@ -109,7 +118,7 @@ checkout(PoolName, TimeLimit) ->
 
 
 %% @doc Return a  connection to specfied pool updating its timestamp
--spec checkin(Connection :: #conn{}) -> ok.
+-spec checkin(Connection :: conn()) -> ok.
 checkin(#conn{pool = PoolName} = Connection) ->
     safe_send(PoolName, {checkin, self(),
                          Connection#conn{updated = os:timestamp()}}),
@@ -117,7 +126,7 @@ checkin(#conn{pool = PoolName} = Connection) ->
 
 
 %% @doc Return a connection that has been closed.
--spec checkin_closed(Connection :: #conn{}) -> ok.
+-spec checkin_closed(Connection :: conn()) -> ok.
 checkin_closed(#conn{pool = PoolName}) ->
     safe_send(PoolName, {checkin_closed, self()}),
     ok.
@@ -125,8 +134,8 @@ checkin_closed(#conn{pool = PoolName}) ->
 
 %% @doc Executes an operation
 
--spec transaction(Connection :: #conn{}, atom(), list()) ->
-                         {NewConnection :: #conn{}, {ok, any()}} | {error, any()}.
+-spec transaction(Connection :: conn(), atom(), list()) ->
+                         {NewConnection :: conn(), {ok, any()}} | {error, any()}.
 transaction(#conn{worker_module = WorkerModule,
                   client = Client} = Conn, Function, Args) ->
     case WorkerModule:transaction(Client, Function, Args) of
@@ -233,7 +242,8 @@ pool_loop(State, Parent, Deb) ->
             MaxConns = State#pool_st.max_connections,
             case (NumConnecting + Connected) > MaxConns of
                 true ->
-                    ?MODULE:pool_loop(State#pool_st{num_connecting = NumConnecting - 1}, Parent, Deb);
+                    ?MODULE:pool_loop(
+                        State#pool_st{num_connecting = NumConnecting - 1}, Parent, Deb);
                 false ->
                     spawn_connect(State#pool_st.pool,
                                   State#pool_st.worker_module,
@@ -294,23 +304,23 @@ maybe_spawn_connect(#pool_st{
 
     FreeSockets = length(Free),
     Needed = calculate_needed(FreeSockets, Connected, Connecting, MaxConn, MinConn),
-    if
+    case {Needed, NumFailed, Connecting} of
         %% Need sockets and no failed connections are reported..
         %% we create new ones
-        (Needed > 0), NumFailed < 1 ->
+        {Needed, NumFailed, _} when Needed > 0, NumFailed < 1 ->
             spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, Needed),
             State#pool_st{num_connecting = Connecting + Needed};
 
         %% Wait before reconnection if more than one successive
         %% connection attempt has failed. Don't open more than
         %% one connection until an attempt has succeeded again.
-        (Needed > 0), Connecting == 0 ->
+        {Needed, _, 0} when Needed > 0 ->
             erlang:send_after(WaitTime, self(), connect),
             State#pool_st{num_connecting = Connecting + 1};
 
         %% We dont need sockets or we have failed connections
         %% we wait before reconnecting.
-        true ->
+        {_, _, _} ->
             State
     end.
 

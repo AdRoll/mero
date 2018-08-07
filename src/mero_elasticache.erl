@@ -47,11 +47,13 @@
 %%%=============================================================================
 %%% External functions
 %%%=============================================================================
-%% Given an elasticache config Endpoint and port, return parsed list of {host, port} nodes in cluster
--spec get_cluster_config(string(), integer()) -> {ok, list({string(), integer()})} | {error, Reason :: atom()}.
+%% Given an elasticache config endpoint:port, returns parsed list of {host, port} nodes in cluster
+-spec get_cluster_config(string(), integer()) ->
+    {ok, list({string(), integer()})} | {error, Reason :: atom()}.
 get_cluster_config(ConfigHost, ConfigPort) ->
     LineDefinitions = [banner, version, hosts, crlf, eom],
-    Result = mero_elasticache:request_response(ConfigHost, ConfigPort, ?GET_CLUSTER, LineDefinitions),
+    Result =
+        mero_elasticache:request_response(ConfigHost, ConfigPort, ?GET_CLUSTER, LineDefinitions),
     case parse_cluster_config(proplists:get_value(hosts, Result)) of
         {error, Reason} ->
             {error, Reason};
@@ -75,7 +77,8 @@ request_response(Host, Port, Command, Names) ->
     Lines.
 
 %% Parse host and version lines to return version and list of {host, port} cluster nodes
--spec parse_cluster_config(binary()) -> {ok, Config :: [cluster_entry()]} | {error, Reason :: atom()}.
+-spec parse_cluster_config(binary()) ->
+    {ok, Config :: [cluster_entry()]} | {error, Reason :: atom()}.
 parse_cluster_config(HostLine) ->
     %% Strip any newlines
     Entries = binary:replace(HostLine, <<"\n">>, <<>>),
@@ -120,8 +123,8 @@ get_cluster_config_test() ->
     HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 "
                  "server2.cache.amazonaws.com|10.101.101.0|11211 "
                  "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
-    ExpectedParse = [{"server1.cache.amazonaws.com", {10, 100, 100, 100}, 11211}, 
-                     {"server2.cache.amazonaws.com", {10, 101, 101, 0}, 11211}, 
+    ExpectedParse = [{"server1.cache.amazonaws.com", {10, 100, 100, 100}, 11211},
+                     {"server2.cache.amazonaws.com", {10, 101, 101, 0}, 11211},
                      {"server3.cache.amazonaws.com", {10, 102, 0, 102}, 11211}],
     ?assertEqual({ok, ExpectedParse}, parse_cluster_config(HostLine)).
 
@@ -148,11 +151,11 @@ get_bad_high_port_config_test() ->
                  "server2.cache.amazonaws.com|10.101.101.0|11211 "
                  "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
-    
+
 get_bad_entry_config_test() ->
     HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 "
                  "server2.cache.amazonaws.com|10.101.101.0| "
                  "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
     ?assertEqual({error, bad_cluster_entry}, parse_cluster_config(HostLine)).
-    
+
 -endif.

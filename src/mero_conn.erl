@@ -56,12 +56,16 @@
 increment_counter(Name, Key, Value, Initial, ExpTime, Retries, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     PoolName = mero_cluster:server(Name, Key),
-    increment_counter_timelimit(PoolName, mero:storage_key(Key), Value, Initial, ExpTime, Retries, TimeLimit).
+    increment_counter_timelimit(
+        PoolName, mero:storage_key(Key), Value, Initial, ExpTime, Retries, TimeLimit).
 
 mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
-    Payload = [{Shard, [{mero:storage_key(K), Value, Initial, ExpTime} || K <- Ks]} || {Shard, Ks} <- KeysGroupedByShards],
+    Payload =
+        [
+            {Shard, [{mero:storage_key(K), Value, Initial, ExpTime} || K <- Ks]}
+        || {Shard, Ks} <- KeysGroupedByShards],
     case async_by_shard(Name, Payload, TimeLimit,
                         #async_op{op = async_increment,
                                   op_error = async_increment_error,
@@ -165,7 +169,8 @@ mset_(Name, KVECs, Timeout, Op) ->
 
 
 increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLimit) ->
-    case pool_execute(Name, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit], TimeLimit) of
+    case pool_execute(
+            Name, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit], TimeLimit) of
         {ok, ActualValue} ->
             {ok, ActualValue};
         {error, _Reason} when Retries >= 1 ->
