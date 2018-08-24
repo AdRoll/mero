@@ -13,7 +13,7 @@
                   dynamic_compile
                  ]},
   {mod, {mero, []}},
-  {maintainers, ["adroll-rtb"]},
+  {maintainers, ["AdRoll"]},
   {licenses, ["BSD-3-Clause"]},
   {links, [{"Github", "https://github.com/AdRoll/mero"}]},
   {build_tools, ["rebar3"]},
