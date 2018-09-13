@@ -210,8 +210,6 @@ undefined_counter(_Conf) ->
 increase_counter(_Conf) ->
     Key = key(),
     ct:log("state ~p", [mero:state()]),
-    ct:log("READ ~p", [mero_conf:timeout_read()]),
-    ct:log("WRITE ~p", [mero_conf:timeout_write()]),
     ?assertMatch({ok, 1}, mero:increment_counter(cluster, Key)),
     ?assertMatch({ok, 2}, mero:increment_counter(cluster, Key)),
     ?assertMatch({ok, 1}, mero:increment_counter(cluster2, Key)),
@@ -221,8 +219,6 @@ increase_counter(_Conf) ->
 increase_counter_clustered_key(_Conf) ->
     Key = {<<"22">>, key()},
     ct:log("state ~p", [mero:state()]),
-    ct:log("READ ~p", [mero_conf:timeout_read()]),
-    ct:log("WRITE ~p", [mero_conf:timeout_write()]),
     ?assertMatch({ok, 1}, mero:increment_counter(cluster, Key)),
     ?assertMatch({ok, 2}, mero:increment_counter(cluster, Key)),
     ?assertMatch({ok, 1}, mero:increment_counter(cluster2, Key)),
