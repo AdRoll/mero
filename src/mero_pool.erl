@@ -182,6 +182,8 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                        host = Host,
                        port = Port,
                        busy = dict:new(),
+                       max_connections = 0, %%make dialyzer happy. These are populated from config
+                       min_connections = 0,
                        num_connected = 0,
                        num_connecting = Initial,
                        num_failed_connecting = 0,

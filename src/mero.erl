@@ -270,7 +270,7 @@ increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
     ok | {error, Reason :: term()}.
 mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) ->
     mincrement_counter(ClusterName, Keys, 1, 1,
-                       mero_conf:pool_key_expiration_time(),
+                       mero_conf:pool_key_expiration_time(ClusterName),
                        mero_conf:pool_write_retries(ClusterName),
                        mero_conf:pool_timeout_write(ClusterName)).
 
