@@ -90,7 +90,7 @@ start_stop(_Conf) ->
   ?assertMatch(
       [{cluster,
         [
-         {links,6},
+         {links,7}, % we get +1 for timer:send_interval()
          {monitors,0},
          {free,5},
          {connected,5},

@@ -181,10 +181,6 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                        free = [],
                        host = Host,
                        port = Port,
-                       min_connections =
-                           mero_conf:pool_min_free_connections(ClusterName),
-                       max_connections =
-                           mero_conf:pool_max_connections(ClusterName),
                        busy = dict:new(),
                        num_connected = 0,
                        num_connecting = Initial,
@@ -193,7 +189,8 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                        pool = PoolName,
                        callback_info = CallBackInfo,
                        worker_module = WrkModule},
-            pool_loop(schedule_expiration(State), Parent, Deb)
+            timer:send_interval(5000, reload_pool_min_max_settings),
+            pool_loop(schedule_expiration(reload_pool_min_max_settings(State)), Parent, Deb)
     end.
 
 
@@ -253,6 +250,8 @@ pool_loop(State, Parent, Deb) ->
                                   State#pool_st.callback_info),
                     ?MODULE:pool_loop(State, Parent, Deb)
             end;
+        reload_pool_min_max_settings ->
+            ?MODULE:pool_loop(reload_pool_min_max_settings(State), Parent, Deb);
         {checkout, From} ->
             ?MODULE:pool_loop(get_connection(State, From), Parent, Deb);
         {checkin, Pid, Conn} ->
@@ -493,6 +492,15 @@ filter_expired(#conn{updated = Updated} = Conn, {Now, TTL, ExpConns, ActConns}) 
         false -> {Now, TTL, [Conn | ExpConns], ActConns}
     end.
 
+
+%% Note: If current # of connections < new min_connections, new ones will be created
+%%       next time we call maybe_spawn_connect/1.
+%%       If current # of connections > new max_connections,  no action is taken to
+%%       close the exceeding ones.  Instead, they won't be re-created once they
+%%       terminate by themselves (because of timeouts, errors, inactivity, etc)
+reload_pool_min_max_settings(State = #pool_st{cluster = ClusterName}) ->
+    State#pool_st{min_connections = mero_conf:pool_min_free_connections(ClusterName),
+                 max_connections = mero_conf:pool_max_connections(ClusterName)}.
 
 safe_send(PoolName, Cmd) ->
     catch PoolName ! Cmd.
