@@ -414,7 +414,8 @@ do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
 
 spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, 1) ->
     spawn_connect(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo);
-spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, Number) when (Number > 0) ->
+spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, Number)
+  when (Number > 0) ->
     SleepTime = mero_conf:pool_max_connection_delay_time(ClusterName),
     [ do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime)
       || _Number <- lists:seq(1, Number) ].
