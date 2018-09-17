@@ -164,7 +164,7 @@ system_terminate(Reason, _Parent, _Deb, _State) ->
 %%%=============================================================================
 
 init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
-    case is_config_valid() of
+    case is_config_valid(ClusterName) of
         false ->
             proc_lib:init_ack(Parent, {error, invalid_config});
         true ->
@@ -173,19 +173,17 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
             Deb = sys:debug_options([]),
             {Module, Function} = mero_conf:stat_callback(),
             CallBackInfo = ?CALLBACK_CONTEXT(Module, Function, ClusterName, Host, Port),
-            Initial = mero_conf:initial_connections_per_pool(),
-            spawn_connections(PoolName, WrkModule, Host, Port, CallBackInfo, Initial),
+            Initial = mero_conf:pool_initial_connections(ClusterName),
+            spawn_connections(ClusterName, PoolName, WrkModule, Host, Port, CallBackInfo, Initial),
             proc_lib:init_ack(Parent, {ok, self()}),
             State = #pool_st{
                        cluster = ClusterName,
                        free = [],
                        host = Host,
                        port = Port,
-                       min_connections =
-                           mero_conf:min_free_connections_per_pool(),
-                       max_connections =
-                           mero_conf:max_connections_per_pool(),
                        busy = dict:new(),
+                       max_connections = 0, %%make dialyzer happy. These are populated from config
+                       min_connections = 0,
                        num_connected = 0,
                        num_connecting = Initial,
                        num_failed_connecting = 0,
@@ -193,7 +191,8 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                        pool = PoolName,
                        callback_info = CallBackInfo,
                        worker_module = WrkModule},
-            pool_loop(schedule_expiration(State), Parent, Deb)
+            timer:send_interval(5000, reload_pool_min_max_settings),
+            pool_loop(schedule_expiration(reload_pool_min_max_settings(State)), Parent, Deb)
     end.
 
 
@@ -245,13 +244,16 @@ pool_loop(State, Parent, Deb) ->
                     ?MODULE:pool_loop(
                         State#pool_st{num_connecting = NumConnecting - 1}, Parent, Deb);
                 false ->
-                    spawn_connect(State#pool_st.pool,
+                    spawn_connect(State#pool_st.cluster,
+                                  State#pool_st.pool,
                                   State#pool_st.worker_module,
                                   State#pool_st.host,
                                   State#pool_st.port,
                                   State#pool_st.callback_info),
                     ?MODULE:pool_loop(State, Parent, Deb)
             end;
+        reload_pool_min_max_settings ->
+            ?MODULE:pool_loop(reload_pool_min_max_settings(State), Parent, Deb);
         {checkout, From} ->
             ?MODULE:pool_loop(get_connection(State, From), Parent, Deb);
         {checkin, Pid, Conn} ->
@@ -287,6 +289,7 @@ get_connection(State, {Pid, Ref} = _From) ->
 
 
 maybe_spawn_connect(#pool_st{
+                       cluster = ClusterName,
                        free = Free,
                        num_connected = Connected,
                        max_connections = MaxConn,
@@ -308,7 +311,7 @@ maybe_spawn_connect(#pool_st{
         %% Need sockets and no failed connections are reported..
         %% we create new ones
         {Needed, NumFailed, _} when Needed > 0, NumFailed < 1 ->
-            spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, Needed),
+            spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, Needed),
             State#pool_st{num_connecting = Connecting + Needed};
 
         %% Wait before reconnection if more than one successive
@@ -394,11 +397,11 @@ give(#pool_st{free = [Conn|Free],
     State#pool_st{busy = dict:store(Pid, {MRef, Conn}, Busy), free = Free}.
 
 
-spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo) ->
-    MaxConnectionDelayTime = mero_conf:max_connection_delay_time(),
-    spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, MaxConnectionDelayTime).
+spawn_connect(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo) ->
+    MaxConnectionDelayTime = mero_conf:pool_max_connection_delay_time(ClusterName),
+    do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, MaxConnectionDelayTime).
 
-spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
+do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
     spawn_link(fun() ->
                        case (SleepTime > 0) of
                            true ->
@@ -411,11 +414,12 @@ spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
                end).
 
 
-spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, 1) ->
-    spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo);
-spawn_connections(Pool, WrkModule, Host, Port, CallbackInfo, Number) when (Number > 0) ->
-    SleepTime = mero_conf:max_connection_delay_time(),
-    [ spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime)
+spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, 1) ->
+    spawn_connect(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo);
+spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, Number)
+  when (Number > 0) ->
+    SleepTime = mero_conf:pool_max_connection_delay_time(ClusterName),
+    [ do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime)
       || _Number <- lists:seq(1, Number) ].
 
 
@@ -445,21 +449,21 @@ controlling_process(WrkModule, WrkState, Parent) ->
     WrkModule:controlling_process(WrkState, Parent).
 
 
-conn_time_to_live(_Pool) ->
-    case mero_conf:connection_unused_max_time() of
+conn_time_to_live(ClusterName) ->
+    case mero_conf:pool_connection_unused_max_time(ClusterName) of
         infinity -> infinity;
         Milliseconds -> Milliseconds * 1000
     end.
 
 
-schedule_expiration(State) ->
-    erlang:send_after(mero_conf:expiration_interval(), self(), expire),
+schedule_expiration(State = #pool_st{cluster = ClusterName}) ->
+    erlang:send_after(mero_conf:pool_expiration_interval(ClusterName), self(), expire),
     State.
 
 
-expire_connections(#pool_st{free = Conns, pool = Pool, num_connected = Num} = State) ->
+expire_connections(#pool_st{cluster = ClusterName, free = Conns, num_connected = Num} = State) ->
     Now = os:timestamp(),
-    try conn_time_to_live(Pool) of
+    try conn_time_to_live(ClusterName) of
         TTL ->
             case lists:foldl(fun filter_expired/2, {Now, TTL, [], []}, Conns) of
                 {_, _, [], _} -> State;
@@ -492,6 +496,15 @@ filter_expired(#conn{updated = Updated} = Conn, {Now, TTL, ExpConns, ActConns}) 
     end.
 
 
+%% Note: If current # of connections < new min_connections, new ones will be created
+%%       next time we call maybe_spawn_connect/1.
+%%       If current # of connections > new max_connections,  no action is taken to
+%%       close the exceeding ones.  Instead, they won't be re-created once they
+%%       terminate by themselves (because of timeouts, errors, inactivity, etc)
+reload_pool_min_max_settings(State = #pool_st{cluster = ClusterName}) ->
+    State#pool_st{min_connections = mero_conf:pool_min_free_connections(ClusterName),
+                 max_connections = mero_conf:pool_max_connections(ClusterName)}.
+
 safe_send(PoolName, Cmd) ->
     catch PoolName ! Cmd.
 
@@ -500,10 +513,10 @@ close_connections([Conn | Conns]) ->
     catch close(Conn, expire),
     close_connections(Conns).
 
-is_config_valid() ->
-    Initial = mero_conf:initial_connections_per_pool(),
-    Max = mero_conf:max_connections_per_pool(),
-    Min = mero_conf:min_free_connections_per_pool(),
+is_config_valid(ClusterName) ->
+    Initial = mero_conf:pool_initial_connections(ClusterName),
+    Max = mero_conf:pool_max_connections(ClusterName),
+    Min = mero_conf:pool_min_free_connections(ClusterName),
     case (Min =< Initial) andalso (Initial =< Max) of
         true ->
             true;

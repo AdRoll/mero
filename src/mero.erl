@@ -106,7 +106,7 @@ get(ClusterName, Key, Timeout) ->
             {Key, Value}
     end.
 get(ClusterName, Key) ->
-    get(ClusterName, Key, mero_conf:timeout_read()).
+    get(ClusterName, Key, mero_conf:pool_timeout_read(ClusterName)).
 
 
 -spec mget(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
@@ -124,7 +124,7 @@ mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
             Extract(KeyValues)
     end.
 mget(ClusterName, Keys) ->
-    mget(ClusterName, Keys, mero_conf:timeout_read()).
+    mget(ClusterName, Keys, mero_conf:pool_timeout_read(ClusterName)).
 
 
 -spec gets(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
@@ -142,7 +142,7 @@ gets(ClusterName, Key, Timeout) ->
             {Key, undefined, undefined}
     end.
 gets(ClusterName, Key) ->
-    gets(ClusterName, Key, mero_conf:timeout_read()).
+    gets(ClusterName, Key, mero_conf:pool_timeout_read(ClusterName)).
 
 
 -spec mgets(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
@@ -161,7 +161,7 @@ mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
             Extract(KeyValues)
     end.
 mgets(ClusterName, Keys) ->
-    mgets(ClusterName, Keys, mero_conf:timeout_read()).
+    mgets(ClusterName, Keys, mero_conf:pool_timeout_read(ClusterName)).
 
 
 -spec add(ClusterName :: atom(), Key :: mero_key(), Value :: binary(), ExpTime :: integer(),
@@ -248,8 +248,10 @@ mcas(ClusterName, KVECs, Timeout)
 -spec increment_counter(ClusterName :: atom(), Key :: mero_key()) ->
     ok | {error, Reason :: term()}.
 increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
-    increment_counter(ClusterName, Key, 1, 1, mero_conf:key_expiration_time(),
-                      mero_conf:write_retries(), mero_conf:timeout_write()).
+    increment_counter(ClusterName, Key, 1, 1,
+                      mero_conf:pool_key_expiration_time(ClusterName),
+                      mero_conf:pool_write_retries(ClusterName),
+                      mero_conf:pool_timeout_write(ClusterName)).
 
 
 -spec increment_counter(ClusterName :: atom(), Key :: mero_key(), Value :: integer(),
@@ -267,8 +269,10 @@ increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
 -spec mincrement_counter(ClusterName :: atom(), Key :: [mero_key()]) ->
     ok | {error, Reason :: term()}.
 mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) ->
-    mincrement_counter(ClusterName, Keys, 1, 1, mero_conf:key_expiration_time(),
-                       mero_conf:write_retries(), mero_conf:timeout_write()).
+    mincrement_counter(ClusterName, Keys, 1, 1,
+                       mero_conf:pool_key_expiration_time(ClusterName),
+                       mero_conf:pool_write_retries(ClusterName),
+                       mero_conf:pool_timeout_write(ClusterName)).
 
 -spec mincrement_counter(ClusterName :: atom(), Keys :: [mero_key()], Value :: integer(),
                          Initial :: integer(), ExpTime :: integer(),

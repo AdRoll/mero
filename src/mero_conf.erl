@@ -33,25 +33,25 @@
 
 -export([cluster_config/0,
          cluster_config/1,
-         timeout_read/0,
+         pool_timeout_read/1,
          timeout_read/1,
-         timeout_write/0,
+         pool_timeout_write/1,
          timeout_write/1,
-         key_expiration_time/0,
+         pool_key_expiration_time/1,
          key_expiration_time/1,
-         write_retries/0,
+         pool_write_retries/1,
          write_retries/1,
-         max_connections_per_pool/0,
+         pool_max_connections/1,
          max_connections_per_pool/1,
-         initial_connections_per_pool/0,
+         pool_initial_connections/1,
          initial_connections_per_pool/1,
-         expiration_interval/0,
+         pool_expiration_interval/1,
          expiration_interval/1,
-         min_free_connections_per_pool/0,
+         pool_min_free_connections/1,
          min_free_connections_per_pool/1,
-         connection_unused_max_time/0,
+         pool_connection_unused_max_time/1,
          connection_unused_max_time/1,
-         max_connection_delay_time/0,
+         pool_max_connection_delay_time/1,
          max_connection_delay_time/1,
          stat_callback/0,
          stat_callback/1,
@@ -62,6 +62,9 @@
          process_server_specs/1]).
 
 -include_lib("mero/include/mero.hrl").
+
+-type per_pool_config_value(Type) :: {by_pool, Default :: Type, [{Pool :: atom(), Value :: Type}]}.
+-type mero_conf_value(Type) :: Type | per_pool_config_value(Type).
 
 %%%=============================================================================
 %%% External functions
@@ -78,11 +81,11 @@ cluster_config(ClusterConfig) ->
 
 
 %% @doc: Number of sockets that each pool will open on startup
--spec initial_connections_per_pool() -> integer().
-initial_connections_per_pool() ->
-  get_env(initial_connections_per_pool).
+-spec pool_initial_connections(Pool :: atom()) -> integer().
+pool_initial_connections(Pool) ->
+  get_env_per_pool(initial_connections_per_pool, Pool).
 
--spec initial_connections_per_pool(Initial :: integer()) -> ok.
+-spec initial_connections_per_pool(Initial :: mero_conf_value(integer())) -> ok.
 initial_connections_per_pool(Initial) ->
   application:set_env(mero, initial_connections_per_pool, Initial).
 
@@ -90,90 +93,90 @@ initial_connections_per_pool(Initial) ->
 %% @doc: If the number of free sockets is smaller than this
 %% the pool will asyncronously create new ones to ensure we
 %% dont run out of them.
--spec min_free_connections_per_pool() -> integer().
-min_free_connections_per_pool() ->
-  get_env(min_free_connections_per_pool).
+-spec pool_min_free_connections(Pool :: atom()) -> integer().
+pool_min_free_connections(Pool) ->
+  get_env_per_pool(min_free_connections_per_pool, Pool).
 
--spec min_free_connections_per_pool(MinFree :: integer()) -> ok.
+-spec min_free_connections_per_pool(MinFree :: mero_conf_value(integer())) -> ok.
 min_free_connections_per_pool(MinFree) ->
   application:set_env(mero, min_free_connections_per_pool, MinFree).
 
 
 %% Maximun number of connections that each pool will open.
--spec max_connections_per_pool() -> integer().
-max_connections_per_pool() ->
-  get_env(max_connections_per_pool).
+-spec pool_max_connections(Pool :: atom()) -> integer().
+pool_max_connections(Pool) ->
+  get_env_per_pool(max_connections_per_pool, Pool).
 
--spec max_connections_per_pool(Max :: integer()) -> ok.
+-spec max_connections_per_pool(Max :: mero_conf_value(integer())) -> ok.
 max_connections_per_pool(Max) ->
   application:set_env(mero, max_connections_per_pool, Max).
 
 
 %% @doc: Read timeout in milliseconds
--spec timeout_read() -> integer().
-timeout_read() ->
-    get_env(timeout_read).
+-spec pool_timeout_read(Pool :: atom()) -> integer().
+pool_timeout_read(Pool) ->
+    get_env_per_pool(timeout_read, Pool).
 
--spec timeout_read(Timeout :: integer()) -> ok.
+-spec timeout_read(Timeout :: mero_conf_value(integer())) -> ok.
 timeout_read(Timeout) ->
     application:set_env(mero, timeout_read, Timeout).
 
 
 %% @doc: Write timeout in milliseconds
--spec timeout_write() -> integer().
-timeout_write() ->
-    get_env(timeout_write).
+-spec pool_timeout_write(Pool :: atom()) -> integer().
+pool_timeout_write(Pool) ->
+    get_env_per_pool(timeout_write, Pool).
 
--spec timeout_write(Timeout :: integer()) -> ok.
+-spec timeout_write(Timeout :: mero_conf_value(integer())) -> ok.
 timeout_write(Timeout) ->
     application:set_env(mero, timeout_write, Timeout).
 
 
 %% @doc: Number of retries for write operations
--spec write_retries() -> integer().
-write_retries() ->
-  get_env(write_retries).
+-spec pool_write_retries(Pool :: atom()) -> integer().
+pool_write_retries(Pool) ->
+  get_env_per_pool(write_retries, Pool).
 
--spec write_retries(Timeout :: integer()) -> ok.
+-spec write_retries(Timeout :: mero_conf_value(integer())) -> ok.
 write_retries(Timeout) ->
   application:set_env(mero, write_retries, Timeout).
 
 
 %% @doc: Gets the default value for a key expiration time
--spec key_expiration_time() -> integer().
-key_expiration_time() ->
-    get_env(expiration_time).
+-spec pool_key_expiration_time(Pool :: atom()) -> integer().
+pool_key_expiration_time(Pool) ->
+    get_env_per_pool(expiration_time, Pool).
 
--spec key_expiration_time(Time :: integer()) -> ok.
+-spec key_expiration_time(Time :: mero_conf_value(integer())) -> ok.
 key_expiration_time(Time) ->
     application:set_env(mero, expiration_time, Time).
 
 
 %% @doc: Checks for unused sockets every XX (millis) and closes them.
--spec expiration_interval() -> integer().
-expiration_interval() ->
-    get_env(expiration_interval).
+-spec pool_expiration_interval(Pool :: atom()) -> integer().
+pool_expiration_interval(Pool) ->
+    get_env_per_pool(expiration_interval, Pool).
 
--spec expiration_interval(integer()) -> ok.
+-spec expiration_interval(mero_conf_value(integer())) -> ok.
 expiration_interval(Val) ->
     application:set_env(mero, expiration_interval, Val).
 
 %% @doc: Maximum time that a connection can be inactive before closing it (millis)
--spec connection_unused_max_time() -> timeout().
-connection_unused_max_time() ->
-    get_env(connection_unused_max_time).
+-spec pool_connection_unused_max_time(Pool :: atom()) -> timeout().
+pool_connection_unused_max_time(Pool) ->
+    get_env_per_pool(connection_unused_max_time, Pool).
 
--spec connection_unused_max_time(integer()) -> ok.
+-spec connection_unused_max_time(mero_conf_value(integer())) -> ok.
 connection_unused_max_time(Val) ->
     application:set_env(mero, connection_unused_max_time, Val).
 
 
 %% @doc: maximum delay establishing initial connections
--spec max_connection_delay_time() -> integer().
-max_connection_delay_time() ->
-  get_env(max_connection_delay_time).
+-spec pool_max_connection_delay_time(Pool :: atom()) -> integer().
+pool_max_connection_delay_time(Pool) ->
+  get_env_per_pool(max_connection_delay_time, Pool).
 
--spec max_connection_delay_time(integer()) -> ok.
+-spec max_connection_delay_time(mero_conf_value(integer())) -> ok.
 max_connection_delay_time(Val) ->
   application:set_env(mero, max_connection_delay_time, Val).
 
@@ -223,6 +226,15 @@ get_env(Key) ->
         undefined ->
             exit({undefined_configuration, Key})
     end.
+
+get_env_per_pool(Key, Pool) ->
+    case get_env(Key) of
+        {by_pool, Default, ByPool} ->
+            maps:get(Pool, ByPool, Default);
+        Value ->
+            Value
+    end.
+
 
 
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->

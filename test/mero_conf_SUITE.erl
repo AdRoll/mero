@@ -42,7 +42,8 @@
     process_server_specs_a/1,
     process_server_specs_a_alternate/1,
     process_server_specs_a_b/1,
-    process_server_specs_a_b_c/1
+    process_server_specs_a_b_c/1,
+    per_pool_config/1
 ]).
 
 all() -> [
@@ -51,7 +52,8 @@ all() -> [
     process_server_specs_a,
     process_server_specs_a_alternate,
     process_server_specs_a_b,
-    process_server_specs_a_b_c
+    process_server_specs_a_b_c,
+    per_pool_config
 ].
 
 init_per_testcase(diff, Conf) ->
@@ -192,3 +194,12 @@ process_server_specs_a_b_c(_Conf) ->
     ?assertEqual(20, proplists:get_value(workers_per_shard, ServerSpecs)),
     ?assertEqual({mero, shard_crc32}, proplists:get_value(sharding_algorithm, ServerSpecs)),
     ok.
+
+per_pool_config(_Conf) ->
+    mero_conf:initial_connections_per_pool({by_pool, 20, #{pool_1 => 30, pool_2 => 50}}),
+    ?assertEqual(20, mero_conf:pool_initial_connections(pool_3)),
+    ?assertEqual(30, mero_conf:pool_initial_connections(pool_1)),
+    ?assertEqual(50, mero_conf:pool_initial_connections(pool_2)),
+    ok.
+
+
