@@ -334,43 +334,41 @@ shard_crc32(Key, ShardSize) ->
 
 %% @doc: Returns the state of the sockets of a Cluster
 state(ClusterName) ->
-    {Links, Monitors, Free, Connected, Connecting, Failed, MessageQueue} =
-        lists:foldr(
-            fun
-                (
-                    {Cluster, _, _, Pool, _},
-                    Acc={ALinks, AMonitors, AFree, AConnected, AConnecting, AFailed, AMessageQueue}
-                ) when (Cluster == ClusterName) ->
-                    case mero_pool:state(Pool) of
-                        {error, _} ->
-                            Acc;
-                        St ->
-                            {
-                                ALinks + proplists:get_value(links, St),
-                                AMonitors + proplists:get_value(monitors, St),
-                                AFree + proplists:get_value(free, St),
-                                AConnected + proplists:get_value(num_connected, St),
-                                AConnecting + proplists:get_value(num_connecting, St),
-                                AFailed + proplists:get_value(num_failed_connecting, St),
-                                AMessageQueue + proplists:get_value(message_queue_len, St)
-                            }
-                    end;
-                (_, Acc) ->
-                    Acc
-            end, {0, 0, 0, 0, 0, 0, 0}, mero_cluster:child_definitions()),
-    [
-     {links, Links},
-     {monitors, Monitors},
-     {free, Free},
-     {connected, Connected},
-     {connecting, Connecting},
-     {failed, Failed},
-     {message_queue_len, MessageQueue}].
-
+    ZeroState = [
+        {links, 0},
+        {monitors, 0},
+        {free, 0},
+        {connected, 0},
+        {connecting, 0},
+        {failed, 0},
+        {message_queue_len, 0}
+    ],
+    lists:foldr(
+        fun
+            ({Cluster, _, _, Pool, _}, Acc) when (Cluster == ClusterName) ->
+                inc_state(mero_pool:state(Pool), Acc);
+            (_, Acc) ->
+                Acc
+        end, ZeroState, mero_cluster:child_definitions()).
 
 %% @doc: Returns the state of the sockets for all clusters
 state() ->
     [{Cluster, state(Cluster)} || Cluster <- mero_cluster:clusters()].
+
+inc_state({error, _}, Acc) ->
+    Acc;
+inc_state(St, Acc) ->
+    lists:map(
+        fun ({connected, AccV}) ->
+                {connected, AccV + proplists:get_value(num_connected, St)};
+            ({connecting, AccV}) ->
+                {connecting, AccV + proplists:get_value(num_connecting, St)};
+            ({failed, AccV}) ->
+                {failed, AccV + proplists:get_value(num_failed_connecting, St)};
+            ({K, AccV}) ->
+                {K, AccV + proplists:get_value(K, St)}
+        end, Acc).
+
 
 deep_state(ClusterName) ->
     F = fun
