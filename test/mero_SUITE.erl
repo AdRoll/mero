@@ -52,12 +52,14 @@
     multiget_undefineds/1,
     set/1,
     undefined_counter/1,
-    cas/1,
     mincrease_counter/1,
     cas/1,
     madd/1,
     mset/1,
-    mcas/1
+    mcas/1,
+    state_ok/1,
+    state_error/1,
+    state_timeout/1
 ]).
 
 -define(HOST, "127.0.0.1").
@@ -88,7 +90,10 @@ groups() ->
        multiget_undefineds,
        set,
        undefined_counter,
-       cas
+       cas,
+       state_ok,
+       state_error,
+       state_timeout
       ]
      },
      {binary_protocol, [shuffle, {repeat_until_any_fail, 1}],
@@ -109,7 +114,10 @@ groups() ->
        cas,
        madd,
        mset,
-       mcas
+       mcas,
+       state_ok,
+       state_error,
+       state_timeout
       ]
      }
     ].
@@ -146,7 +154,10 @@ init_per_group(binary_protocol, Config) ->
 end_per_group(_GroupName, _Config) ->
     ok.
 
-init_per_testcase(_Module, Conf) ->
+init_per_testcase(TestCase, Conf) when TestCase == state_error; TestCase == state_timeout ->
+    meck:new(mero_pool, [passthrough]),
+    init_per_testcase(default, Conf);
+init_per_testcase(_TestCase, Conf) ->
     application:load(mero),
     ClusterConfig = ?config(cluster_config, Conf),
     Pids = mero_test_util:start_server(ClusterConfig, 1, 1, 30000, 90000),
@@ -154,7 +165,10 @@ init_per_testcase(_Module, Conf) ->
     mero_conf:timeout_read(1000),
     [{pids, Pids} | Conf].
 
-end_per_testcase(_Module, Conf) ->
+end_per_testcase(TestCase, Conf) when TestCase == state_error; TestCase == state_timeout ->
+    meck:unload(mero_pool),
+    end_per_testcase(default, Conf);
+end_per_testcase(_TestCase, Conf) ->
     {ok, Pids} = proplists:get_value(pids, Conf),
     mero_test_util:stop_servers(Pids),
     ok = application:stop(mero),
@@ -462,6 +476,77 @@ mcas(_) ->
             end || {Key, _, CAS} <- KVCs]
         ),
     ?assertEqual(Expected, mero:mcas(cluster, NUpdates, 5000)).
+
+state_ok(_) ->
+    State = mero:state(),
+    ?assertEqual(
+        [
+            {connected, 1},
+            {connecting, 0},
+            {failed, 0},
+            {free, 1},
+            {links, 3},
+            {message_queue_len, 0},
+            {monitors, 0}
+        ], lists:sort(proplists:get_value(cluster2, State))),
+    ?assertEqual(
+        [
+            {connected, 2},
+            {connecting, 0},
+            {failed, 0},
+            {free, 2},
+            {links, 6},
+            {message_queue_len, 0},
+            {monitors, 0}
+        ], lists:sort(proplists:get_value(cluster, State))).
+
+state_error(_) ->
+    meck:expect(mero_pool, state, 1, {error, down}),
+    State = mero:state(),
+    ?assertEqual(
+        [
+            {connected, 0},
+            {connecting, 0},
+            {failed, 0},
+            {free, 0},
+            {links, 0},
+            {message_queue_len, 0},
+            {monitors, 0}
+        ], lists:sort(proplists:get_value(cluster2, State))),
+    ?assertEqual(
+        [
+            {connected, 0},
+            {connecting, 0},
+            {failed, 0},
+            {free, 0},
+            {links, 0},
+            {message_queue_len, 0},
+            {monitors, 0}
+        ], lists:sort(proplists:get_value(cluster, State))).
+
+state_timeout(_) ->
+    meck:expect(mero_pool, state, 1, {error, timeout}),
+    State = mero:state(),
+    ?assertEqual(
+        [
+            {connected, 0},
+            {connecting, 0},
+            {failed, 0},
+            {free, 0},
+            {links, 0},
+            {message_queue_len, 0},
+            {monitors, 0}
+        ], lists:sort(proplists:get_value(cluster2, State))),
+    ?assertEqual(
+        [
+            {connected, 0},
+            {connecting, 0},
+            {failed, 0},
+            {free, 0},
+            {links, 0},
+            {message_queue_len, 0},
+            {monitors, 0}
+        ], lists:sort(proplists:get_value(cluster, State))).
 
 
 %%%=============================================================================
