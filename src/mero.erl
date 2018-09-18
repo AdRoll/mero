@@ -337,20 +337,23 @@ state(ClusterName) ->
     {Links, Monitors, Free, Connected, Connecting, Failed, MessageQueue} =
         lists:foldr(
             fun
-                ({Cluster, _, _, Pool, _},
-                    {ALinks, AMonitors, AFree, AConnected, AConnecting, AFailed, AMessageQueue})
-                    when (Cluster == ClusterName) ->
-                    begin
-                        St = mero_pool:state(Pool),
-                        {
-                            ALinks + proplists:get_value(links, St),
-                            AMonitors + proplists:get_value(monitors, St),
-                            AFree + proplists:get_value(free, St),
-                            AConnected + proplists:get_value(num_connected, St),
-                            AConnecting + proplists:get_value(num_connecting, St),
-                            AFailed + proplists:get_value(num_failed_connecting, St),
-                            AMessageQueue + proplists:get_value(message_queue_len, St)}
-
+                (
+                    {Cluster, _, _, Pool, _},
+                    Acc={ALinks, AMonitors, AFree, AConnected, AConnecting, AFailed, AMessageQueue}
+                ) when (Cluster == ClusterName) ->
+                    case mero_pool:state(Pool) of
+                        {error, _} ->
+                            Acc;
+                        St ->
+                            {
+                                ALinks + proplists:get_value(links, St),
+                                AMonitors + proplists:get_value(monitors, St),
+                                AFree + proplists:get_value(free, St),
+                                AConnected + proplists:get_value(num_connected, St),
+                                AConnecting + proplists:get_value(num_connecting, St),
+                                AFailed + proplists:get_value(num_failed_connecting, St),
+                                AMessageQueue + proplists:get_value(message_queue_len, St)
+                            }
                     end;
                 (_, Acc) ->
                     Acc
