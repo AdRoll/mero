@@ -68,13 +68,18 @@
 -include_lib("mero/include/mero.hrl").
 
 -type cas_token() :: undefined | integer().
+-type result() :: {Key :: binary(), Value :: undefined | binary()}.
+-type extended_result() :: {Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}.
 
 %% {ClusteringKey, Key}. ClusteringKey is used to select the memcached node
 %% where to store the data, and Key is used to store the data in that
 %% node.  If a single binary Key is used,  then ClusteringKey = Key.
 -type mero_key() :: binary() | {ClusteringKey :: binary(), Key :: binary()}.
 
--export_type([mero_key/0]).
+-export_type([mero_key/0,
+              cas_token/0,
+              result/0,
+              extended_result/0]).
 
 %%%=============================================================================
 %%% Application behaviour
@@ -96,8 +101,7 @@ stop(_State) ->
 %%%=============================================================================
 
 -spec get(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
-                 {Key :: binary(), Value :: undefined | binary()}
-                     | {error, Reason :: term()}.
+                 result() | {error, Reason :: term()}.
 get(ClusterName, Key, Timeout) ->
     case gets(ClusterName, Key, Timeout) of
         {error, Reason} ->
@@ -110,8 +114,7 @@ get(ClusterName, Key) ->
 
 
 -spec mget(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
-    [{Key :: binary(), Value :: undefined | binary()}]
-    | {error, [Reason :: term()], ProcessedKeyValues :: [{Key :: binary(), Value :: binary()}]}.
+    [result()] | {error, [Reason :: term()], ProcessedKeyValues :: [result()]}.
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     Extract = fun (Items) ->
                       [{Key, Value}
@@ -128,8 +131,7 @@ mget(ClusterName, Keys) ->
 
 
 -spec gets(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
-                  {Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}
-                      | {error, Reason :: term()}.
+                  extended_result() | {error, Reason :: term()}.
 gets(ClusterName, Key, Timeout) ->
     case mgets(ClusterName, [Key], Timeout) of
         {error, [Reason], []} ->
@@ -146,9 +148,8 @@ gets(ClusterName, Key) ->
 
 
 -spec mgets(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
-    [{Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}]
-    | {error, [Reason :: term()],
-       ProcessedKeyValues :: [{Key :: binary(), Value :: binary(), CAS :: cas_token()}]}.
+    [extended_result()]
+    | {error, [Reason :: term()], ProcessedKeyValues :: [extended_result()]}.
 mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     Extract = fun (Items) ->
                       [{Key, Value, CAS}
