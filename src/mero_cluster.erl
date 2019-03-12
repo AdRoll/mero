@@ -49,7 +49,7 @@
 %% Module generated:
 %%
 %% -module(mero_cluster_util).
-%% -export([child_definitions/0,
+%% -export([child_definitions/1,
 %%     worker_by_index/3,
 %%     cluster_shards/1,
 %%     workers_per_shard/1,
@@ -57,23 +57,22 @@
 %%     sharding_algorithm/1]).
 %%
 %%
-%% child_definitions() ->
-%%
-%%     [{cluster_a,"server1",11211,mero_cluster_a_server1_0_0,
+%% child_definitions(cluster_a) ->
+%%     [{"server1",11211,mero_cluster_a_server1_0_0,
 %%             mero_wrk_tcp_txt},
-%%      {cluster_a,"server1",11211,mero_cluster_a_server1_0_1,
+%%      {"server1",11211,mero_cluster_a_server1_0_1,
 %%             mero_wrk_tcp_txt},
-%%      {cluster_a,"server1",11211,mero_cluster_a_server1_0_2,
-%%             mero_wrk_tcp_txt},
-%%
-%%      {cluster_a,"server2",11211,mero_cluster_a_server2_1_0,
-%%             mero_wrk_tcp_txt},
-%%      {cluster_a,"server2",11211,mero_cluster_a_server2_1_1,
-%%             mero_wrk_tcp_txt},
-%%      {cluster_a,"server2",11211,mero_cluster_a_server2_1_2,
+%%      {"server1",11211,mero_cluster_a_server1_0_2,
 %%             mero_wrk_tcp_txt},
 %%
-%%      {cluster_b,"server3",11211,mero_cluster_b_server3_0_0,
+%%      {"server2",11211,mero_cluster_a_server2_1_0,
+%%             mero_wrk_tcp_txt},
+%%      {"server2",11211,mero_cluster_a_server2_1_1,
+%%             mero_wrk_tcp_txt},
+%%      {"server2",11211,mero_cluster_a_server2_1_2,
+%%             mero_wrk_tcp_txt}];
+%% child_definitions(cluster_b) ->
+%%     [{"server3",11211,mero_cluster_b_server3_0_0,
 %%             mero_wrk_tcp_binary}].
 %%
 %% worker_by_index(cluster_a, 0, 0) -> mero_cluster_a_server1_0_0;
@@ -103,7 +102,8 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([child_definitions/0,
+-export([
+    child_definitions/1,
     cluster_shards/1,
     workers_per_shard/1,
     sharding_algorithm/1,
@@ -114,16 +114,18 @@
     group_by_shards/2, group_by_shards/3,
     pool_worker_module/1,
     random_pool_of_shard/2,
-    clusters/0]).
+    clusters/0
+]).
 
 -ignore_xref([
     {mero_cluster_util, cluster_shards, 1},
     {mero_cluster_util, workers_per_shard, 1},
-    {mero_cluster_util, child_definitions, 0},
+    {mero_cluster_util, child_definitions, 1},
     {mero_cluster_util, clusters, 0},
     {mero_cluster_util, sharding_algorithm, 1},
     {mero_cluster_util, pool_worker_module, 1},
-    {mero_cluster_util, worker_by_index, 3}]).
+    {mero_cluster_util, worker_by_index, 3}
+]).
 
 
 %%%===================================================================
@@ -131,14 +133,12 @@
 %%%===================================================================
 
 %% @doc: Loads a file with the pool configuration
--spec load_clusters(ClusterConfig :: list({ClusterName :: atom(),
-    Config :: list()})) ->
-    ok.
+-spec load_clusters([{Clustername :: atom(), ClusterConfig :: [{atom(), term()}]}]) -> ok.
 load_clusters(ClusterConfig) ->
     WorkerDefs = worker_defs(ClusterConfig),
     DynModuleBegin =
         "-module(mero_cluster_util). \n"
-        "-export([child_definitions/0,\n"
+        "-export([child_definitions/1,\n"
         "         worker_by_index/3,\n"
         "         cluster_shards/1,\n"
         "         workers_per_shard/1,\n"
@@ -159,10 +159,15 @@ load_clusters(ClusterConfig) ->
     {module, mero_cluster_util} = code:load_binary(M, "", B),
     ok.
 
-
--spec child_definitions() -> list({}).
-child_definitions() ->
-    mero_cluster_util:child_definitions().
+-spec child_definitions(ClusterName ::atom()) ->
+    [{
+        Host        ::string(),
+        Port        ::pos_integer(),
+        WorkerName  ::atom(),
+        WorkerModule::module()
+    }].
+child_definitions(ClusterName) ->
+    mero_cluster_util:child_definitions(ClusterName).
 
 cluster_shards(Name) ->
     mero_cluster_util:cluster_shards(Name).
@@ -258,7 +263,6 @@ worker_defs(ClusterConfig) ->
         end, [], ClusterConfig).
 
 get_server_defs({ClusterName, ClusterConfig}) ->
-
     Servers = get_config(servers, ClusterConfig),
     WorkerModule = get_config(pool_worker_module, ClusterConfig),
     Workers = get_config(workers_per_shard, ClusterConfig),
@@ -339,8 +343,12 @@ clusters_function(ClusterConfig) ->
 
 
 child_definitions_function(WorkerDefs) ->
-    Result = [Args || {_Name, _, _, Args} <- WorkerDefs],
-    io_lib:format("child_definitions() -> \n ~p.\n\n", [Result]).
+    AllDefs = [Args || {_Name, _, _, Args} <- WorkerDefs],
+    Clusters = lists:usort([Cluster || {Cluster, _Host, _Port, _Name, _Module} <- AllDefs]),
+    [io_lib:format(
+        "child_definitions(~p) ->\n ~p;\n\n",
+        [Cluster, [{H, P, N, M} || {C, H, P, N, M} <- AllDefs, C == Cluster]]
+    ) || Cluster <- Clusters] ++ "child_definitions(_) ->\n [].\n\n".
 
 
 worker_by_index_function(WorkerDefs) ->

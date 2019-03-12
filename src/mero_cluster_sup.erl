@@ -26,49 +26,36 @@
 %% OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 %% OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
--module(mero_sup).
+-module(mero_cluster_sup).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
--export([start_link/1,
-         init/1]).
+-export([start_link/2, init/1]).
 
 -behaviour(supervisor).
-
--ignore_xref([{mero_cluster, size,0},
-              {mero_cluster, cluster_size, 0},
-              {mero_cluster, pools, 0},
-              {mero_cluster, server, 1}]).
 
 %%%===================================================================
 %%% API functions
 %%%===================================================================
 
-%% @doc: Starts a list of workers with the configuration generated on
-%% mero_cluster
--spec start_link(ClusterConfig :: [{ClusterName :: atom(), Config :: proplists:proplist()}]) ->
-    {ok, Pid :: pid()} | {error, Reason :: term()}.
-start_link(Config) ->
-    ClusterConfig = mero_conf:process_server_specs(Config),
-    ok = mero_cluster:load_clusters(ClusterConfig),
-    ClusterDefs =
-        [{Cluster, mero_cluster:child_definitions(Cluster)} || {Cluster, _} <- ClusterConfig],
-    supervisor:start_link({local, ?MODULE}, ?MODULE, ClusterDefs).
+%% @doc: Starts a list of workers with the provided configuration
+-spec start_link(
+    ClusterName :: atom(),
+    [{
+        Host        ::string(),
+        Port        ::pos_integer(),
+        WorkerName  ::atom(),
+        WorkerModule::module()
+    }]) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
+start_link(ClusterName, PoolDefs) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, {ClusterName, PoolDefs}).
 
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
 
-init(ClusterDefs) ->
-    Children = [child(Cluster, PoolDefs) || {Cluster, PoolDefs} <- ClusterDefs],
+init({ClusterName, PoolDefs}) ->
+    Children = [child(ClusterName, PoolDef) || PoolDef <- PoolDefs],
     {ok, {{one_for_one, 10, 10}, Children}}.
 
-child(ClusterName, PoolDefs) ->
-    {
-        ClusterName,
-        {mero_cluster_sup, start_link, [ClusterName, PoolDefs]},
-        permanent,
-        5000,
-        supervisor,
-        [mero_cluster_sup]
-    }.
+child(ClusterName, {Host, Port, Name, WrkModule}) ->
+    {Name, {mero_pool, start_link, [ClusterName, Host, Port, Name, WrkModule]}, permanent,
+      5000, worker, [mero_pool]}.

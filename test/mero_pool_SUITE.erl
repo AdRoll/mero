@@ -86,7 +86,7 @@ end_per_testcase(_, _Conf) ->
 %% the mero_cluster module is generated correctly.
 start_stop(_Conf) ->
   mero_test_util:start_server(?CLUSTER_CONFIG, 5, 30, 1000, 5000),
-  ct:log("~p~n", [mero_cluster:child_definitions()]),
+  ct:log("~p~n", [mero_cluster:child_definitions(cluster)]),
   ?assertMatch(
       [{cluster,
         [

@@ -119,6 +119,12 @@ Mero is a regular OTP application, managed with [rebar3](http://rebar3.org/). Th
 rebar3 do compile, xref, eunit, ct
 ```
 
+...or...
+
+```shell
+rebar3 test
+```
+
 There are three ways to start this application:
 
 ### From an erlang shell

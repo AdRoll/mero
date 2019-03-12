@@ -209,11 +209,10 @@ millis_to(TimeLimit, Then) ->
     _ -> 0
   end.
 
-process_server_specs(L) ->
-    lists:foldl(
-        fun({ClusterName, AttrPlist}, Acc) ->
-            [{ClusterName, [process_value(Attr) || Attr <- AttrPlist]} | Acc]
-        end, [], L).
+-spec process_server_specs([{ClusterName :: atom(), Config :: proplists:proplist()}]) ->
+    [{atom(), [{atom(), term()}]}].
+process_server_specs(Clusters) ->
+    [{ClusterName, [process_value(Attr) || Attr <- Attrs]} || {ClusterName, Attrs} <- Clusters].
 
 %%%=============================================================================
 %%% Internal functions

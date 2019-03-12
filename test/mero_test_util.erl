@@ -98,9 +98,13 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
   {ok, _} = application:ensure_all_started(mero),
 
   %% Wait for the connections
-  [ wait_for_pool_state(PoolName, MinConn, MinConn, 0, 0)
-    || {_Name, _Host, _Port, PoolName, _WorkerModule} <- mero_cluster:child_definitions() ],
-
+  lists:foreach(
+    fun(Pool) ->
+        wait_for_pool_state(Pool, MinConn, MinConn, 0, 0)
+    end,
+    [ Pool
+    || {Cluster, _} <- ClusterConfig, {_, _, _, Pool, _} <- mero_cluster:child_definitions(Cluster)]
+  ),
   {ok, ServerPids}.
 
 stop_servers(Pids) ->
