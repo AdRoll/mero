@@ -84,7 +84,7 @@ elasticache_load_config_delay(Millis) ->
     application:set_env(mero, elasticache_load_config_delay, Millis).
 
 %% @doc: Returns the cluster configuration
--spec cluster_config() -> list({Name :: atom(), Config :: list()}).
+-spec cluster_config() -> mero:cluster_config().
 cluster_config() ->
     get_env(cluster_config).
 
@@ -222,8 +222,7 @@ millis_to(TimeLimit, Then) ->
     _ -> 0
   end.
 
--spec process_server_specs([{ClusterName :: atom(), Config :: proplists:proplist()}]) ->
-    [{atom(), [{atom(), term()}]}].
+-spec process_server_specs(mero:cluster_config()) -> [{atom(), [{atom(), term()}]}].
 process_server_specs(Clusters) ->
     [{ClusterName, [process_value(Attr) || Attr <- Attrs]} || {ClusterName, Attrs} <- Clusters].
 

@@ -46,27 +46,30 @@
 
 %% @doc: Starts a list of workers with the configuration generated on
 %% mero_cluster
--spec start_link(ClusterConfig :: [{ClusterName :: atom(), Config :: proplists:proplist()}]) ->
-    {ok, Pid :: pid()} | {error, Reason :: term()}.
+-spec start_link(mero:cluster_config()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
 start_link(Config) ->
     ClusterConfig = mero_conf:process_server_specs(Config),
     ok = mero_cluster:load_clusters(ClusterConfig),
-    ClusterDefs = [{
+    ClusterParams = [{
         Cluster,
         mero_cluster:sup_by_cluster_name(Cluster),
         mero_cluster:child_definitions(Cluster)
     } || {Cluster, _} <- ClusterConfig],
-    supervisor:start_link({local, ?MODULE}, ?MODULE, ClusterDefs).
+    supervisor:start_link(
+        {local, ?MODULE}, ?MODULE, #{config => ClusterConfig, params => ClusterParams}).
 
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
 
-init(ClusterDefs) ->
-    Children = [child(Cluster, SupName, PoolDefs) || {Cluster, SupName, PoolDefs} <- ClusterDefs],
-    {ok, {{one_for_one, 10, 10}, Children}}.
+init(#{config := ClusterConfig, params := ClusterParams}) ->
+    ClusterSupSpecs =
+        [cluster_sup_spec(Cluster, SupName, PoolDefs)
+            || {Cluster, SupName, PoolDefs} <- ClusterParams],
+    MonitorSpec = monitor_spec(ClusterConfig, ClusterParams),
+    {ok, {{one_for_one, 10, 10}, [MonitorSpec | ClusterSupSpecs]}}.
 
-child(ClusterName, SupName, PoolDefs) ->
+cluster_sup_spec(ClusterName, SupName, PoolDefs) ->
     {
         ClusterName,
         {mero_cluster_sup, start_link, [ClusterName, SupName, PoolDefs]},
@@ -74,4 +77,14 @@ child(ClusterName, SupName, PoolDefs) ->
         5000,
         supervisor,
         [mero_cluster_sup]
+    }.
+
+monitor_spec(ClusterConfig, ClusterParams) ->
+    {
+        mero_config_monitor,
+        {mero_config_monitor, start_link, [ClusterConfig, ClusterParams]},
+        permanent,
+        5000,
+        worker,
+        [mero_config_monitor]
     }.

@@ -81,6 +81,9 @@
               result/0,
               extended_result/0]).
 
+-type cluster_config() :: [{ClusterName :: atom(), Config :: proplists:proplist()}].
+-export_type([cluster_config/0]).
+
 %%%=============================================================================
 %%% Application behaviour
 %%%=============================================================================

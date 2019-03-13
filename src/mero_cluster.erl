@@ -133,6 +133,13 @@
     {mero_cluster_util, worker_by_index, 3}
 ]).
 
+-type child_definitions() :: [{
+    Host        ::string(),
+    Port        ::pos_integer(),
+    WorkerName  ::atom(),
+    WorkerModule::module()
+}].
+-export_type([child_definitions/0]).
 
 %%%===================================================================
 %%% API functions
@@ -167,13 +174,7 @@ load_clusters(ClusterConfig) ->
     {module, mero_cluster_util} = code:load_binary(M, "", B),
     ok.
 
--spec child_definitions(ClusterName ::atom()) ->
-    [{
-        Host        ::string(),
-        Port        ::pos_integer(),
-        WorkerName  ::atom(),
-        WorkerModule::module()
-    }].
+-spec child_definitions(ClusterName ::atom()) -> child_definitions().
 child_definitions(ClusterName) ->
     mero_cluster_util:child_definitions(ClusterName).
 
