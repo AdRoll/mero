@@ -30,8 +30,11 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([start_link/1,
-         init/1]).
+-export([
+    start_link/1,
+    restart_child/1,
+    init/1
+]).
 
 -behaviour(supervisor).
 
@@ -47,42 +50,46 @@
 %% @doc: Starts a list of workers with the configuration generated on
 %% mero_cluster
 -spec start_link(mero:cluster_config()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
-start_link(Config) ->
-    ClusterConfig = mero_conf:process_server_specs(Config),
-    ok = mero_cluster:load_clusters(ClusterConfig),
-    ClusterParams = [{
-        Cluster,
-        mero_cluster:sup_by_cluster_name(Cluster),
-        mero_cluster:child_definitions(Cluster)
-    } || {Cluster, _} <- ClusterConfig],
+start_link(OrigConfig) ->
+    ProcessedConfig = mero_conf:process_server_specs(OrigConfig),
+    ok = mero_cluster:load_clusters(ProcessedConfig),
     supervisor:start_link(
-        {local, ?MODULE}, ?MODULE, #{config => ClusterConfig, params => ClusterParams}).
+        {local, ?MODULE},
+        ?MODULE,
+        #{orig_config => OrigConfig, processed_config => ProcessedConfig}
+    ).
+
+-spec restart_child(ClusterName :: atom()) -> ok.
+restart_child(ClusterName) ->
+    ok = supervisor:terminate_child(?MODULE, ClusterName),
+    ok = supervisor:delete_child(?MODULE, ClusterName),
+    {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
+    ok.
+
 
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
 
-init(#{config := ClusterConfig, params := ClusterParams}) ->
-    ClusterSupSpecs =
-        [cluster_sup_spec(Cluster, SupName, PoolDefs)
-            || {Cluster, SupName, PoolDefs} <- ClusterParams],
-    MonitorSpec = monitor_spec(ClusterConfig, ClusterParams),
+init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
+    ClusterSupSpecs = [cluster_sup_spec(ClusterName) || {ClusterName, _} <- ProcessedConfig],
+    MonitorSpec = monitor_spec(OrigConfig, ProcessedConfig),
     {ok, {{one_for_one, 10, 10}, [MonitorSpec | ClusterSupSpecs]}}.
 
-cluster_sup_spec(ClusterName, SupName, PoolDefs) ->
+cluster_sup_spec(ClusterName) ->
     {
         ClusterName,
-        {mero_cluster_sup, start_link, [ClusterName, SupName, PoolDefs]},
+        {mero_cluster_sup, start_link, [ClusterName]},
         permanent,
         5000,
         supervisor,
         [mero_cluster_sup]
     }.
 
-monitor_spec(ClusterConfig, ClusterParams) ->
+monitor_spec(OrigConfig, ProcessedConfig) ->
     {
         mero_config_monitor,
-        {mero_config_monitor, start_link, [ClusterConfig, ClusterParams]},
+        {mero_config_monitor, start_link, [OrigConfig, ProcessedConfig]},
         permanent,
         5000,
         worker,

@@ -39,40 +39,59 @@
 ]).
 
 -record(state, {
-    cluster_config  :: cluster_config(),
-    cluster_defs    :: cluster_defs()
+    orig_config         :: cluster_config(),
+    processed_config    :: cluster_config(),
+    cluster_version     :: pos_integer()
 }).
 
 -type state() :: #state{}.
 
--type cluster_name()    :: atom().
 -type cluster_config()  :: mero:cluster_config().
--type cluster_params()  :: [{cluster_name(), SupName :: atom(), mero_cluster:child_definitions()}].
--type init_args()       :: #{config := cluster_config(), params := cluster_params()}.
--type cluster_defs()    :: #{cluster_name() => mero_cluster:child_definitions()}.
+-type init_args()       :: #{orig_config | processed_config := cluster_config()}.
 
 %%%-----------------------------------------------------------------------------
 %%% API
 %%%-----------------------------------------------------------------------------
--spec start_link(cluster_config(), cluster_params()) -> {ok, pid()} | {error, term()}.
-start_link(ClusterConfig, ClusterParams) ->
+-spec start_link(cluster_config(), cluster_config()) -> {ok, pid()} | {error, term()}.
+start_link(OrigConfig, ProcessedConfig) ->
     gen_server:start_link(
-        {local, ?MODULE}, ?MODULE, #{config => ClusterConfig, params => ClusterParams}, []).
+        {local, ?MODULE},
+        ?MODULE,
+        #{orig_config => OrigConfig, processed_config => ProcessedConfig},
+        []
+    ).
 
 
 %%%-----------------------------------------------------------------------------
 %%% Interesting Callbacks
 %%%-----------------------------------------------------------------------------
 -spec init(init_args()) -> {ok, state()}.
-init(#{config := ClusterConfig, params := ClusterParams}) ->
-    ClusterDefs =
-        maps:from_list(
-            [{ClusterName, ChildDefs} || {ClusterName, _SupName, ChildDefs} <- ClusterParams]),
-    {ok, #state{cluster_config = ClusterConfig, cluster_defs = ClusterDefs}}.
+init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
+    program_heartbeat(),
+    {ok, #state{
+        orig_config         = OrigConfig,
+        processed_config    = ProcessedConfig,
+        cluster_version     = mero_cluster:version()
+    }}.
 
 -spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
 handle_info(heartbeat, State) ->
-    {noreply, State};
+    program_heartbeat(),
+    NewState =
+        try update_cluster_defs(State)
+        catch
+            Kind:Desc ->
+                error_logger:error_report([
+                    {error,             mero_config_heartbeat_failed},
+                    {kind,              Kind},
+                    {desc,              Desc},
+                    {stack,             erlang:get_stacktrace()},
+                    {orig_config,       State#state.orig_config},
+                    {processed_config,  State#state.processed_config}
+                ]),
+                State
+        end,
+    {noreply, NewState};
 handle_info(_, State) -> {noreply, State}.
 
 
@@ -89,3 +108,45 @@ handle_cast(_Msg, State) -> {noreply, State}.
 %%%-----------------------------------------------------------------------------
 %%% Private Functions
 %%%-----------------------------------------------------------------------------
+program_heartbeat() ->
+    Time = min(100, rand:uniform(mero_conf:config_monitor_max_sleep())),
+    erlang:send_after(Time, self(), heartbeat).
+
+
+update_cluster_defs(#state{orig_config = OrigConfig} = State) ->
+    update_cluster_defs(mero_conf:process_server_specs(OrigConfig), State).
+
+update_cluster_defs(ProcessedConfig, #state{processed_config = ProcessedConfig} = State) ->
+    State; %% Nothing has changed
+update_cluster_defs(NewProcessedConfig, State) ->
+    #state{
+        processed_config    = OldProcessedConfig,
+        cluster_version     = OldClusterVersion
+    } = State,
+
+    ok = mero_cluster:load_clusters(NewProcessedConfig),
+    NewClusterVersion = mero_cluster:version(),
+
+    ok = update_clusters(OldProcessedConfig, NewProcessedConfig),
+
+    ok = purge_if_version_changed(OldClusterVersion, NewClusterVersion),
+
+    State#state{processed_config = NewProcessedConfig, cluster_version = NewClusterVersion}.
+
+
+purge_if_version_changed(ClusterVersion, ClusterVersion) ->
+    ok;
+purge_if_version_changed(_OldVersion, _NewClusterVersion) ->
+    mero_cluster:purge().
+
+
+%% NOTE: since both cluster definitions are generated through mero_conf:process_server_specs/1
+%%       with the same input, we can be sure that the resulting lists will contain the same number
+%%       of elements, with the same keys in the same order.
+update_clusters([], []) ->
+    ok;
+update_clusters([ClusterDef | OldClusterDefs], [ClusterDef | NewClusterDefs]) -> %% nothing changed
+    update_clusters(OldClusterDefs, NewClusterDefs);
+update_clusters([{ClusterName, _} | OldClusterDefs], [{ClusterName, _} | NewClusterDefs]) ->
+    ok = mero_sup:restart_child(ClusterName),
+    update_clusters(OldClusterDefs, NewClusterDefs).

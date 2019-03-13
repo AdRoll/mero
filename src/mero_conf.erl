@@ -61,7 +61,8 @@
          millis_to/2,
          process_server_specs/1,
          elasticache_load_config_delay/0,
-         elasticache_load_config_delay/1
+         elasticache_load_config_delay/1,
+         config_monitor_max_sleep/0
          ]).
 
 -include_lib("mero/include/mero.hrl").
@@ -72,6 +73,11 @@
 %%%=============================================================================
 %%% External functions
 %%%=============================================================================
+
+%% @doc Returns the maximum time to wait between config checks, in milliseconds
+-spec config_monitor_max_sleep() -> pos_integer().
+config_monitor_max_sleep() ->
+    get_env(config_monitor_max_sleep).
 
 %% @doc Returns the amount of milliseconds to wait before reading elasticache config
 -spec elasticache_load_config_delay() -> non_neg_integer().
@@ -222,7 +228,7 @@ millis_to(TimeLimit, Then) ->
     _ -> 0
   end.
 
--spec process_server_specs(mero:cluster_config()) -> [{atom(), [{atom(), term()}]}].
+-spec process_server_specs(mero:cluster_config()) -> mero:cluster_config().
 process_server_specs(Clusters) ->
     [{ClusterName, [process_value(Attr) || Attr <- Attrs]} || {ClusterName, Attrs} <- Clusters].
 

@@ -119,7 +119,9 @@
     group_by_shards/2, group_by_shards/3,
     pool_worker_module/1,
     random_pool_of_shard/2,
-    clusters/0
+    clusters/0,
+    version/0,
+    purge/0
 ]).
 
 -ignore_xref([
@@ -130,7 +132,8 @@
     {mero_cluster_util, clusters, 0},
     {mero_cluster_util, sharding_algorithm, 1},
     {mero_cluster_util, pool_worker_module, 1},
-    {mero_cluster_util, worker_by_index, 3}
+    {mero_cluster_util, worker_by_index, 3},
+    {mero_cluster_util, module_info, 1}
 ]).
 
 -type child_definitions() :: [{
@@ -146,7 +149,7 @@
 %%%===================================================================
 
 %% @doc: Loads a file with the pool configuration
--spec load_clusters([{Clustername :: atom(), ClusterConfig :: [{atom(), term()}]}]) -> ok.
+-spec load_clusters(mero:cluster_config()) -> ok.
 load_clusters(ClusterConfig) ->
     WorkerDefs = worker_defs(ClusterConfig),
     DynModuleBegin =
@@ -173,6 +176,23 @@ load_clusters(ClusterConfig) ->
     {M, B} = dynamic_compile:from_string(ModuleStringTotal),
     {module, mero_cluster_util} = code:load_binary(M, "", B),
     ok.
+
+%% @doc: Returns the current version of mero_cluster_util
+-spec version() -> pos_integer().
+version() ->
+    [Version] = [Vsn || {vsn, [Vsn]} <- mero_cluster_util:module_info(attributes)],
+    Version.
+
+%% @doc: Purges old mero_cluster_util code from the system
+-spec purge() -> ok.
+purge() ->
+    case code:purge(mero_cluster_util) of
+        false ->
+            ok;
+        true ->
+            error_logger:warning_msg("Some processes were killed while purging mero_cluster_util"),
+            ok
+    end.
 
 -spec child_definitions(ClusterName ::atom()) -> child_definitions().
 child_definitions(ClusterName) ->
