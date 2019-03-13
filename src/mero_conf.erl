@@ -59,7 +59,10 @@
          add_now/2,
          millis_to/1,
          millis_to/2,
-         process_server_specs/1]).
+         process_server_specs/1,
+         elasticache_load_config_delay/0,
+         elasticache_load_config_delay/1
+         ]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -69,6 +72,16 @@
 %%%=============================================================================
 %%% External functions
 %%%=============================================================================
+
+%% @doc Returns the amount of milliseconds to wait before reading elasticache config
+-spec elasticache_load_config_delay() -> non_neg_integer().
+elasticache_load_config_delay() ->
+    get_env(elasticache_load_config_delay).
+
+%% @doc Sets the amount of milliseconds to wait before reading elasticache config
+-spec elasticache_load_config_delay(non_neg_integer()) -> ok.
+elasticache_load_config_delay(Millis) ->
+    application:set_env(mero, elasticache_load_config_delay, Millis).
 
 %% @doc: Returns the cluster configuration
 -spec cluster_config() -> list({Name :: atom(), Config :: list()}).

@@ -84,6 +84,7 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
   ok = mero_conf:write_retries(3),
   ok = mero_conf:timeout_read(100),
   ok = mero_conf:timeout_write(1000),
+  ok = mero_conf:elasticache_load_config_delay(0),
 
   ServerPids = lists:foldr(
       fun({_, Config}, Acc) ->

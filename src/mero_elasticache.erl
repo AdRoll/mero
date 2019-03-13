@@ -51,6 +51,9 @@
 -spec get_cluster_config(string(), integer()) ->
     {ok, list({string(), integer()})} | {error, Reason :: atom()}.
 get_cluster_config(ConfigHost, ConfigPort) ->
+    %% We wait for a bit before loading elasticache configuration to prevent runaway elasticache
+    %% spam during error loops (which used to occur on occasion).
+    timer:sleep(mero_conf:elasticache_load_config_delay()),
     LineDefinitions = [banner, version, hosts, crlf, eom],
     Result =
         mero_elasticache:request_response(ConfigHost, ConfigPort, ?GET_CLUSTER, LineDefinitions),
