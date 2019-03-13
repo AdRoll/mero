@@ -50,6 +50,7 @@
 %%
 %% -module(mero_cluster_util).
 %% -export([child_definitions/1,
+%%     sup_by_cluster_name/1,
 %%     worker_by_index/3,
 %%     cluster_shards/1,
 %%     workers_per_shard/1,
@@ -74,6 +75,9 @@
 %% child_definitions(cluster_b) ->
 %%     [{"server3",11211,mero_cluster_b_server3_0_0,
 %%             mero_wrk_tcp_binary}].
+%%
+%% sup_by_cluster_name(cluster_a) -> mero_cluster_a_sup;
+%% sup_by_cluster_name(cluster_b) -> mero_cluster_b_sup.
 %%
 %% worker_by_index(cluster_a, 0, 0) -> mero_cluster_a_server1_0_0;
 %% worker_by_index(cluster_a, 0, 1) -> mero_cluster_a_server1_0_1;
@@ -104,6 +108,7 @@
 
 -export([
     child_definitions/1,
+    sup_by_cluster_name/1,
     cluster_shards/1,
     workers_per_shard/1,
     sharding_algorithm/1,
@@ -121,6 +126,7 @@
     {mero_cluster_util, cluster_shards, 1},
     {mero_cluster_util, workers_per_shard, 1},
     {mero_cluster_util, child_definitions, 1},
+    {mero_cluster_util, sup_by_cluster_name, 1},
     {mero_cluster_util, clusters, 0},
     {mero_cluster_util, sharding_algorithm, 1},
     {mero_cluster_util, pool_worker_module, 1},
@@ -139,6 +145,7 @@ load_clusters(ClusterConfig) ->
     DynModuleBegin =
         "-module(mero_cluster_util). \n"
         "-export([child_definitions/1,\n"
+        "         sup_by_cluster_name/1,\n"
         "         worker_by_index/3,\n"
         "         cluster_shards/1,\n"
         "         workers_per_shard/1,\n"
@@ -148,6 +155,7 @@ load_clusters(ClusterConfig) ->
     ModuleStringTotal = lists:flatten(
         [DynModuleBegin,
             child_definitions_function(WorkerDefs),
+            sup_by_cluster_name_function(WorkerDefs),
             worker_by_index_function(WorkerDefs),
             cluster_shards_function(ClusterConfig),
             workers_per_shard_function(ClusterConfig),
@@ -168,6 +176,10 @@ load_clusters(ClusterConfig) ->
     }].
 child_definitions(ClusterName) ->
     mero_cluster_util:child_definitions(ClusterName).
+
+-spec sup_by_cluster_name(atom()) -> atom().
+sup_by_cluster_name(ClusterName) ->
+    mero_cluster_util:sup_by_cluster_name(ClusterName).
 
 cluster_shards(Name) ->
     mero_cluster_util:cluster_shards(Name).
@@ -349,6 +361,14 @@ child_definitions_function(WorkerDefs) ->
         "child_definitions(~p) ->\n ~p;\n\n",
         [Cluster, [{H, P, N, M} || {C, H, P, N, M} <- AllDefs, C == Cluster]]
     ) || Cluster <- Clusters] ++ "child_definitions(_) ->\n [].\n\n".
+
+
+sup_by_cluster_name_function(WorkerDefs) ->
+    AllDefs = [Args || {_Name, _, _, Args} <- WorkerDefs],
+    Clusters = lists:usort([Cluster || {Cluster, _Host, _Port, _Name, _Module} <- AllDefs]),
+    [io_lib:format("sup_by_cluster_name(~p) ->\n mero_~p_sup;\n\n", [Cluster, Cluster])
+        || Cluster <- Clusters
+    ] ++ "sup_by_cluster_name(_) ->\n undefined.\n\n".
 
 
 worker_by_index_function(WorkerDefs) ->

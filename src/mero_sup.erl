@@ -51,8 +51,11 @@
 start_link(Config) ->
     ClusterConfig = mero_conf:process_server_specs(Config),
     ok = mero_cluster:load_clusters(ClusterConfig),
-    ClusterDefs =
-        [{Cluster, mero_cluster:child_definitions(Cluster)} || {Cluster, _} <- ClusterConfig],
+    ClusterDefs = [{
+        Cluster,
+        mero_cluster:sup_by_cluster_name(Cluster),
+        mero_cluster:child_definitions(Cluster)
+    } || {Cluster, _} <- ClusterConfig],
     supervisor:start_link({local, ?MODULE}, ?MODULE, ClusterDefs).
 
 %%%===================================================================
@@ -60,13 +63,13 @@ start_link(Config) ->
 %%%===================================================================
 
 init(ClusterDefs) ->
-    Children = [child(Cluster, PoolDefs) || {Cluster, PoolDefs} <- ClusterDefs],
+    Children = [child(Cluster, SupName, PoolDefs) || {Cluster, SupName, PoolDefs} <- ClusterDefs],
     {ok, {{one_for_one, 10, 10}, Children}}.
 
-child(ClusterName, PoolDefs) ->
+child(ClusterName, SupName, PoolDefs) ->
     {
         ClusterName,
-        {mero_cluster_sup, start_link, [ClusterName, PoolDefs]},
+        {mero_cluster_sup, start_link, [ClusterName, SupName, PoolDefs]},
         permanent,
         5000,
         supervisor,

@@ -28,7 +28,7 @@
 %%
 -module(mero_cluster_sup).
 
--export([start_link/2, init/1]).
+-export([start_link/3, init/1]).
 
 -behaviour(supervisor).
 
@@ -39,14 +39,15 @@
 %% @doc: Starts a list of workers with the provided configuration
 -spec start_link(
     ClusterName :: atom(),
+    SupName     :: atom(),
     [{
         Host        ::string(),
         Port        ::pos_integer(),
         WorkerName  ::atom(),
         WorkerModule::module()
     }]) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
-start_link(ClusterName, PoolDefs) ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, {ClusterName, PoolDefs}).
+start_link(ClusterName, SupName, PoolDefs) ->
+    supervisor:start_link({local, SupName}, ?MODULE, {ClusterName, PoolDefs}).
 
 %%%===================================================================
 %%% Supervisor callbacks

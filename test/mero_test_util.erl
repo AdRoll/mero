@@ -103,7 +103,7 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
         wait_for_pool_state(Pool, MinConn, MinConn, 0, 0)
     end,
     [ Pool
-    || {Cluster, _} <- ClusterConfig, {_, _, _, Pool, _} <- mero_cluster:child_definitions(Cluster)]
+    || {Cluster, _} <- ClusterConfig, {_, _, Pool, _} <- mero_cluster:child_definitions(Cluster)]
   ),
   {ok, ServerPids}.
 

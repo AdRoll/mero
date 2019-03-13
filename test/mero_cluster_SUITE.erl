@@ -162,8 +162,8 @@ select_pool(_Conf) ->
     ),
     ?assertEqual(
         [
-            {cluster2, "localhost", 11995, mero_cluster2_localhost_0_0, mero_wrk_tcp_txt},
-            {cluster2, "localhost", 11998, mero_cluster2_localhost_1_0, mero_wrk_tcp_txt}
+            {"localhost", 11995, mero_cluster2_localhost_0_0, mero_wrk_tcp_txt},
+            {"localhost", 11998, mero_cluster2_localhost_1_0, mero_wrk_tcp_txt}
         ],
         mero_cluster:child_definitions(cluster2)
     ),
