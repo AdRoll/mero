@@ -12,4 +12,4 @@ notifications:
 script:
   - rebar3 --version
   - erl -version
-  - rebar3 test
+  - rebar3 ci

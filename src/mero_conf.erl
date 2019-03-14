@@ -258,21 +258,15 @@ get_env_per_pool(Key, Pool) ->
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts = lists:foldr(
-        fun(HostConfig, Acc) ->
-            {Host, Port, ClusterSpeedFactor} =
-                case HostConfig of
-                    {HostIn, PortIn, ClusterSpeedFactorIn} when is_integer(ClusterSpeedFactorIn) ->
-                        {HostIn, PortIn, ClusterSpeedFactorIn};
-                    {HostIn, PortIn} ->
-                        {HostIn, PortIn, 1}
-
-                end,
-            lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port)) ++ Acc
+    HostsPorts = lists:map(
+        fun ({Host, Port, ClusterSpeedFactor}) ->
+                lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port));
+            ({Host, Port}) ->
+                [get_elasticache_cluster_config(Host, Port)]
         end,
-        [],
-        ConfigList),
-    {servers, lists:concat(HostsPorts)};
+        ConfigList
+    ),
+    {servers, lists:flatten(HostsPorts)};
 process_value(V) ->
     V.
 
