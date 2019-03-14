@@ -38,6 +38,11 @@
 
 
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
+    wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, 100).
+
+wait_for_pool_state(Pool, _Free, _Connected, _Connecting, _NumFailedConnecting, 0) ->
+  exit({pool_failed_to_start, Pool, mero_pool:state(Pool)});
+wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries) ->
   case mero_pool:state(Pool) of
     [ _QueueInfo,
       _Links,
@@ -51,7 +56,7 @@ wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
     State ->
       io:format("Pool State is ~p ~p... retry ~n",[os:timestamp(), State]),
       timer:sleep(30),
-      wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting)
+      wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries - 1)
   end.
 
 
