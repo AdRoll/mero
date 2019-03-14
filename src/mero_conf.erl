@@ -66,6 +66,7 @@
          elasticache_load_config_delay/0,
          elasticache_load_config_delay/1,
          monitor_heartbeat_delay/0,
+         monitor_heartbeat_delay/2,
          get_elasticache_cluster_configs/1
          ]).
 
@@ -83,6 +84,11 @@ monitor_heartbeat_delay() ->
     Min = get_env(conf_monitor_min_sleep),
     Max = get_env(conf_monitor_max_sleep),
     Min + rand:uniform(Max - Min).
+
+%% @doc Sets the boundaries of the time to wait between config checkes, in milliseconds
+monitor_heartbeat_delay(Min, Max) ->
+    application:set_env(mero, conf_monitor_min_sleep, Min),
+    application:set_env(mero, conf_monitor_max_sleep, Max).
 
 %% @doc Returns the amount of milliseconds to wait before reading elasticache config
 -spec elasticache_load_config_delay() -> non_neg_integer().
@@ -262,7 +268,12 @@ get_env_per_pool(Key, Pool) ->
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts = rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList),
+    HostsPorts =
+        try rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
+        catch
+            _:badrpc -> % Fallback to sequential execution, mostly to get proper error descriptions
+                lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
+        end,
     {servers, lists:flatten(HostsPorts)};
 process_value(V) ->
     V.

@@ -91,10 +91,14 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
         HostPortList = proplists:get_value(servers, Config),
         lists:foldr(fun({_Host, Port}, Acc2) ->
             ct:log("Starting server on Port ~p", [Port]),
-            {ok, ServerPid} = mero_dummy_server:start_link(Port),
+            ServerPid =
+                case mero_dummy_server:start_link(Port) of
+                    {ok, Pid} -> Pid;
+                    {error, {already_started, Pid}} -> Pid
+                end,
             [ServerPid | Acc2]
             end, Acc, HostPortList)
-      end, [], ClusterConfig),
+      end, [], process_server_specs(ClusterConfig)),
 
   {ok, _} = application:ensure_all_started(mero),
 
@@ -110,3 +114,11 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
 
 stop_servers(Pids) ->
     [mero_dummy_server:stop(Pid) || Pid <- Pids].
+
+process_server_specs(ClusterConfig) ->
+    try mero_conf:process_server_specs(ClusterConfig)
+    catch
+        K:E ->
+            ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, erlang:get_stacktrace()]),
+            exit(E)
+    end.
