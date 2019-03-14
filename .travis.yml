@@ -5,8 +5,6 @@ os:
 
 otp_release:
    - 20.1
-   - 19.3
-   - 18.3
 
 notifications:
   email: rtb-team+travis@adroll.com
