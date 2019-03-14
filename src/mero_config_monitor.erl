@@ -109,8 +109,7 @@ handle_cast(_Msg, State) -> {noreply, State}.
 %%% Private Functions
 %%%-----------------------------------------------------------------------------
 program_heartbeat() ->
-    Time = min(100, rand:uniform(mero_conf:config_monitor_max_sleep())),
-    erlang:send_after(Time, self(), heartbeat).
+    erlang:send_after(mero_conf:monitor_heartbeat_delay(), self(), heartbeat).
 
 
 update_cluster_defs(#state{orig_config = OrigConfig} = State) ->

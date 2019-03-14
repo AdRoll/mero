@@ -62,7 +62,7 @@
          process_server_specs/1,
          elasticache_load_config_delay/0,
          elasticache_load_config_delay/1,
-         config_monitor_max_sleep/0
+         monitor_heartbeat_delay/0
          ]).
 
 -include_lib("mero/include/mero.hrl").
@@ -74,10 +74,11 @@
 %%% External functions
 %%%=============================================================================
 
-%% @doc Returns the maximum time to wait between config checks, in milliseconds
--spec config_monitor_max_sleep() -> pos_integer().
-config_monitor_max_sleep() ->
-    get_env(config_monitor_max_sleep).
+%% @doc Returns a _randomized_ time to wait between config checkes, in milliseconds
+monitor_heartbeat_delay() ->
+    Min = get_env(config_monitor_min_sleep),
+    Max = get_env(config_monitor_max_sleep),
+    Min + rand:uniform(Max - Min).
 
 %% @doc Returns the amount of milliseconds to wait before reading elasticache config
 -spec elasticache_load_config_delay() -> non_neg_integer().
