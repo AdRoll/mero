@@ -258,17 +258,16 @@ get_env_per_pool(Key, Pool) ->
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts = lists:map(
-        fun ({Host, Port, ClusterSpeedFactor}) ->
-                lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port));
-            ({Host, Port}) ->
-                [get_elasticache_cluster_config(Host, Port)]
-        end,
-        ConfigList
-    ),
+    HostsPorts = lists:map(fun get_elasticache_cluster_configs/1, ConfigList),
     {servers, lists:flatten(HostsPorts)};
 process_value(V) ->
     V.
+
+get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}) ->
+    lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port));
+get_elasticache_cluster_configs({Host, Port}) ->
+    [get_elasticache_cluster_config(Host, Port)].
+
 
 get_elasticache_cluster_config(Host, Port) ->
     case mero_elasticache:get_cluster_config(Host, Port) of

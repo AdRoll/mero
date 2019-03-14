@@ -12,4 +12,9 @@ notifications:
 script:
   - rebar3 --version
   - erl -version
-  - rebar3 ci
+  - rebar3 xref
+  - rebar3 dialyzer
+  - rebar3 lint
+  - rebar3 eunit
+  - rebar3 ct
+  - rebar3 cover
