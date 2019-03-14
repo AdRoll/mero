@@ -31,6 +31,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% It's dynamically invoked using rpc:pmap/3
+-ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
+
 -export([cluster_config/0,
          cluster_config/1,
          pool_timeout_read/1,
@@ -62,7 +65,8 @@
          process_server_specs/1,
          elasticache_load_config_delay/0,
          elasticache_load_config_delay/1,
-         monitor_heartbeat_delay/0
+         monitor_heartbeat_delay/0,
+         get_elasticache_cluster_configs/1
          ]).
 
 -include_lib("mero/include/mero.hrl").
@@ -258,7 +262,7 @@ get_env_per_pool(Key, Pool) ->
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts = lists:map(fun get_elasticache_cluster_configs/1, ConfigList),
+    HostsPorts = rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList),
     {servers, lists:flatten(HostsPorts)};
 process_value(V) ->
     V.
