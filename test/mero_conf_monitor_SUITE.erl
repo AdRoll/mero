@@ -59,6 +59,14 @@ init_per_testcase(_, Conf) ->
         "c2.com|10.101.101.00|11211 ",
         "c3.com|10.102.00.102|11211 c4.com|10.102.00.102|11211\n">>,
 
+    Lines = #{
+        a => HostLinea,
+        b => HostLineb,
+        c => HostLinec
+    },
+
+    mock_elasticache(Lines),
+
     meck:expect(mero_elasticache, request_response,
         fun(Type, _, _, _) ->
             HostLines = case Type of
@@ -98,9 +106,40 @@ conf_is_periodically_fetched(_) ->
 cluster_is_restarted_when_new_nodes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
     start_server(),
-    % ct:pal("Cluster 1: ~p", [supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))]),
-    % ct:pal("Cluster 2: ~p", [supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))]),
-    % ?assert(3, supervisor:count_children(mero_cluster:sup_by_cluster_name(cluster1))).
+
+    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(2, length(Cluster2Children)),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% Cluster1 stays, Cluster2 adds a node
+    Lines = #{
+        a => <<"a1.com|10.100.100.100|11211 ",
+                "a2.com|10.101.101.00|11211 ",
+                "a3.com|10.102.00.102|11211\n">>,
+        b => <<"b1.com|10.100.100.100|22122 ",
+                "b2.com|10.101.101.00|22122 "
+                "b3.com|10.102.00.102|22122\n">>
+    },
+    mock_elasticache(Lines),
+
+    %% Cluster1 remains the same, Cluster2 is rebuilt
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    NewCluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    lists:foreach(
+        fun(Child) ->
+            ?assertNot(lists:member(Child, Cluster2Children))
+        end, NewCluster2Children),
     ok.
 
 start_server() ->
@@ -121,3 +160,18 @@ cluster_config() ->
             {pool_worker_module,    mero_wrk_tcp_binary}
         ]}
     ].
+
+send_heartbeat() ->
+    mero_conf_monitor ! heartbeat,
+    {unknown_call, sync} = gen_server:call(mero_conf_monitor, sync).
+
+mock_elasticache(Lines) ->
+    meck:expect(mero_elasticache, request_response,
+        fun(Type, _, _, _) ->
+            HostLines = maps:get(Type, Lines),
+            [{banner, <<"CONFIG cluster ...">>},
+                {version, <<"version1">>},
+                {hosts, HostLines},
+                {crlf, <<"\r\n">>},
+                {eom, <<"END\r\n">>}]
+        end).
