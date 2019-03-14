@@ -80,8 +80,8 @@
 
 %% @doc Returns a _randomized_ time to wait between config checkes, in milliseconds
 monitor_heartbeat_delay() ->
-    Min = get_env(config_monitor_min_sleep),
-    Max = get_env(config_monitor_max_sleep),
+    Min = get_env(conf_monitor_min_sleep),
+    Max = get_env(conf_monitor_max_sleep),
     Min + rand:uniform(Max - Min).
 
 %% @doc Returns the amount of milliseconds to wait before reading elasticache config

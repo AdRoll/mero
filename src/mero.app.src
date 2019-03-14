@@ -36,7 +36,7 @@
       {max_connection_delay_time, 5000},
       {stat_event_callback, {mero_stat, noop}},
       {elasticache_load_config_delay, 1000},
-      {config_monitor_max_sleep, 5000},
-      {config_monitor_min_sleep, 1000}
+      {conf_monitor_max_sleep, 5000},
+      {conf_monitor_min_sleep, 1000}
   ]}
  ]}.

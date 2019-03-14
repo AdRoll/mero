@@ -88,10 +88,10 @@ cluster_sup_spec(ClusterName) ->
 
 monitor_spec(OrigConfig, ProcessedConfig) ->
     {
-        mero_config_monitor,
-        {mero_config_monitor, start_link, [OrigConfig, ProcessedConfig]},
+        mero_conf_monitor,
+        {mero_conf_monitor, start_link, [OrigConfig, ProcessedConfig]},
         permanent,
         5000,
         worker,
-        [mero_config_monitor]
+        [mero_conf_monitor]
     }.
