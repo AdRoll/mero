@@ -142,12 +142,12 @@ init([Port, Opts]) ->
     process_flag(trap_exit, true),
     case listen(Port, Opts) of
         {ok, ListenSocket} ->
-            ct:log("memcached mocked server started on port ~p", [Port]),
+            ct:pal("memcached mocked server started on port ~p", [Port]),
             start_acceptor([self(), Port, ListenSocket, Opts]),
             {ok, #state{listen_socket = ListenSocket,
                         opts = Opts}};
         {error, Reason} ->
-            ct:log("memcached dummy server error: ~p", [Reason]),
+            ct:pal("memcached dummy server error: ~p", [Reason]),
             {stop, Reason}
     end.
 
