@@ -55,7 +55,7 @@ all() -> [
 ].
 
 init_per_testcase(_, Conf) ->
-    meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough]),
+    meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, nolink]),
     HostLinea = <<"a1.com|10.100.100.100|11211 ",
         "a2.com|10.101.101.00|11211 ",
         "a3.com|10.102.00.102|11211\n">>,
@@ -76,11 +76,8 @@ init_per_testcase(_, Conf) ->
     mock_elasticache(Lines),
 
     meck:expect(mero_wrk_tcp_binary, connect,
-        fun(Host, Port, CallbackInfo) ->
-            ct:pal("Remapping ~s:~p to localhost:~p...", [Host, Port, Port]),
-            Result = meck:passthrough(["localhost", Port, CallbackInfo]),
-            ct:pal("... ~s:~p connected: ~p", [Result]),
-            Result
+        fun(_Host, Port, CallbackInfo) ->
+            meck:passthrough(["localhost", Port, CallbackInfo])
         end),
 
     application:load(mero),
