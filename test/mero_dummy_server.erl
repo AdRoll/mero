@@ -76,8 +76,9 @@ stop(Pid) when is_pid(Pid) ->
     end;
 stop(Port) when is_integer(Port) ->
     Name = name(Port),
-    Pid = whereis(mocked) could not start on port ~p.,
+    Pid = whereis(Name),
     stop(Pid).
+
 
 reset(Port) ->
     gen_server:call(name(Port), reset).
@@ -146,7 +147,7 @@ init([Port, Opts]) ->
             {ok, #state{listen_socket = ListenSocket,
                         opts = Opts}};
         {error, Reason} ->
-            ct:pal("memcached mocked server could not start on port ~p. error: ~p", [Port, Reason]),
+            ct:pal("memcached dummy server error: ~p", [Reason]),
             {stop, Reason}
     end.
 
