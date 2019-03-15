@@ -71,14 +71,14 @@ stop(Pid) when is_pid(Pid) ->
     gen_server:call(Pid, stop),
     receive
         {'DOWN', MRef, _, Object, Info} ->
-            ct:log("server ~p stopped ~p: ~p", [Object, whereis(?MODULE), Info]),
+            ct:pal("server ~p stopped ~p: ~p", [Object, whereis(?MODULE), Info]),
             ok
     end;
 stop(Port) when is_integer(Port) ->
     Name = name(Port),
-    Pid = whereis(Name),
+    Pid = whereis(mocked) could not start on port ~p.,
     stop(Pid).
-
+Port, 
 
 reset(Port) ->
     gen_server:call(name(Port), reset).
@@ -147,7 +147,7 @@ init([Port, Opts]) ->
             {ok, #state{listen_socket = ListenSocket,
                         opts = Opts}};
         {error, Reason} ->
-            ct:pal("memcached dummy server error: ~p", [Reason]),
+            ct:pal("memcached mocked server could not start on port ~p. error: ~p", [Port, Reason]),
             {stop, Reason}
     end.
 

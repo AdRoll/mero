@@ -56,16 +56,16 @@ all() -> [
 
 init_per_testcase(_, Conf) ->
     meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, nolink]),
-    HostLinea = <<"a1.com|10.100.100.100|11211 ",
-        "a2.com|10.101.101.00|11211 ",
-        "a3.com|10.102.00.102|11211\n">>,
+    HostLinea = <<"a1.com|10.100.100.100|11112 ",
+        "a2.com|10.101.101.00|11112 ",
+        "a3.com|10.102.00.102|11112\n">>,
 
     HostLineb = <<"b1.com|10.100.100.100|11212 ",
         "b2.com|10.101.101.00|11212\n">>,
 
-    HostLinec = <<"c1.com|10.100.100.100|11211 ",
-        "c2.com|10.101.101.00|11211 ",
-        "c3.com|10.102.00.102|11211 c4.com|10.102.00.102|11211\n">>,
+    HostLinec = <<"c1.com|10.100.100.100|11112 ",
+        "c2.com|10.101.101.00|11112 ",
+        "c3.com|10.102.00.102|11112 c4.com|10.102.00.102|11112\n">>,
 
     Lines = #{
         a => HostLinea,
@@ -115,9 +115,9 @@ cluster_is_restarted_when_new_nodes(_) ->
 
     %% Cluster1 stays, Cluster2 adds a node
     Lines = #{
-        a => <<"a1.com|10.100.100.100|11211 ",
-                "a2.com|10.101.101.00|11211 ",
-                "a3.com|10.102.00.102|11211\n">>,
+        a => <<"a1.com|10.100.100.100|11112 ",
+                "a2.com|10.101.101.00|11112 ",
+                "a3.com|10.102.00.102|11112\n">>,
         b => <<"b1.com|10.100.100.100|11212 ",
                 "b2.com|10.101.101.00|11212 "
                 "b3.com|10.102.00.102|11212\n">>
@@ -154,8 +154,8 @@ cluster_is_restarted_when_lost_nodes(_) ->
 
     %% Cluster2 stays, Cluster1 lost a node
     Lines = #{
-        a => <<"a1.com|10.100.100.100|11211 ",
-                "a2.com|10.101.101.00|11211\n">>,
+        a => <<"a1.com|10.100.100.100|11112 ",
+                "a2.com|10.101.101.00|11112\n">>,
         b => <<"b1.com|10.100.100.100|11212 ",
                 "b2.com|10.101.101.00|11212\n">>
     },
@@ -191,9 +191,9 @@ cluster_is_not_restarted_when_other_changes(_) ->
 
     %% servers are reordered in both clusters, but that's irrelevant for us
     Lines = #{
-        a => <<"a2.com|10.101.101.00|11211 ",
-                "a1.com|10.100.100.100|11211 ",
-                "a3.com|10.102.00.102|11211\n">>,
+        a => <<"a2.com|10.101.101.00|11112 ",
+                "a1.com|10.100.100.100|11112 ",
+                "a3.com|10.102.00.102|11112\n">>,
         b => <<"b2.com|10.101.101.00|11212 ",
                 "b1.com|10.100.100.100|11212\n">>
     },
@@ -256,13 +256,13 @@ start_server() ->
 cluster_config() ->
     [
         {cluster1, [
-            {servers,               {elasticache, [{a, 11211, 1}]}},
+            {servers,               {elasticache, [{a, 11112, 1}]}},
             {sharding_algorithm,    {mero, shard_crc32}},
             {workers_per_shard,     1},
             {pool_worker_module,    mero_wrk_tcp_binary}
         ]},
         {cluster2, [
-            {servers,               {elasticache, [{b, 11211, 1}]}},
+            {servers,               {elasticache, [{b, 11112, 1}]}},
             {sharding_algorithm,    {mero, shard_crc32}},
             {workers_per_shard,     1},
             {pool_worker_module,    mero_wrk_tcp_binary}
