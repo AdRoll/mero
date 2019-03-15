@@ -40,14 +40,18 @@
     conf_is_periodically_fetched/1,
     cluster_is_restarted_when_new_nodes/1,
     cluster_is_restarted_when_lost_nodes/1,
-    cluster_is_not_restarted_when_other_changes/1
+    cluster_is_not_restarted_when_other_changes/1,
+    cluster_is_not_restarted_with_bad_info/1,
+    non_heartbeat_messages_are_ignored/1
 ]).
 
 all() -> [
     conf_is_periodically_fetched,
     cluster_is_restarted_when_new_nodes,
     cluster_is_restarted_when_lost_nodes,
-    cluster_is_not_restarted_when_other_changes
+    cluster_is_not_restarted_when_other_changes,
+    cluster_is_not_restarted_with_bad_info,
+    non_heartbeat_messages_are_ignored
 ].
 
 init_per_testcase(_, Conf) ->
@@ -201,6 +205,49 @@ cluster_is_not_restarted_when_other_changes(_) ->
         Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(
         Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+    ok.
+
+cluster_is_not_restarted_with_bad_info(_) ->
+    mero_conf:monitor_heartbeat_delay(10000, 10001),
+    start_server(),
+
+    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(2, length(Cluster2Children)),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% bad info is received
+    Lines = #{
+        a => <<"this is wrong\n">>
+    },
+    mock_elasticache(Lines),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+    ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
+    ok.
+
+non_heartbeat_messages_are_ignored(_) ->
+    start_server(),
+
+    MeroConfMonitor = whereis(mero_conf_monitor),
+
+    ok = gen_server:cast(mero_conf_monitor, something),
+    mero_conf_monitor ! something_else,
+    send_heartbeat(),
+
+    ?assertEqual(MeroConfMonitor, whereis(mero_conf_monitor)),
     ok.
 
 start_server() ->
