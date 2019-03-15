@@ -109,6 +109,7 @@ If an alternate cluster is 2 times faster than the fist one -it can have twice a
 ```
 
 Mero will also monitor elasticache for changes in the configuration. It will poll elasticache config according to the values of `conf_monitor_min_sleep` and `conf_monitor_max_sleep` in the configuration. The polling will run at a random interval that will always be between those two values (in milliseconds).
+If a cluster configuration change is found after a poll, the connections to the servers of that cluster will be restablished. This is done using OTP supervision principles: Mero maintains a supervision tree per cluster, which is stopped and restarted if its configuration changes.
 
 
 Using Mero
