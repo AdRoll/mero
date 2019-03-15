@@ -38,12 +38,16 @@
 ]).
 -export([
     conf_is_periodically_fetched/1,
-    cluster_is_restarted_when_new_nodes/1
+    cluster_is_restarted_when_new_nodes/1,
+    cluster_is_restarted_when_lost_nodes/1,
+    cluster_is_not_restarted_when_other_changes/1
 ]).
 
 all() -> [
     conf_is_periodically_fetched,
-    cluster_is_restarted_when_new_nodes
+    cluster_is_restarted_when_new_nodes,
+    cluster_is_restarted_when_lost_nodes,
+    cluster_is_not_restarted_when_other_changes
 ].
 
 init_per_testcase(_, Conf) ->
@@ -52,8 +56,8 @@ init_per_testcase(_, Conf) ->
         "a2.com|10.101.101.00|11211 ",
         "a3.com|10.102.00.102|11211\n">>,
 
-    HostLineb = <<"b1.com|10.100.100.100|22122 ",
-        "b2.com|10.101.101.00|22122\n">>,
+    HostLineb = <<"b1.com|10.100.100.100|11211 ",
+        "b2.com|10.101.101.00|11211\n">>,
 
     HostLinec = <<"c1.com|10.100.100.100|11211 ",
         "c2.com|10.101.101.00|11211 ",
@@ -66,20 +70,6 @@ init_per_testcase(_, Conf) ->
     },
 
     mock_elasticache(Lines),
-
-    meck:expect(mero_elasticache, request_response,
-        fun(Type, _, _, _) ->
-            HostLines = case Type of
-                            a -> HostLinea;
-                            b -> HostLineb;
-                            c -> HostLinec
-                        end,
-            [{banner, <<"CONFIG cluster ...">>},
-                {version, <<"version1">>},
-                {hosts, HostLines},
-                {crlf, <<"\r\n">>},
-                {eom, <<"END\r\n">>}]
-        end),
 
     meck:expect(mero_wrk_tcp_binary, connect,
         fun(_Host, Port, CallbackInfo) ->
@@ -124,9 +114,9 @@ cluster_is_restarted_when_new_nodes(_) ->
         a => <<"a1.com|10.100.100.100|11211 ",
                 "a2.com|10.101.101.00|11211 ",
                 "a3.com|10.102.00.102|11211\n">>,
-        b => <<"b1.com|10.100.100.100|22122 ",
-                "b2.com|10.101.101.00|22122 "
-                "b3.com|10.102.00.102|22122\n">>
+        b => <<"b1.com|10.100.100.100|11211 ",
+                "b2.com|10.101.101.00|11211 "
+                "b3.com|10.102.00.102|11211\n">>
     },
     mock_elasticache(Lines),
 
@@ -135,11 +125,82 @@ cluster_is_restarted_when_new_nodes(_) ->
     ?assertEqual(
         Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
     NewCluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
-    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(3, length(NewCluster2Children)),
     lists:foreach(
         fun(Child) ->
             ?assertNot(lists:member(Child, Cluster2Children))
         end, NewCluster2Children),
+    ok.
+
+cluster_is_restarted_when_lost_nodes(_) ->
+    mero_conf:monitor_heartbeat_delay(10000, 10001),
+    start_server(),
+
+    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(2, length(Cluster2Children)),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% Cluster2 stays, Cluster1 lost a node
+    Lines = #{
+        a => <<"a1.com|10.100.100.100|11211 ",
+                "a2.com|10.101.101.00|11211\n">>,
+        b => <<"b1.com|10.100.100.100|11211 ",
+                "b2.com|10.101.101.00|11211\n">>
+    },
+    mock_elasticache(Lines),
+
+    %% Cluster1 remains the same, Cluster2 is rebuilt
+    send_heartbeat(),
+    NewCluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+    ?assertEqual(2, length(NewCluster1Children)),
+    lists:foreach(
+        fun(Child) ->
+            ?assertNot(lists:member(Child, Cluster1Children))
+        end, NewCluster1Children),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+    ok.
+
+cluster_is_not_restarted_when_other_changes(_) ->
+    mero_conf:monitor_heartbeat_delay(10000, 10001),
+    start_server(),
+
+    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(2, length(Cluster2Children)),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% servers are reordered in both clusters, but that's irrelevant for us
+    Lines = #{
+        a => <<"a2.com|10.101.101.00|11211 ",
+                "a1.com|10.100.100.100|11211 ",
+                "a3.com|10.102.00.102|11211\n">>,
+        b => <<"b2.com|10.101.101.00|11211 ",
+                "b1.com|10.100.100.100|11211\n">>
+    },
+    mock_elasticache(Lines),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
     ok.
 
 start_server() ->
@@ -154,7 +215,7 @@ cluster_config() ->
             {pool_worker_module,    mero_wrk_tcp_binary}
         ]},
         {cluster2, [
-            {servers,               {elasticache, [{b, 22122, 1}]}},
+            {servers,               {elasticache, [{b, 11211, 1}]}},
             {sharding_algorithm,    {mero, shard_crc32}},
             {workers_per_shard,     1},
             {pool_worker_module,    mero_wrk_tcp_binary}
@@ -169,9 +230,11 @@ mock_elasticache(Lines) ->
     meck:expect(mero_elasticache, request_response,
         fun(Type, _, _, _) ->
             HostLines = maps:get(Type, Lines),
-            [{banner, <<"CONFIG cluster ...">>},
-                {version, <<"version1">>},
-                {hosts, HostLines},
-                {crlf, <<"\r\n">>},
-                {eom, <<"END\r\n">>}]
+            [
+                {banner,    <<"CONFIG cluster ...">>},
+                {version,   <<"version1">>},
+                {hosts,     HostLines},
+                {crlf,      <<"\r\n">>},
+                {eom,       <<"END\r\n">>}
+            ]
         end).

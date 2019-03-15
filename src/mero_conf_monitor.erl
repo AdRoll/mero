@@ -146,6 +146,12 @@ update_clusters([], []) ->
     ok;
 update_clusters([ClusterDef | OldClusterDefs], [ClusterDef | NewClusterDefs]) -> %% nothing changed
     update_clusters(OldClusterDefs, NewClusterDefs);
-update_clusters([{ClusterName, _} | OldClusterDefs], [{ClusterName, _} | NewClusterDefs]) ->
-    ok = mero_sup:restart_child(ClusterName),
+update_clusters(
+    [{ClusterName, OldAttrs} | OldClusterDefs], [{ClusterName, NewAttrs} | NewClusterDefs]) ->
+    OldServers = lists:sort(proplists:get_value(servers, OldAttrs)),
+    ok =
+        case lists:sort(proplists:get_value(servers, NewAttrs)) of
+            OldServers -> ok; %% Nothing of relevance changed
+            _ -> mero_sup:restart_child(ClusterName)
+        end,
     update_clusters(OldClusterDefs, NewClusterDefs).
