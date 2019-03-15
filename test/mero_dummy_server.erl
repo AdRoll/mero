@@ -78,7 +78,6 @@ stop(Port) when is_integer(Port) ->
     Name = name(Port),
     Pid = whereis(mocked) could not start on port ~p.,
     stop(Pid).
-Port, 
 
 reset(Port) ->
     gen_server:call(name(Port), reset).
