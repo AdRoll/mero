@@ -26,72 +26,31 @@
 %% OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 %% OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
--module(mero_sup).
+-module(mero_cluster_sup).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
--export([
-    start_link/1,
-    restart_child/1,
-    init/1
-]).
+-export([start_link/1, init/1]).
 
 -behaviour(supervisor).
-
--ignore_xref([{mero_cluster, size,0},
-              {mero_cluster, cluster_size, 0},
-              {mero_cluster, pools, 0},
-              {mero_cluster, server, 1}]).
 
 %%%===================================================================
 %%% API functions
 %%%===================================================================
 
-%% @doc: Starts a list of workers with the configuration generated on
-%% mero_cluster
--spec start_link(mero:cluster_config()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
-start_link(OrigConfig) ->
-    ProcessedConfig = mero_conf:process_server_specs(OrigConfig),
-    ok = mero_cluster:load_clusters(ProcessedConfig),
-    supervisor:start_link(
-        {local, ?MODULE},
-        ?MODULE,
-        #{orig_config => OrigConfig, processed_config => ProcessedConfig}
-    ).
-
--spec restart_child(ClusterName :: atom()) -> ok.
-restart_child(ClusterName) ->
-    ok = supervisor:terminate_child(?MODULE, ClusterName),
-    ok = supervisor:delete_child(?MODULE, ClusterName),
-    {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
-    ok.
-
+%% @doc: Starts a list of workers with the provided configuration
+-spec start_link(ClusterName :: atom()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
+start_link(ClusterName) ->
+    SupName = mero_cluster:sup_by_cluster_name(ClusterName),
+    PoolDefs = mero_cluster:child_definitions(ClusterName),
+    supervisor:start_link({local, SupName}, ?MODULE, {ClusterName, PoolDefs}).
 
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
 
-init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
-    ClusterSupSpecs = [cluster_sup_spec(ClusterName) || {ClusterName, _} <- ProcessedConfig],
-    MonitorSpec = monitor_spec(OrigConfig, ProcessedConfig),
-    {ok, {{one_for_one, 10, 10}, [MonitorSpec | ClusterSupSpecs]}}.
+init({ClusterName, PoolDefs}) ->
+    Children = [child(ClusterName, PoolDef) || PoolDef <- PoolDefs],
+    {ok, {{one_for_one, 10, 10}, Children}}.
 
-cluster_sup_spec(ClusterName) ->
-    {
-        ClusterName,
-        {mero_cluster_sup, start_link, [ClusterName]},
-        permanent,
-        5000,
-        supervisor,
-        [mero_cluster_sup]
-    }.
-
-monitor_spec(OrigConfig, ProcessedConfig) ->
-    {
-        mero_conf_monitor,
-        {mero_conf_monitor, start_link, [OrigConfig, ProcessedConfig]},
-        permanent,
-        5000,
-        worker,
-        [mero_conf_monitor]
-    }.
+child(ClusterName, {Host, Port, Name, WrkModule}) ->
+    {Name, {mero_pool, start_link, [ClusterName, Host, Port, Name, WrkModule]}, permanent,
+      5000, worker, [mero_pool]}.

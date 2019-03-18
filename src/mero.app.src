@@ -34,6 +34,9 @@
       {connection_unused_max_time, 300000},
       {expiration_interval, 300000},
       {max_connection_delay_time, 5000},
-      {stat_event_callback, {mero_stat, noop}}
+      {stat_event_callback, {mero_stat, noop}},
+      {elasticache_load_config_delay, 1000},
+      {conf_monitor_max_sleep, 5000},
+      {conf_monitor_min_sleep, 1000}
   ]}
  ]}.

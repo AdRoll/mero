@@ -81,6 +81,9 @@
               result/0,
               extended_result/0]).
 
+-type cluster_config() :: [{ClusterName :: atom(), Config :: proplists:proplist()}].
+-export_type([cluster_config/0]).
+
 %%%=============================================================================
 %%% Application behaviour
 %%%=============================================================================
@@ -345,12 +348,9 @@ state(ClusterName) ->
         {message_queue_len, 0}
     ],
     lists:foldr(
-        fun
-            ({Cluster, _, _, Pool, _}, Acc) when (Cluster == ClusterName) ->
-                inc_state(mero_pool:state(Pool), Acc);
-            (_, Acc) ->
-                Acc
-        end, ZeroState, mero_cluster:child_definitions()).
+        fun({_, _, Pool, _}, Acc) ->
+            inc_state(mero_pool:state(Pool), Acc)
+        end, ZeroState, mero_cluster:child_definitions(ClusterName)).
 
 %% @doc: Returns the state of the sockets for all clusters
 state() ->
@@ -372,14 +372,11 @@ inc_state(St, Acc) ->
 
 
 deep_state(ClusterName) ->
-    F = fun
-        ({Cluster, _, _, Pool, _}, Acc) when (Cluster == ClusterName) ->
+    F = fun({_, _, Pool, _}, Acc) ->
             St = mero_pool:state(Pool),
-            [[{pool, Pool} | St] | Acc];
-        (_, Acc) ->
-            Acc
-    end,
-    lists:foldr(F, [], mero_cluster:child_definitions()).
+            [[{pool, Pool} | St] | Acc]
+        end,
+    lists:foldr(F, [], mero_cluster:child_definitions(ClusterName)).
 
 
 %% @doc: Returns the state of the sockets for all clusters

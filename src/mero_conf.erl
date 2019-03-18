@@ -31,6 +31,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% It's dynamically invoked using rpc:pmap/3
+-ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
+
 -export([cluster_config/0,
          cluster_config/1,
          pool_timeout_read/1,
@@ -59,7 +62,13 @@
          add_now/2,
          millis_to/1,
          millis_to/2,
-         process_server_specs/1]).
+         process_server_specs/1,
+         elasticache_load_config_delay/0,
+         elasticache_load_config_delay/1,
+         monitor_heartbeat_delay/0,
+         monitor_heartbeat_delay/2,
+         get_elasticache_cluster_configs/1
+         ]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -70,8 +79,29 @@
 %%% External functions
 %%%=============================================================================
 
+%% @doc Returns a _randomized_ time to wait between config checkes, in milliseconds
+monitor_heartbeat_delay() ->
+    Min = get_env(conf_monitor_min_sleep),
+    Max = get_env(conf_monitor_max_sleep),
+    Min + rand:uniform(Max - Min).
+
+%% @doc Sets the boundaries of the time to wait between config checkes, in milliseconds
+monitor_heartbeat_delay(Min, Max) ->
+    application:set_env(mero, conf_monitor_min_sleep, Min),
+    application:set_env(mero, conf_monitor_max_sleep, Max).
+
+%% @doc Returns the amount of milliseconds to wait before reading elasticache config
+-spec elasticache_load_config_delay() -> non_neg_integer().
+elasticache_load_config_delay() ->
+    get_env(elasticache_load_config_delay).
+
+%% @doc Sets the amount of milliseconds to wait before reading elasticache config
+-spec elasticache_load_config_delay(non_neg_integer()) -> ok.
+elasticache_load_config_delay(Millis) ->
+    application:set_env(mero, elasticache_load_config_delay, Millis).
+
 %% @doc: Returns the cluster configuration
--spec cluster_config() -> list({Name :: atom(), Config :: list()}).
+-spec cluster_config() -> mero:cluster_config().
 cluster_config() ->
     get_env(cluster_config).
 
@@ -209,11 +239,9 @@ millis_to(TimeLimit, Then) ->
     _ -> 0
   end.
 
-process_server_specs(L) ->
-    lists:foldl(
-        fun({ClusterName, AttrPlist}, Acc) ->
-            [{ClusterName, [process_value(Attr) || Attr <- AttrPlist]} | Acc]
-        end, [], L).
+-spec process_server_specs(mero:cluster_config()) -> mero:cluster_config().
+process_server_specs(Clusters) ->
+    [{ClusterName, [process_value(Attr) || Attr <- Attrs]} || {ClusterName, Attrs} <- Clusters].
 
 %%%=============================================================================
 %%% Internal functions
@@ -240,23 +268,21 @@ get_env_per_pool(Key, Pool) ->
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts = lists:foldr(
-        fun(HostConfig, Acc) ->
-            {Host, Port, ClusterSpeedFactor} =
-                case HostConfig of
-                    {HostIn, PortIn, ClusterSpeedFactorIn} when is_integer(ClusterSpeedFactorIn) ->
-                        {HostIn, PortIn, ClusterSpeedFactorIn};
-                    {HostIn, PortIn} ->
-                        {HostIn, PortIn, 1}
-
-                end,
-            lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port)) ++ Acc
+    HostsPorts =
+        try rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
+        catch
+            _:badrpc -> % Fallback to sequential execution, mostly to get proper error descriptions
+                lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
         end,
-        [],
-        ConfigList),
-    {servers, lists:concat(HostsPorts)};
+    {servers, lists:flatten(HostsPorts)};
 process_value(V) ->
     V.
+
+get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}) ->
+    lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port));
+get_elasticache_cluster_configs({Host, Port}) ->
+    [get_elasticache_cluster_config(Host, Port)].
+
 
 get_elasticache_cluster_config(Host, Port) ->
     case mero_elasticache:get_cluster_config(Host, Port) of

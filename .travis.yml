@@ -5,8 +5,6 @@ os:
 
 otp_release:
    - 20.1
-   - 19.3
-   - 18.3
 
 notifications:
   email: rtb-team+travis@adroll.com
@@ -14,9 +12,9 @@ notifications:
 script:
   - rebar3 --version
   - erl -version
-  - rebar3 compile
   - rebar3 xref
   - rebar3 dialyzer
+  - rebar3 lint
   - rebar3 eunit
   - rebar3 ct
-  - rebar3 lint
+  - rebar3 cover

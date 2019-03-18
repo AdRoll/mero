@@ -87,25 +87,35 @@ load_cluster(_Conf) ->
     ?assertMatch(12, mero_cluster:total_workers(cluster)),
     ?assertMatch(2, mero_cluster:total_workers(cluster2)),
 
-    ?assertEqual((4 * 3) + 2, length(mero_cluster:child_definitions())),
+    ?assertEqual(4 * 3, length(mero_cluster:child_definitions(cluster))),
+    ?assertEqual(2, length(mero_cluster:child_definitions(cluster2))),
 
-    ct:log("~p", [mero_cluster:child_definitions()]),
-    ?assertMatch(
-        [{cluster, "localhost",11996,mero_cluster_localhost_0_0,mero_wrk_tcp_txt},
-         {cluster, "localhost",11996,mero_cluster_localhost_0_1,mero_wrk_tcp_txt},
-         {cluster, "localhost",11996,mero_cluster_localhost_0_2,mero_wrk_tcp_txt},
-         {cluster, "localhost",11997,mero_cluster_localhost_1_0,mero_wrk_tcp_txt},
-         {cluster, "localhost",11997,mero_cluster_localhost_1_1,mero_wrk_tcp_txt},
-         {cluster, "localhost",11997,mero_cluster_localhost_1_2,mero_wrk_tcp_txt},
-         {cluster, "localhost",11998,mero_cluster_localhost_2_0,mero_wrk_tcp_txt},
-         {cluster, "localhost",11998,mero_cluster_localhost_2_1,mero_wrk_tcp_txt},
-         {cluster, "localhost",11998,mero_cluster_localhost_2_2,mero_wrk_tcp_txt},
-         {cluster, "localhost",11999,mero_cluster_localhost_3_0,mero_wrk_tcp_txt},
-         {cluster, "localhost",11999,mero_cluster_localhost_3_1,mero_wrk_tcp_txt},
-         {cluster, "localhost",11999,mero_cluster_localhost_3_2,mero_wrk_tcp_txt},
-         {cluster2, "localhost",11995,mero_cluster2_localhost_0_0,mero_wrk_tcp_txt},
-         {cluster2, "localhost",11995,mero_cluster2_localhost_0_1,mero_wrk_tcp_txt}],
-        mero_cluster:child_definitions()),
+    ct:log("cluster: ~p", [mero_cluster:child_definitions(cluster)]),
+    ct:log("cluster2: ~p", [mero_cluster:child_definitions(cluster2)]),
+    ?assertEqual(
+        [
+            {"localhost",11996,mero_cluster_localhost_0_0,mero_wrk_tcp_txt},
+            {"localhost",11996,mero_cluster_localhost_0_1,mero_wrk_tcp_txt},
+            {"localhost",11996,mero_cluster_localhost_0_2,mero_wrk_tcp_txt},
+            {"localhost",11997,mero_cluster_localhost_1_0,mero_wrk_tcp_txt},
+            {"localhost",11997,mero_cluster_localhost_1_1,mero_wrk_tcp_txt},
+            {"localhost",11997,mero_cluster_localhost_1_2,mero_wrk_tcp_txt},
+            {"localhost",11998,mero_cluster_localhost_2_0,mero_wrk_tcp_txt},
+            {"localhost",11998,mero_cluster_localhost_2_1,mero_wrk_tcp_txt},
+            {"localhost",11998,mero_cluster_localhost_2_2,mero_wrk_tcp_txt},
+            {"localhost",11999,mero_cluster_localhost_3_0,mero_wrk_tcp_txt},
+            {"localhost",11999,mero_cluster_localhost_3_1,mero_wrk_tcp_txt},
+            {"localhost",11999,mero_cluster_localhost_3_2,mero_wrk_tcp_txt}
+        ],
+        mero_cluster:child_definitions(cluster)
+    ),
+    ?assertEqual(
+        [
+            {"localhost",11995,mero_cluster2_localhost_0_0,mero_wrk_tcp_txt},
+            {"localhost",11995,mero_cluster2_localhost_0_1,mero_wrk_tcp_txt}
+        ],
+        mero_cluster:child_definitions(cluster2)
+    ),
     ok.
 
 
@@ -141,13 +151,22 @@ select_pool(_Conf) ->
           {pool_worker_module, mero_wrk_tcp_txt}]
         }],
     mero_cluster:load_clusters(Config),
-    ct:log("~p", [mero_cluster:child_definitions()]),
-    ?assertMatch(
-        [{cluster, "localhost", 11996, mero_cluster_localhost_0_0, mero_wrk_tcp_txt},
-         {cluster, "localhost", 11997, mero_cluster_localhost_1_0, mero_wrk_tcp_txt},
-         {cluster2, "localhost", 11995, mero_cluster2_localhost_0_0, mero_wrk_tcp_txt},
-         {cluster2, "localhost", 11998, mero_cluster2_localhost_1_0, mero_wrk_tcp_txt}],
-            mero_cluster:child_definitions()),
+    ct:log("~p", [mero_cluster:child_definitions(cluster)]),
+    ct:log("~p", [mero_cluster:child_definitions(cluster2)]),
+    ?assertEqual(
+        [
+            {"localhost", 11996, mero_cluster_localhost_0_0, mero_wrk_tcp_txt},
+            {"localhost", 11997, mero_cluster_localhost_1_0, mero_wrk_tcp_txt}
+        ],
+        mero_cluster:child_definitions(cluster)
+    ),
+    ?assertEqual(
+        [
+            {"localhost", 11995, mero_cluster2_localhost_0_0, mero_wrk_tcp_txt},
+            {"localhost", 11998, mero_cluster2_localhost_1_0, mero_wrk_tcp_txt}
+        ],
+        mero_cluster:child_definitions(cluster2)
+    ),
     ?assertMatch(mero_cluster_localhost_0_0, mero_cluster:server(cluster, <<"Adroll">>)),
     ?assertMatch(mero_cluster2_localhost_0_0, mero_cluster:server(cluster2, <<"Adroll">>)),
     ?assertMatch(mero_cluster_localhost_1_0, mero_cluster:server(cluster, <<"Adroll2">>)),

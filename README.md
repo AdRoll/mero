@@ -22,7 +22,7 @@ use a storage different than memcache.
 It includes a callback that will be called to notify of specific error events.
 These events have the form of:
 
-```
+```erlang
 {Id :: list(atoms),
   Args :: list([{Key :: cluster_name | host | port | error_reason,
                  Value :: term()}])
@@ -43,7 +43,7 @@ Configuration
 Please consult `mero.app.src` to see all the available options. The sharding
 algorithms available are `shard_phash2` and `shard_crc32`.
 
-```
+```erlang
   [{cluster_a,
      [{servers, [{"server1", 11211},
                  {"server2", 11211},
@@ -75,7 +75,7 @@ Cluster Auto Discovery
 Configuration can also be implemented to support auto discovery of the cluster as opposed to hardcoding nodes.
 Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/AutoDiscovery.html)) and port as in the following example.
 
-```
+```erlang
     [{cluster_b,
         [{servers, {elasticache, "ConfigEndpointHostname.com", PortNumber}},
              {sharding_algorithm, {mero, shard_crc32}},
@@ -86,18 +86,16 @@ Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/A
 ]
 
 ```
+
 Multiple clusters Auto Discovery
 ===============================
 
 We also support the setup of multiple pyhisical clusters with autodiscovery assigned to the same logical cluster.
-It could be the case in which some of these pyhisical clusters perform better than others, in which you can use a
-third argument called the ClusterSpeedFactor which has to be a small integer. The default ClusterSpeedFactor is 1.
+It could be the case in which some of these pyhisical clusters perform better than others, in which you can use a third argument called the ClusterSpeedFactor which has to be a small integer. The default `ClusterSpeedFactor` is `1`.
 
-If an alternate cluster is 2 times faster than the fist one -it can have twice as many cpus or memory-, you can set it up
-with a ClusterSpeedFactor of 2. This will create 2 times more workers for that "faster cluster", which in practice will
-send twice as many connections & requests to that cluster than to the other weaker clusters.
+If an alternate cluster is 2 times faster than the fist one -it can have twice as many cpus or memory-, you can set it up with a `ClusterSpeedFactor` of `2`. This will create 2 times more workers for that "faster cluster", which in practice will send twice as many connections & requests to that cluster than to the other weaker clusters.
 
-```
+```erlang
     [{cluster_c,
         [{servers,
            {elasticache,
@@ -110,13 +108,22 @@ send twice as many connections & requests to that cluster than to the other weak
          {pool_worker_module, mero_wrk_tcp_binary}]}]
 ```
 
+Mero will also monitor elasticache for changes in the configuration. It will poll elasticache config according to the values of `conf_monitor_min_sleep` and `conf_monitor_max_sleep` in the configuration. The polling will run at a random interval that will always be between those two values (in milliseconds).
+If a cluster configuration change is found after a poll, the connections to the servers of that cluster will be restablished. This is done using OTP supervision principles: Mero maintains a supervision tree per cluster, which is stopped and restarted if its configuration changes.
 
-Using Mero:
+
+Using Mero
 ===============
 Mero is a regular OTP application, managed with [rebar3](http://rebar3.org/). Therefore you can do stuff like...
 
 ```shell
 rebar3 do compile, xref, eunit, ct
+```
+
+...or...
+
+```shell
+rebar3 test
 ```
 
 There are three ways to start this application:

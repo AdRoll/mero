@@ -38,6 +38,11 @@
 
 
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
+    wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, 100).
+
+wait_for_pool_state(Pool, _Free, _Connected, _Connecting, _NumFailedConnecting, 0) ->
+  exit({pool_failed_to_start, Pool, mero_pool:state(Pool)});
+wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries) ->
   case mero_pool:state(Pool) of
     [ _QueueInfo,
       _Links,
@@ -51,7 +56,7 @@ wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
     State ->
       io:format("Pool State is ~p ~p... retry ~n",[os:timestamp(), State]),
       timer:sleep(30),
-      wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting)
+      wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries - 1)
   end.
 
 
@@ -84,24 +89,41 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
   ok = mero_conf:write_retries(3),
   ok = mero_conf:timeout_read(100),
   ok = mero_conf:timeout_write(1000),
+  ok = mero_conf:elasticache_load_config_delay(0),
 
   ServerPids = lists:foldr(
       fun({_, Config}, Acc) ->
         HostPortList = proplists:get_value(servers, Config),
         lists:foldr(fun({_Host, Port}, Acc2) ->
             ct:log("Starting server on Port ~p", [Port]),
-            {ok, ServerPid} = mero_dummy_server:start_link(Port),
+            ServerPid =
+                case mero_dummy_server:start_link(Port) of
+                    {ok, Pid} -> Pid;
+                    {error, {already_started, Pid}} -> Pid
+                end,
             [ServerPid | Acc2]
             end, Acc, HostPortList)
-      end, [], ClusterConfig),
+      end, [], process_server_specs(ClusterConfig)),
 
   {ok, _} = application:ensure_all_started(mero),
 
   %% Wait for the connections
-  [ wait_for_pool_state(PoolName, MinConn, MinConn, 0, 0)
-    || {_Name, _Host, _Port, PoolName, _WorkerModule} <- mero_cluster:child_definitions() ],
-
+  lists:foreach(
+    fun(Pool) ->
+        wait_for_pool_state(Pool, MinConn, MinConn, 0, 0)
+    end,
+    [ Pool
+    || {Cluster, _} <- ClusterConfig, {_, _, Pool, _} <- mero_cluster:child_definitions(Cluster)]
+  ),
   {ok, ServerPids}.
 
 stop_servers(Pids) ->
     [mero_dummy_server:stop(Pid) || Pid <- Pids].
+
+process_server_specs(ClusterConfig) ->
+    try mero_conf:process_server_specs(ClusterConfig)
+    catch
+        K:E ->
+            ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, erlang:get_stacktrace()]),
+            exit(E)
+    end.
