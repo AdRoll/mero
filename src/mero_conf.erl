@@ -31,6 +31,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% # of times we'll retry to get the configuration from elasticache before raising an error
+-define(MAX_RETRIES, 4).
+
 %% It's dynamically invoked using rpc:pmap/3
 -ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
 
@@ -285,9 +288,13 @@ get_elasticache_cluster_configs({Host, Port}) ->
 
 
 get_elasticache_cluster_config(Host, Port) ->
-    case mero_elasticache:get_cluster_config(Host, Port) of
-        {ok, Entries} ->
-            Entries;
-        {error, Reason} ->
-            throw(Reason)
-    end.
+    get_elasticache_cluster_config(Host, Port, 0, mero_elasticache:get_cluster_config(Host, Port)).
+
+get_elasticache_cluster_config(_Host, _Port, _Retries, {ok, Entries}) ->
+    Entries;
+get_elasticache_cluster_config(_Host, _Port, ?MAX_RETRIES, {error, Reason}) ->
+    error(Reason);
+get_elasticache_cluster_config(Host, Port, Retries, {error, _Reason}) ->
+    timer:sleep(trunc(math:pow(2, Retries)) * 100),
+    get_elasticache_cluster_config(
+        Host, Port, Retries + 1, mero_elasticache:get_cluster_config(Host, Port)).
