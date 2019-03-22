@@ -89,7 +89,7 @@ request_response(Host, Port, Command, Names) ->
     end.
 
 %% Parse host and version lines to return version and list of {host, port} cluster nodes
--spec parse_cluster_config(undefined | binary()) ->
+-spec parse_cluster_config(binary()) ->
     {ok, Config :: [cluster_entry()]} | {error, Reason :: atom()}.
 parse_cluster_config(HostLine) ->
     %% Strip any newlines
