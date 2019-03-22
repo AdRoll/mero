@@ -55,13 +55,16 @@ get_cluster_config(ConfigHost, ConfigPort) ->
     %% spam during error loops (which used to occur on occasion).
     timer:sleep(mero_conf:elasticache_load_config_delay()),
     LineDefinitions = [banner, version, hosts, crlf, eom],
-    Result =
-        mero_elasticache:request_response(ConfigHost, ConfigPort, ?GET_CLUSTER, LineDefinitions),
-    case parse_cluster_config(proplists:get_value(hosts, Result)) of
+    case mero_elasticache:request_response(ConfigHost, ConfigPort, ?GET_CLUSTER, LineDefinitions) of
+        {ok, Result} ->
+            case parse_cluster_config(proplists:get_value(hosts, Result)) of
+                {error, Reason} ->
+                    {error, Reason};
+                {ok, Config} ->
+                    {ok, [{Host, Port} || {Host, _IPAddr, Port} <- Config]}
+            end;
         {error, Reason} ->
-            {error, Reason};
-        {ok, Config} ->
-            {ok, [{Host, Port} || {Host, _IPAddr, Port} <- Config]}
+            {error, Reason}
     end.
 
 %%%=============================================================================
@@ -69,15 +72,21 @@ get_cluster_config(ConfigHost, ConfigPort) ->
 %%%=============================================================================
 request_response(Host, Port, Command, Names) ->
     Opts = [binary, {packet, line}, {active, false}, {recbuf, 5000}],
-    {ok, Socket} = gen_tcp:connect(Host, Port, Opts),
-    ok = gen_tcp:send(Socket, Command),
-    Lines = [{Name, begin
-                        {ok, Line} = gen_tcp:recv(Socket, 0, 10000),
-                        Line
-                    end}
-        || Name <- Names],
-    ok = gen_tcp:close(Socket),
-    Lines.
+    %% @see https://github.com/erlang/otp/pull/2191
+    %%      Even with Timeout == infinity, connect attempts may result in {error, etimedout}
+    case gen_tcp:connect(Host, Port, Opts) of
+        {ok, Socket} ->
+            ok = gen_tcp:send(Socket, Command),
+            Lines = [{Name, begin
+                                {ok, Line} = gen_tcp:recv(Socket, 0, 10000),
+                                Line
+                            end}
+                || Name <- Names],
+            ok = gen_tcp:close(Socket),
+            {ok, Lines};
+        Error ->
+            Error
+    end.
 
 %% Parse host and version lines to return version and list of {host, port} cluster nodes
 -spec parse_cluster_config(binary()) ->

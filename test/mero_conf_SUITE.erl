@@ -78,11 +78,16 @@ init_per_testcase(_, Conf) ->
                             b -> HostLineb;
                             c -> HostLinec
                         end,
-            [{banner, <<"CONFIG cluster ...">>},
-                {version, <<"version1">>},
-                {hosts, HostLines},
-                {crlf, <<"\r\n">>},
-                {eom, <<"END\r\n">>}]
+            {
+                ok,
+                [
+                    {banner, <<"CONFIG cluster ...">>},
+                    {version, <<"version1">>},
+                    {hosts, HostLines},
+                    {crlf, <<"\r\n">>},
+                    {eom, <<"END\r\n">>}
+                ]
+            }
         end),
     Conf.
 

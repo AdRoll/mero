@@ -42,6 +42,7 @@
     cluster_is_restarted_when_lost_nodes/1,
     cluster_is_not_restarted_when_other_changes/1,
     cluster_is_not_restarted_with_bad_info/1,
+    cluster_is_not_restarted_on_socket_error/1,
     non_heartbeat_messages_are_ignored/1
 ]).
 
@@ -51,6 +52,7 @@ all() -> [
     cluster_is_restarted_when_lost_nodes,
     cluster_is_not_restarted_when_other_changes,
     cluster_is_not_restarted_with_bad_info,
+    cluster_is_not_restarted_on_socket_error,
     non_heartbeat_messages_are_ignored
 ].
 
@@ -238,6 +240,34 @@ cluster_is_not_restarted_with_bad_info(_) ->
     ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
     ok.
 
+cluster_is_not_restarted_on_socket_error(_) ->
+    mero_conf:monitor_heartbeat_delay(10000, 10001),
+    start_server(),
+
+    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(2, length(Cluster2Children)),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% socket times out when connecting to elasticache
+    mock_elasticache_timeout(),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(
+        Cluster1Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(
+        Cluster2Children, supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+    ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
+    ok.
+
 non_heartbeat_messages_are_ignored(_) ->
     start_server(),
 
@@ -277,11 +307,17 @@ mock_elasticache(Lines) ->
     meck:expect(mero_elasticache, request_response,
         fun(Type, _, _, _) ->
             HostLines = maps:get(Type, Lines),
-            [
-                {banner,    <<"CONFIG cluster ...">>},
-                {version,   <<"version1">>},
-                {hosts,     HostLines},
-                {crlf,      <<"\r\n">>},
-                {eom,       <<"END\r\n">>}
-            ]
+            {
+                ok,
+                [
+                    {banner,    <<"CONFIG cluster ...">>},
+                    {version,   <<"version1">>},
+                    {hosts,     HostLines},
+                    {crlf,      <<"\r\n">>},
+                    {eom,       <<"END\r\n">>}
+                ]
+            }
         end).
+
+mock_elasticache_timeout() ->
+    meck:expect(mero_elasticache, request_response, 4, {error, etimedout}).
