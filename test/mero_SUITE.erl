@@ -332,16 +332,20 @@ multiget_defineds(_Conf) ->
     ?assertMatch({ok, 3}, mero:increment_counter(cluster, <<"16">>)),
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    Expected = [{<<"17">>, undefined},
-                {<<"15">>, <<"2">>},
-                {<<"14">>, <<"2">>},
-                {<<"13">>, <<"1">>},
-                {<<"16">>, <<"3">>},
-                {<<"12">>, <<"1">>},
-                {<<"11">>, <<"1">>}],
+    Expected = lists:sort([{<<"17">>, undefined},
+                           {<<"15">>, <<"2">>},
+                           {<<"14">>, <<"2">>},
+                           {<<"13">>, <<"1">>},
+                           {<<"16">>, <<"3">>},
+                           {<<"12">>, <<"1">>},
+                           {<<"11">>, <<"1">>}]),
     ?assertEqual(
         Expected,
-        mero:mget(cluster, [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>,<<"17">>], 1000)
+        lists:sort(
+            mero:mget(cluster,
+                      [<<"11">>,<<"12">>,<<"13">>,<<"14">>,<<"15">>,<<"16">>,<<"17">>],
+                      1000)
+        )
     ).
 
 multiget_defineds_clustered_keys(_Conf) ->
@@ -353,17 +357,18 @@ multiget_defineds_clustered_keys(_Conf) ->
     ?assertMatch({ok, 3}, mero:increment_counter(cluster, {<<"3">>, <<"16">>})),
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    Expected = [{<<"17">>, undefined},
+    Expected = lists:sort(
+                [{<<"17">>, undefined},
                 {<<"16">>, <<"3">>},
                 {<<"13">>, <<"1">>},
                 {<<"12">>, <<"1">>},
-                {<<"11">>, <<"1">>}],
-    ?assertEqual(Expected, mero:mget(cluster,
+                {<<"11">>, <<"1">>}]),
+    ?assertEqual(Expected, lists:sort(mero:mget(cluster,
                                      [{<<"1">>, <<"11">>},
                                       {<<"2">>, <<"12">>},
                                       {<<"3">>, <<"13">>},
                                       {<<"3">>, <<"16">>},
-                                      {<<"3">>, <<"17">>}], 1000)).
+                                      {<<"3">>, <<"17">>}], 1000))).
 
 increment(_Conf) ->
     ?assertMatch({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
