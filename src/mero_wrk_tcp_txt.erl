@@ -140,8 +140,6 @@ transaction(Client, get, [Key, TimeLimit]) ->
     case send_receive(Client, {?MEMCACHE_GET, {[Key]}}, TimeLimit) of
         {ok, [Found]} ->
             {Client, Found};
-        {ok, []} ->
-            {Client, #mero_item{key = Key}};
         {error, Reason} ->
             {error, Reason}
     end;
@@ -150,6 +148,10 @@ transaction(Client, set, [Key, Value, ExpTime, TimeLimit, CAS]) ->
     case send_receive(Client, {?MEMCACHE_SET, {Key, Value, ExpTime, CAS}}, TimeLimit) of
         {ok, stored} ->
             {Client, ok};
+        {error, already_exists} ->
+            {Client, {error, already_exists}};
+        {error, not_found} ->
+            {Client, {error, not_found}};
         {error, Reason} ->
             {error, Reason}
     end;
@@ -215,11 +217,11 @@ close(Client, Reason) ->
 %%%=============================================================================
 
 
-send_receive(Client, {Op, _Args} = Cmd, TimeLimit) ->
+send_receive(Client, {_Op, _Args} = Cmd, TimeLimit) ->
     try
         Data = pack(Cmd),
         ok = send(Client, Data),
-        receive_response(Client, Op, TimeLimit, <<>>, [])
+        receive_response(Client, Cmd, TimeLimit, <<>>, [])
     catch
         throw:{failed, Reason} ->
            {error, Reason}
@@ -264,11 +266,11 @@ send(Client, Data) ->
     end.
 
 
-receive_response(Client, Op, TimeLimit, AccBinary, AccResult) ->
+receive_response(Client, Cmd, TimeLimit, AccBinary, AccResult) ->
     case gen_tcp_recv(Client, 0, TimeLimit) of
         {ok, Data} ->
             NAcc = <<AccBinary/binary, Data/binary>>,
-            case parse_reply(NAcc, AccResult) of
+            case parse_reply(Client, Cmd, NAcc, TimeLimit, AccResult) of
                 {ok, Atom, []} when (Atom == stored) or
                                     (Atom == deleted) or
                                     (Atom == ok) ->
@@ -277,8 +279,8 @@ receive_response(Client, Op, TimeLimit, AccBinary, AccResult) ->
                     {ok, Binary};
                 {ok, finished, Result} ->
                     {ok, Result};
-                {ok, NBuffer, NAccResult} ->
-                    receive_response(Client, Op, TimeLimit, NBuffer, NAccResult);
+                {ok, NBuffer, NewCmd, NAccResult} ->
+                    receive_response(Client, NewCmd, TimeLimit, NBuffer, NAccResult);
                 {error, Reason} ->
                     ?LOG_EVENT(
                         Client#client.event_callback, [socket, rcv, error, {reason, Reason}]),
@@ -289,32 +291,51 @@ receive_response(Client, Op, TimeLimit, AccBinary, AccResult) ->
             throw({failed, Reason})
     end.
 
+process_result({?MEMCACHE_GET, {Keys}}, finished, Result) ->
+    Result ++ [#mero_item{key = Key} || Key <- Keys];
+process_result(_Cmd, _Status, Result) ->
+    Result.
+
+
 %% This is so extremely shitty that I will do the binary prototol no matter what :(
-parse_reply(Buffer, AccResult) ->
+parse_reply(Client, Cmd, Buffer, TimeLimit, AccResult) ->
     case split_command(Buffer) of
         {error, uncomplete} ->
-            {ok, Buffer, AccResult};
+            {ok, Buffer, Cmd, AccResult};
         {Command, BinaryRest} ->
-            case parse_command(Command) of
-                {ok, Status} when is_atom(Status) ->
-                    {ok, Status, AccResult};
-                {ok, {value, Key, Bytes, CAS}} ->
-                    case split_command(BinaryRest) of
-                        {[Value], BinaryRest2} when (size(Value) == Bytes) ->
-                            parse_reply(
-                                BinaryRest2,
-                                [#mero_item{key = Key, value = Value, cas = CAS} | AccResult]
-                            );
-                        {error, uncomplete} ->
-                            {ok, Buffer, AccResult}
+            case {Cmd, parse_command(Command)} of
+                {_, {ok, Status}} when is_atom(Status) ->
+                    {ok, Status, process_result(Cmd, Status, AccResult)};
+                {{?MEMCACHE_GET, {Keys}}, {ok, {value, Key, Bytes, CAS}}} ->
+                    case parse_value(Client, Key, Bytes, CAS, TimeLimit, BinaryRest) of
+                        {ok, Item, NewBinaryRest} ->
+                            parse_reply(Client, {?MEMCACHE_GET, {lists:delete(Key, Keys)}},
+                                NewBinaryRest, TimeLimit, [Item | AccResult]);
+                        {error, Reason} ->
+                            {error, Reason}
                     end;
-                {ok, Binary} when is_binary(Binary) ->
+                {_, {ok, Binary}} when is_binary(Binary) ->
                     {ok, Binary};
-                {error, Reason} ->
+                {_, {error, Reason}} ->
                     {error, Reason}
             end
     end.
 
+parse_value(Client, Key, Bytes, CAS, TimeLimit, Buffer) ->
+    case Buffer of
+        <<Value:Bytes/binary, "\r\n", RestAfterValue/binary>> ->
+            {ok, #mero_item{key = Key, value = Value, cas = CAS},
+                RestAfterValue};
+        _ when size(Buffer) < (Bytes + size(<<"\r\n">>)) ->
+            case gen_tcp_recv(Client, 0, TimeLimit) of
+                {ok, Data} ->
+                    parse_value(Client, Key, Bytes, CAS, TimeLimit, <<Buffer/binary, Data/binary>>);
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        _ ->
+            {error, invalid_value_size}
+    end.
 
 split_command(Buffer) ->
     case binary:split(Buffer,  [<<"\r\n">>], []) of
@@ -325,7 +346,7 @@ split_command(Buffer) ->
     end.
 
 
-parse_command([<<"ERROR">> | Reason] ) ->
+parse_command([<<"ERROR">> | Reason]) ->
     {error, Reason};
 parse_command([<<"CLIENT_ERROR">> | Reason]) ->
     {error, Reason};
