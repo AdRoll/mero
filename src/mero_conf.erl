@@ -292,8 +292,8 @@ get_elasticache_cluster_config(Host, Port) ->
 
 get_elasticache_cluster_config(_Host, _Port, _Retries, {ok, Entries}) ->
     Entries;
-get_elasticache_cluster_config(_Host, _Port, ?MAX_RETRIES, {error, Reason}) ->
-    error(Reason);
+get_elasticache_cluster_config(Host, Port, ?MAX_RETRIES, {error, Reason}) ->
+    error({Reason, Host, Port});
 get_elasticache_cluster_config(Host, Port, Retries, {error, _Reason}) ->
     timer:sleep(trunc(math:pow(2, Retries)) * 100),
     get_elasticache_cluster_config(
