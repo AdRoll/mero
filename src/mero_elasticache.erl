@@ -77,15 +77,27 @@ request_response(Host, Port, Command, Names) ->
     case gen_tcp:connect(Host, Port, Opts) of
         {ok, Socket} ->
             ok = gen_tcp:send(Socket, Command),
-            Lines = [{Name, begin
-                                {ok, Line} = gen_tcp:recv(Socket, 0, 10000),
-                                Line
-                            end}
-                || Name <- Names],
+            Lines = receive_lines(Names, Socket),
             ok = gen_tcp:close(Socket),
-            {ok, Lines};
+            Lines;
         Error ->
             Error
+    end.
+
+-spec receive_lines([atom()], gen_tcp:socket()) -> {ok, [{atom(), binary()}]} | {error, atom()}.
+receive_lines(Names, Socket) ->
+    receive_lines(Names, Socket, []).
+
+
+receive_lines([], _Socket, Lines) ->
+    {ok, lists:reverse(Lines)};
+
+receive_lines([Name|Names], Socket, Acc) ->
+    case gen_tcp:recv(Socket, 0, 10000) of
+        {ok, Line} ->
+            receive_lines(Names, Socket, [{Name, Line}|Acc]);
+        {error, Error} ->
+            {error, Error}
     end.
 
 %% Parse host and version lines to return version and list of {host, port} cluster nodes
