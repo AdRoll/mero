@@ -84,7 +84,7 @@ request_response(Host, Port, Command, Names) ->
             Error
     end.
 
--spec receive_lines([atom()], gen_tcp:socket()) -> {ok, [binary()]} | {error, atom()}.
+-spec receive_lines([atom()], gen_tcp:socket()) -> {ok, [{atom(), binary()}]} | {error, atom()}.
 receive_lines(Names, Socket) ->
     receive_lines(Names, Socket, []).
 
