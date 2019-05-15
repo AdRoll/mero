@@ -253,7 +253,8 @@ pool_loop(State, Parent, Deb) ->
                                   State#pool_st.host,
                                   State#pool_st.port,
                                   State#pool_st.callback_info),
-                    ?MODULE:pool_loop(State#pool_st{last_connection_attempt = erlang:system_time(millisecond)},
+                    ?MODULE:pool_loop(State#pool_st{
+                                        last_connection_attempt = erlang:system_time(millisecond)},
                                       Parent, Deb)
             end;
         reload_pool_min_max_settings ->
@@ -320,7 +321,8 @@ maybe_spawn_connect(State = #pool_st{min_connection_interval_ms = Min,
     State;
 maybe_spawn_connect(State = #pool_st{num_failed_connecting = NumFailed,
                                      reconnect_wait_time = WaitTime,
-                                     num_connecting = Connecting}, _Needed, _Now) when NumFailed > 0 ->
+                                     num_connecting = Connecting}, _Needed, _Now)
+  when NumFailed > 0 ->
     %% Wait before reconnection if more than one successive
     %% connection attempt has failed. Don't open more than
     %% one connection until an attempt has succeeded again.
