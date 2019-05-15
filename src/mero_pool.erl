@@ -310,7 +310,7 @@ maybe_spawn_connect(#pool_st{
 %% - There is no need for new connection
 %% - There is minimum interval between connections, and that hasn't elapsed yet since the last
 %%   connection
-%% - There are in-fly connection attempts
+%% - There are in-flight connection attempts
 maybe_spawn_connect(State = #pool_st{min_connection_interval_ms = Min,
                                     last_connection_attempt = Last,
                                     num_connecting = Connecting},
