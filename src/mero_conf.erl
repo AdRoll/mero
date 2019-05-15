@@ -58,6 +58,7 @@
          pool_connection_unused_max_time/1,
          connection_unused_max_time/1,
          pool_max_connection_delay_time/1,
+         pool_min_connection_interval/1,
          max_connection_delay_time/1,
          stat_callback/0,
          stat_callback/1,
@@ -208,6 +209,16 @@ connection_unused_max_time(Val) ->
 -spec pool_max_connection_delay_time(Pool :: atom()) -> integer().
 pool_max_connection_delay_time(Pool) ->
   get_env_per_pool(max_connection_delay_time, Pool).
+
+%% @doc: min delay between connection attempts
+-spec pool_min_connection_interval(Pool :: atom()) -> integer().
+pool_min_connection_interval(Pool) ->
+  try
+    get_env_per_pool(min_connection_interval, Pool)
+  catch _:_ ->
+    %% Don't want to make this mandatory, but the rest are mandatory already.
+    undefined
+  end.
 
 -spec max_connection_delay_time(mero_conf_value(integer())) -> ok.
 max_connection_delay_time(Val) ->
