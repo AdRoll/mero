@@ -87,11 +87,34 @@ Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/A
 
 ```
 
-Multiple clusters Auto Discovery
-===============================
+If instead of using ElastiCache a custom auto discovery is needed you can provide your own function (specified as a MFA) that returns `{ok, list({Host :: inet:hostname(), Port :: inet:port_number()})}` to be used. Example:
+```erlang
+    [{cluster_b,
+        [{servers, {mfa, {myModule, myFunction, []}}},
+             {sharding_algorithm, {mero, shard_crc32}},
+             {workers_per_shard, 1},
+             {pool_worker_module, mero_wrk_tcp_binary}]
+    },
+    ...
+]
 
-We also support the setup of multiple pyhisical clusters with autodiscovery assigned to the same logical cluster.
-It could be the case in which some of these pyhisical clusters perform better than others, in which you can use a third argument called the ClusterSpeedFactor which has to be a small integer. The default `ClusterSpeedFactor` is `1`.
+```
+
+```erlang
+-module(myModule).
+
+-export([myFunction/0]).
+
+myFunction() ->
+  {ok, [{"myMemcachedServer", 11211}]}.
+
+``` 
+
+ElastiCache Multiple clusters Auto Discovery
+============================================
+
+We also support the setup of multiple physical clusters with autodiscovery assigned to the same logical cluster.
+It could be the case in which some of these physical clusters perform better than others, in which you can use a third argument called the ClusterSpeedFactor which has to be a small integer. The default `ClusterSpeedFactor` is `1`.
 
 If an alternate cluster is 2 times faster than the fist one -it can have twice as many cpus or memory-, you can set it up with a `ClusterSpeedFactor` of `2`. This will create 2 times more workers for that "faster cluster", which in practice will send twice as many connections & requests to that cluster than to the other weaker clusters.
 
@@ -108,7 +131,11 @@ If an alternate cluster is 2 times faster than the fist one -it can have twice a
          {pool_worker_module, mero_wrk_tcp_binary}]}]
 ```
 
-Mero will also monitor elasticache for changes in the configuration. It will poll elasticache config according to the values of `conf_monitor_min_sleep` and `conf_monitor_max_sleep` in the configuration. The polling will run at a random interval that will always be between those two values (in milliseconds).
+Auto Discovery Changes
+======================
+
+Mero will also monitor elasticache or your custom provided MFA for changes in the configuration. It will poll the config provider according to the values of `conf_monitor_min_sleep` and `conf_monitor_max_sleep` in the configuration. The polling will run at a random interval that will always be between those two values (in milliseconds).
+
 If a cluster configuration change is found after a poll, the connections to the servers of that cluster will be restablished. This is done using OTP supervision principles: Mero maintains a supervision tree per cluster, which is stopped and restarted if its configuration changes.
 
 

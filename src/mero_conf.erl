@@ -289,6 +289,15 @@ process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
                 lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
         end,
     {servers, lists:flatten(HostsPorts)};
+process_value({servers, {mfa, {Module, Function, Args}}}) ->
+    case catch erlang:apply(Module, Function, Args) of
+        {ok, HostsPorts} when is_list(HostsPorts) ->
+            {servers, HostsPorts};
+        {'EXIT', Error} ->
+            error(Error);
+        InvalidResponse ->
+            error({invalid_response, {Module, Function, Args}, InvalidResponse})
+    end;
 process_value(V) ->
     V.
 

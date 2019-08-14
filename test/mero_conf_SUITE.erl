@@ -37,12 +37,14 @@
     all/0,
     init_per_testcase/2,
     end_per_testcase/2,
+    helper_mfa_config_function/0,
     diff/1,
     process_server_specs_a_compatible/1,
     process_server_specs_a/1,
     process_server_specs_a_alternate/1,
     process_server_specs_a_b/1,
     process_server_specs_a_b_c/1,
+    process_server_specs_mfa/1,
     per_pool_config/1
 ]).
 
@@ -53,6 +55,7 @@ all() -> [
     process_server_specs_a_alternate,
     process_server_specs_a_b,
     process_server_specs_a_b_c,
+    process_server_specs_mfa,
     per_pool_config
 ].
 
@@ -98,6 +101,8 @@ end_per_testcase(_, _Conf) ->
     meck:unload([mero_elasticache]),
     ok.
 
+helper_mfa_config_function() ->
+    {ok, [{"mfa1.com", 11211}, {"mfa2.com", 11211}]}.
 
 %%%=============================================================================
 %%% Tests
@@ -200,11 +205,23 @@ process_server_specs_a_b_c(_Conf) ->
     ?assertEqual({mero, shard_crc32}, proplists:get_value(sharding_algorithm, ServerSpecs)),
     ok.
 
+process_server_specs_mfa(_Conf) ->
+    Spec = [{default,
+        [{servers, {mfa, {?MODULE, helper_mfa_config_function, []}}},
+            {sharding_algorithm, {mero, shard_crc32}},
+            {workers_per_shard, 20},
+            {pool_worker_module, mero_wrk_tcp_txt}]}],
+    [{default, ServerSpecs}] = mero_conf:process_server_specs(Spec),
+    ?assertEqual([{"mfa1.com", 11211}, {"mfa2.com", 11211}],
+        proplists:get_value(servers, ServerSpecs)),
+    ?assertEqual(mero_wrk_tcp_txt, proplists:get_value(pool_worker_module, ServerSpecs)),
+    ?assertEqual(20, proplists:get_value(workers_per_shard, ServerSpecs)),
+    ?assertEqual({mero, shard_crc32}, proplists:get_value(sharding_algorithm, ServerSpecs)),
+    ok.
+
 per_pool_config(_Conf) ->
     mero_conf:initial_connections_per_pool({by_pool, 20, #{pool_1 => 30, pool_2 => 50}}),
     ?assertEqual(20, mero_conf:pool_initial_connections(pool_3)),
     ?assertEqual(30, mero_conf:pool_initial_connections(pool_1)),
     ?assertEqual(50, mero_conf:pool_initial_connections(pool_2)),
     ok.
-
-
