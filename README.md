@@ -105,7 +105,7 @@ If instead of using ElastiCache a custom auto discovery is needed you can provid
 
 -export([my_function/0]).
 
-my_fFunction() ->
+my_function() ->
   {ok, [{"my_memcached_server", 11211}]}.
 
 ``` 

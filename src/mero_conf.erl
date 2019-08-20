@@ -290,13 +290,9 @@ process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
         end,
     {servers, lists:flatten(HostsPorts)};
 process_value({servers, {mfa, {Module, Function, Args}}}) ->
-    try
-        case erlang:apply(Module, Function, Args) of
-            {ok, HostsPorts} when is_list(HostsPorts) ->
-                {servers, HostsPorts};
-            InvalidResponse ->
-                error({invalid_response, {Module, Function, Args}, InvalidResponse})
-        end
+    try erlang:apply(Module, Function, Args) of
+        {ok, HostsPorts} when is_list(HostsPorts) ->
+            {servers, HostsPorts}
     catch
         Type:Reason ->
             error({invalid_call, {Module, Function, Args}, {Type, Reason}})
