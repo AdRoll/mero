@@ -90,7 +90,7 @@ Provide the configuration endpoint ([AWS Reference](http://docs.aws.amazon.com/A
 If instead of using ElastiCache a custom auto discovery is needed you can provide your own function (specified as a MFA) that returns `{ok, list({Host :: inet:hostname(), Port :: inet:port_number()})}` to be used. Example:
 ```erlang
     [{cluster_b,
-        [{servers, {mfa, {myModule, myFunction, []}}},
+        [{servers, {mfa, {my_module, my_function, []}}},
              {sharding_algorithm, {mero, shard_crc32}},
              {workers_per_shard, 1},
              {pool_worker_module, mero_wrk_tcp_binary}]
@@ -101,12 +101,12 @@ If instead of using ElastiCache a custom auto discovery is needed you can provid
 ```
 
 ```erlang
--module(myModule).
+-module(my_module).
 
--export([myFunction/0]).
+-export([my_function/0]).
 
-myFunction() ->
-  {ok, [{"myMemcachedServer", 11211}]}.
+my_fFunction() ->
+  {ok, [{"my_memcached_server", 11211}]}.
 
 ``` 
 
