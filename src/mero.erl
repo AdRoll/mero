@@ -250,7 +250,7 @@ mcas(ClusterName, KVECs, Timeout)
 %% @doc: Increments a counter: initial value is 1, steps of 1, timeout defaults to 24 hours.
 %%    3 retries.
 -spec increment_counter(ClusterName :: atom(), Key :: mero_key()) ->
-    ok | {error, Reason :: term()}.
+    {ok, integer()} | {error, Reason :: term()}.
 increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
     increment_counter(ClusterName, Key, 1, 1,
                       mero_conf:pool_key_expiration_time(ClusterName),
@@ -261,7 +261,7 @@ increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
 -spec increment_counter(ClusterName :: atom(), Key :: mero_key(), Value :: integer(),
     Initial :: integer(), ExpTime :: integer(),
     Retries :: integer(), Timeout :: integer()) ->
-        ok | {error, Reason :: term()}.
+        {ok, integer()} | {error, Reason :: term()}.
 increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
   when is_integer(Value), is_integer(ExpTime), is_atom(ClusterName),
     (Initial >= 0), (Value >=0) ->
