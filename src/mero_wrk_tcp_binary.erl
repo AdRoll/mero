@@ -289,15 +289,15 @@ cas_value(Value) when is_integer(Value) andalso Value > 0 ->
 
 receive_response(Client, Op, Buffer, TimeLimit) ->
     case recv_bytes(Client, 24, Buffer, TimeLimit) of
-      {<<16#81:8,      % magic (0)
-         Op:8,         % opcode (1)
-         KeySize:16,   % key length (2,3)
-         ExtrasSize:8, % extra length (4)
-         _DT:8,        % data type (5)
-         StatusCode:16,% status (6,7)
-         BodySize:32,  % total body (8-11)
-         _Opq:32,      % opaque (12-15)
-         CAS:64>>,        % CAS (16-23)
+      {<<16#81:8,       % magic (0)
+         Op:8,          % opcode (1)
+         KeySize:16,    % key length (2,3)
+         ExtrasSize:8,  % extra length (4)
+         _DT:8,         % data type (5)
+         StatusCode:16, % status (6,7)
+         BodySize:32,   % total body (8-11)
+         _Opq:32,       % opaque (12-15)
+         CAS:64>>,      % CAS (16-23)
        Rest} ->
           case recv_bytes(Client, BodySize, Rest, TimeLimit) of
             {<<_Extras:ExtrasSize/binary, Key:KeySize/binary, Value/binary>>, <<>>} ->
@@ -484,15 +484,15 @@ receive_mset_response(Client, TimeLimit, NKVECs, Buffer, Acc) ->
     %% where N was set as opaque data in the request associated with Key.
     %%
     case recv_bytes(Client, 24, Buffer, TimeLimit) of
-      {<<16#81:8,      % magic (0)
-         Op:8,         % opcode (1)
-         KeySize:16,   % key length (2,3)
-         ExtrasSize:8, % extra length (4)
-         _DT:8,        % data type (5)
-         StatusCode:16,% status (6,7)
-         BodySize:32,     % total body (8-11)
-         Index:32,     % opaque (12-15)
-         _CAS:64>>,       % CAS (16-23)
+      {<<16#81:8,       % magic (0)
+         Op:8,          % opcode (1)
+         KeySize:16,    % key length (2,3)
+         ExtrasSize:8,  % extra length (4)
+         _DT:8,         % data type (5)
+         StatusCode:16, % status (6,7)
+         BodySize:32,   % total body (8-11)
+         Index:32,      % opaque (12-15)
+         _CAS:64>>,     % CAS (16-23)
        Rest} ->
           case recv_bytes(Client, BodySize, Rest, TimeLimit) of
             {<<_Extras:ExtrasSize/binary, _Key:KeySize/binary, _Value/binary>>, Rest2} ->
