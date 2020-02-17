@@ -30,37 +30,26 @@
 
 -behaviour(gen_server).
 
--export([
-    start_link/2,
-    init/1,
-    handle_call/3,
-    handle_cast/2,
-    handle_info/2
-]).
+-export([start_link/2, init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
--record(state, {
-    orig_config         :: cluster_config(),
-    processed_config    :: cluster_config(),
-    cluster_version     :: pos_integer()
-}).
+-record(state,
+        {orig_config :: cluster_config(),
+         processed_config :: cluster_config(),
+         cluster_version :: pos_integer()}).
 
 -type state() :: #state{}.
-
--type cluster_config()  :: mero:cluster_config().
--type init_args()       :: #{orig_config | processed_config := cluster_config()}.
+-type cluster_config() :: mero:cluster_config().
+-type init_args() :: #{orig_config | processed_config := cluster_config()}.
 
 %%%-----------------------------------------------------------------------------
 %%% API
 %%%-----------------------------------------------------------------------------
 -spec start_link(cluster_config(), cluster_config()) -> {ok, pid()} | {error, term()}.
 start_link(OrigConfig, ProcessedConfig) ->
-    gen_server:start_link(
-        {local, ?MODULE},
-        ?MODULE,
-        #{orig_config => OrigConfig, processed_config => ProcessedConfig},
-        []
-    ).
-
+    gen_server:start_link({local, ?MODULE},
+                          ?MODULE,
+                          #{orig_config => OrigConfig, processed_config => ProcessedConfig},
+                          []).
 
 %%%-----------------------------------------------------------------------------
 %%% Interesting Callbacks
@@ -68,42 +57,41 @@ start_link(OrigConfig, ProcessedConfig) ->
 -spec init(init_args()) -> {ok, state()}.
 init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
     program_heartbeat(),
-    {ok, #state{
-        orig_config         = OrigConfig,
-        processed_config    = ProcessedConfig,
-        cluster_version     = mero_cluster:version()
-    }}.
+    {ok,
+     #state{orig_config = OrigConfig,
+            processed_config = ProcessedConfig,
+            cluster_version = mero_cluster:version()}}.
 
 -spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
 handle_info(heartbeat, State) ->
     program_heartbeat(),
-    NewState =
-        try update_cluster_defs(State)
-        catch
-            Kind:Desc ->
-                error_logger:error_report([
-                    {error,             mero_config_heartbeat_failed},
-                    {kind,              Kind},
-                    {desc,              Desc},
-                    {stack,             erlang:get_stacktrace()},
-                    {orig_config,       State#state.orig_config},
-                    {processed_config,  State#state.processed_config}
-                ]),
-                State
-        end,
+    NewState = try
+                 update_cluster_defs(State)
+               catch
+                 Kind:Desc ->
+                     error_logger:error_report([{error, mero_config_heartbeat_failed},
+                                                {kind, Kind},
+                                                {desc, Desc},
+                                                {stack, erlang:get_stacktrace()},
+                                                {orig_config, State#state.orig_config},
+                                                {processed_config, State#state.processed_config}]),
+                     State
+               end,
     {noreply, NewState};
-handle_info(_, State) -> {noreply, State}.
-
+handle_info(_, State) ->
+    {noreply, State}.
 
 %%%-----------------------------------------------------------------------------
 %%% Boilerplate Callbacks
 %%%-----------------------------------------------------------------------------
--spec handle_call(Msg, _From, State) -> {reply, {unknown_call, Msg}, State} when State :: state().
-handle_call(Msg, _From, State) -> {reply, {unknown_call, Msg}, State}.
+-spec handle_call(Msg, _From, State) -> {reply, {unknown_call, Msg}, State} when State ::
+                                                                                     state().
+handle_call(Msg, _From, State) ->
+    {reply, {unknown_call, Msg}, State}.
 
 -spec handle_cast(_Msg, State) -> {noreply, State} when State :: state().
-handle_cast(_Msg, State) -> {noreply, State}.
-
+handle_cast(_Msg, State) ->
+    {noreply, State}.
 
 %%%-----------------------------------------------------------------------------
 %%% Private Functions
@@ -111,18 +99,15 @@ handle_cast(_Msg, State) -> {noreply, State}.
 program_heartbeat() ->
     erlang:send_after(mero_conf:monitor_heartbeat_delay(), self(), heartbeat).
 
-
 update_cluster_defs(#state{orig_config = OrigConfig} = State) ->
     update_cluster_defs(mero_conf:process_server_specs(OrigConfig), State).
 
-update_cluster_defs(ProcessedConfig, #state{processed_config = ProcessedConfig} = State) ->
+update_cluster_defs(ProcessedConfig,
+                    #state{processed_config = ProcessedConfig} = State) ->
     State; %% Nothing has changed
 update_cluster_defs(NewProcessedConfig, State) ->
-    #state{
-        processed_config    = OldProcessedConfig,
-        cluster_version     = OldClusterVersion
-    } = State,
-
+    #state{processed_config = OldProcessedConfig, cluster_version = OldClusterVersion} =
+        State,
     ok = mero_cluster:load_clusters(NewProcessedConfig),
     NewClusterVersion = mero_cluster:version(),
 
@@ -132,26 +117,27 @@ update_cluster_defs(NewProcessedConfig, State) ->
 
     State#state{processed_config = NewProcessedConfig, cluster_version = NewClusterVersion}.
 
-
 purge_if_version_changed(ClusterVersion, ClusterVersion) ->
     ok;
 purge_if_version_changed(_OldVersion, _NewClusterVersion) ->
     mero_cluster:purge().
-
 
 %% NOTE: since both cluster definitions are generated through mero_conf:process_server_specs/1
 %%       with the same input, we can be sure that the resulting lists will contain the same number
 %%       of elements, with the same keys in the same order.
 update_clusters([], []) ->
     ok;
-update_clusters([ClusterDef | OldClusterDefs], [ClusterDef | NewClusterDefs]) -> %% nothing changed
+update_clusters([ClusterDef | OldClusterDefs],
+                [ClusterDef | NewClusterDefs]) -> %% nothing changed
     update_clusters(OldClusterDefs, NewClusterDefs);
-update_clusters(
-    [{ClusterName, OldAttrs} | OldClusterDefs], [{ClusterName, NewAttrs} | NewClusterDefs]) ->
+update_clusters([{ClusterName, OldAttrs} | OldClusterDefs],
+                [{ClusterName, NewAttrs} | NewClusterDefs]) ->
     OldServers = lists:sort(proplists:get_value(servers, OldAttrs)),
-    ok =
-        case lists:sort(proplists:get_value(servers, NewAttrs)) of
-            OldServers -> ok; %% Nothing of relevance changed
-            _ -> mero_sup:restart_child(ClusterName)
-        end,
+    ok = case lists:sort(proplists:get_value(servers, NewAttrs)) of
+           OldServers ->
+               ok; %% Nothing of relevance changed
+           _ ->
+               mero_sup:restart_child(ClusterName)
+         end,
     update_clusters(OldClusterDefs, NewClusterDefs).
+

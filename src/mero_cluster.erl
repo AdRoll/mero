@@ -106,42 +106,38 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([
-    child_definitions/1,
-    sup_by_cluster_name/1,
-    cluster_shards/1,
-    workers_per_shard/1,
-    sharding_algorithm/1,
-    load_clusters/1,
-    total_workers/1,
-    server/2,
-    one_pool_of_each_shard_of_cluster/1,
-    group_by_shards/2, group_by_shards/3,
-    pool_worker_module/1,
-    random_pool_of_shard/2,
-    clusters/0,
-    version/0,
-    purge/0
-]).
+-export([child_definitions/1,
+         sup_by_cluster_name/1,
+         cluster_shards/1,
+         workers_per_shard/1,
+         sharding_algorithm/1,
+         load_clusters/1,
+         total_workers/1,
+         server/2,
+         one_pool_of_each_shard_of_cluster/1,
+         group_by_shards/2,
+         group_by_shards/3,
+         pool_worker_module/1,
+         random_pool_of_shard/2,
+         clusters/0,
+         version/0,
+         purge/0]).
 
--ignore_xref([
-    {mero_cluster_util, cluster_shards, 1},
-    {mero_cluster_util, workers_per_shard, 1},
-    {mero_cluster_util, child_definitions, 1},
-    {mero_cluster_util, sup_by_cluster_name, 1},
-    {mero_cluster_util, clusters, 0},
-    {mero_cluster_util, sharding_algorithm, 1},
-    {mero_cluster_util, pool_worker_module, 1},
-    {mero_cluster_util, worker_by_index, 3},
-    {mero_cluster_util, module_info, 1}
-]).
+-ignore_xref([{mero_cluster_util, cluster_shards, 1},
+              {mero_cluster_util, workers_per_shard, 1},
+              {mero_cluster_util, child_definitions, 1},
+              {mero_cluster_util, sup_by_cluster_name, 1},
+              {mero_cluster_util, clusters, 0},
+              {mero_cluster_util, sharding_algorithm, 1},
+              {mero_cluster_util, pool_worker_module, 1},
+              {mero_cluster_util, worker_by_index, 3},
+              {mero_cluster_util, module_info, 1}]).
 
--type child_definitions() :: [{
-    Host        ::string(),
-    Port        ::pos_integer(),
-    WorkerName  ::atom(),
-    WorkerModule::module()
-}].
+-type child_definitions() :: [{Host :: string(),
+                               Port :: pos_integer(),
+                               WorkerName :: atom(),
+                               WorkerModule :: module()}].
+
 -export_type([child_definitions/0]).
 
 %%%===================================================================
@@ -152,27 +148,20 @@
 -spec load_clusters(mero:cluster_config()) -> ok.
 load_clusters(ClusterConfig) ->
     WorkerDefs = worker_defs(ClusterConfig),
-    DynModuleBegin =
-        "-module(mero_cluster_util). \n"
-        "-export([child_definitions/1,\n"
-        "         sup_by_cluster_name/1,\n"
-        "         worker_by_index/3,\n"
-        "         cluster_shards/1,\n"
-        "         workers_per_shard/1,\n"
-        "         pool_worker_module/1,\n"
-        "         clusters/0,\n"
-        "         sharding_algorithm/1]).\n\n",
-    ModuleStringTotal = lists:flatten(
-        [DynModuleBegin,
-            child_definitions_function(WorkerDefs),
-            sup_by_cluster_name_function(WorkerDefs),
-            worker_by_index_function(WorkerDefs),
-            cluster_shards_function(ClusterConfig),
-            workers_per_shard_function(ClusterConfig),
-            sharding_algorithm_function(ClusterConfig),
-            pool_worker_module_function(ClusterConfig),
-            clusters_function(ClusterConfig)
-        ]),
+    DynModuleBegin = "-module(mero_cluster_util). \n-export([child_definitions/1,\n "
+                     "        sup_by_cluster_name/1,\n         worker_by_index/3,\n "
+                     "        cluster_shards/1,\n         workers_per_shard/1,\n "
+                     "        pool_worker_module/1,\n         clusters/0,\n      "
+                     "   sharding_algorithm/1]).\n\n",
+    ModuleStringTotal = lists:flatten([DynModuleBegin,
+                                       child_definitions_function(WorkerDefs),
+                                       sup_by_cluster_name_function(WorkerDefs),
+                                       worker_by_index_function(WorkerDefs),
+                                       cluster_shards_function(ClusterConfig),
+                                       workers_per_shard_function(ClusterConfig),
+                                       sharding_algorithm_function(ClusterConfig),
+                                       pool_worker_module_function(ClusterConfig),
+                                       clusters_function(ClusterConfig)]),
     {M, B} = dynamic_compile:from_string(ModuleStringTotal),
     {module, mero_cluster_util} = code:load_binary(M, "", B),
     ok.
@@ -187,14 +176,14 @@ version() ->
 -spec purge() -> ok.
 purge() ->
     case code:purge(mero_cluster_util) of
-        false ->
-            ok;
-        true ->
-            error_logger:warning_msg("Some processes were killed while purging mero_cluster_util"),
-            ok
+      false ->
+          ok;
+      true ->
+          error_logger:warning_msg("Some processes were killed while purging mero_cluster_util"),
+          ok
     end.
 
--spec child_definitions(ClusterName ::atom()) -> child_definitions().
+-spec child_definitions(ClusterName :: atom()) -> child_definitions().
 child_definitions(ClusterName) ->
     mero_cluster_util:child_definitions(ClusterName).
 
@@ -216,42 +205,39 @@ clusters() ->
 
 sharding_algorithm(Name) ->
     mero_cluster_util:sharding_algorithm(Name).
+
 %% Selects a worker based on the cluster identifier and the key.
--spec server(Name :: atom(), Key :: mero:mero_key()) ->
-    Server :: atom().
+-spec server(Name :: atom(), Key :: mero:mero_key()) -> Server :: atom().
 server(Name, Key) ->
     ShardIdentifier = shard_identifier(Name, Key),
     random_pool_of_shard(Name, ShardIdentifier).
 
--spec group_by_shards(ClusterName :: atom(), Keys :: list(mero:mero_key())) ->
-    [{PoolName ::atom(), Keys :: list(binary())}].
+-spec group_by_shards(ClusterName :: atom(), Keys :: [mero:mero_key()]) -> [{PoolName ::
+                                                                                 atom(),
+                                                                             Keys :: [binary()]}].
 group_by_shards(ClusterName, Keys) ->
     group_by_shards_(ClusterName, Keys, undefined, []).
 
--spec group_by_shards(ClusterName :: atom(), Items :: list(tuple()), KeyPos :: pos_integer()) ->
-    [{PoolName ::atom(), Items :: list(tuple())}].
+-spec group_by_shards(ClusterName :: atom(),
+                      Items :: [tuple()],
+                      KeyPos :: pos_integer()) -> [{PoolName :: atom(), Items :: [tuple()]}].
 group_by_shards(ClusterName, Items, KeyPos) ->
     group_by_shards_(ClusterName, Items, KeyPos, []).
 
-
 one_pool_of_each_shard_of_cluster(ClusterName) ->
     Shards = cluster_shards(ClusterName),
-    [mero_cluster_util:worker_by_index(ClusterName, Shard, 0) || Shard <-
-        lists:seq(0, Shards -1)].
-
+    [mero_cluster_util:worker_by_index(ClusterName, Shard, 0)
+     || Shard <- lists:seq(0, Shards - 1)].
 
 random_pool_of_shard(Name, ShardIdentifier) ->
     RandomWorker = random_integer(mero_cluster_util:workers_per_shard(Name)),
     mero_cluster_util:worker_by_index(Name, ShardIdentifier, RandomWorker).
 
-
 total_workers(Name) ->
-    mero_cluster_util:cluster_shards(Name) *
-        mero_cluster_util:workers_per_shard(Name).
+    mero_cluster_util:cluster_shards(Name) * mero_cluster_util:workers_per_shard(Name).
 
 %% @doc: Returns an integer between 0 and max -1
--spec random_integer(Max :: integer()) ->
-    integer().
+-spec random_integer(Max :: integer()) -> integer().
 random_integer(Max) when Max > 0 ->
     rand:uniform(Max) - 1.
 
@@ -261,8 +247,9 @@ random_integer(Max) when Max > 0 ->
 
 shard_identifier(Name, Key) ->
     {Module, Function} = mero_cluster_util:sharding_algorithm(Name),
-    apply(Module, Function, [mero:clustering_key(Key), mero_cluster_util:cluster_shards(Name)]).
-
+    apply(Module,
+          Function,
+          [mero:clustering_key(Key), mero_cluster_util:cluster_shards(Name)]).
 
 key_to_storage_key(undefined, Key, Key) ->
     mero:storage_key(Key);
@@ -273,27 +260,30 @@ group_by_shards_(_ClusterName, [], _, Acc) ->
     Acc;
 group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
     Key = case KeyPos of
-              undefined ->
-                  Item;
-              N when is_integer(N), N > 0 ->
-                  element(N, Item)
+            undefined ->
+                Item;
+            N when is_integer(N), N > 0 ->
+                element(N, Item)
           end,
     Identifier = shard_identifier(ClusterName, Key),
     Item2 = key_to_storage_key(KeyPos, Item, Key),
     case lists:keyfind(Identifier, 1, Acc) of
-        false ->
-            group_by_shards_(ClusterName, Items, KeyPos, [{Identifier, [Item2]} | Acc]);
-        {Identifier, List} ->
-            group_by_shards_(ClusterName, Items, KeyPos,
-                lists:keyreplace(Identifier, 1, Acc, {Identifier, List ++ [Item2]}))
+      false ->
+          group_by_shards_(ClusterName, Items, KeyPos, [{Identifier, [Item2]} | Acc]);
+      {Identifier, List} ->
+          group_by_shards_(ClusterName,
+                           Items,
+                           KeyPos,
+                           lists:keyreplace(Identifier, 1, Acc, {Identifier, List ++ [Item2]}))
     end.
 
 worker_defs(ClusterConfig) ->
-    lists:foldl(
-        fun(Cluster, Acc) ->
-            Def = get_server_defs(Cluster),
-            Acc ++ Def
-        end, [], ClusterConfig).
+    lists:foldl(fun (Cluster, Acc) ->
+                        Def = get_server_defs(Cluster),
+                        Acc ++ Def
+                end,
+                [],
+                ClusterConfig).
 
 get_server_defs({ClusterName, ClusterConfig}) ->
     Servers = get_config(servers, ClusterConfig),
@@ -301,123 +291,132 @@ get_server_defs({ClusterName, ClusterConfig}) ->
     Workers = get_config(workers_per_shard, ClusterConfig),
     SortedServers = lists:sort(Servers),
 
-    {Elements, _} = lists:foldl(
-        fun
-            ({Host, Port}, {Acc, ShardSizeAcc}) ->
-                Elements =
-                    [begin
-                         WorkerName =
-                            worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
-                         {ClusterName, ShardSizeAcc, ReplicationNumber,
-                             {ClusterName, Host, Port, WorkerName, WorkerModule}}
-                     end || ReplicationNumber <- lists:seq(0, (Workers - 1))],
-                {Acc ++ Elements, ShardSizeAcc + 1}
-        end, {[], 0}, SortedServers),
+    {Elements, _} = lists:foldl(fun ({Host, Port}, {Acc, ShardSizeAcc}) ->
+                                        Elements = [begin
+                                                      WorkerName = worker_name(ClusterName,
+                                                                               Host,
+                                                                               ReplicationNumber,
+                                                                               ShardSizeAcc),
+                                                      {ClusterName,
+                                                       ShardSizeAcc,
+                                                       ReplicationNumber,
+                                                       {ClusterName,
+                                                        Host,
+                                                        Port,
+                                                        WorkerName,
+                                                        WorkerModule}}
+                                                    end
+                                                    || ReplicationNumber
+                                                           <- lists:seq(0, Workers - 1)],
+                                        {Acc ++ Elements, ShardSizeAcc + 1}
+                                end,
+                                {[], 0},
+                                SortedServers),
     Elements.
 
 cluster_shards_function(ClusterConfig) ->
-    lists:foldl(
-        fun
-            ({ClusterName, Config}, []) ->
-                Servers = length(get_config(servers, Config)),
-                [io_lib:format("cluster_shards(~p) -> ~p.\n\n",
-                    [ClusterName, Servers])];
-            ({ClusterNameIn, Config}, Acc) ->
-                Servers = length(get_config(servers, Config)),
-                [io_lib:format("cluster_shards(~p) -> ~p;\n",
-                    [ClusterNameIn, Servers]) | Acc]
-        end, [], lists:reverse(ClusterConfig)).
-
+    lists:foldl(fun ({ClusterName, Config}, []) ->
+                        Servers = length(get_config(servers, Config)),
+                        [io_lib:format("cluster_shards(~p) -> ~p.\n\n", [ClusterName, Servers])];
+                    ({ClusterNameIn, Config}, Acc) ->
+                        Servers = length(get_config(servers, Config)),
+                        [io_lib:format("cluster_shards(~p) -> ~p;\n", [ClusterNameIn, Servers])
+                         | Acc]
+                end,
+                [],
+                lists:reverse(ClusterConfig)).
 
 workers_per_shard_function(ClusterConfig) ->
-    lists:foldl(
-        fun
-            ({ClusterName, Config}, []) ->
-                WorkersPerServer = get_config(workers_per_shard, Config),
-                [io_lib:format("workers_per_shard(~p) -> ~p.\n\n",
-                    [ClusterName, WorkersPerServer])];
-            ({ClusterNameIn, Config}, Acc) ->
-                WorkersPerServer = get_config(workers_per_shard, Config),
-                [io_lib:format("workers_per_shard(~p) -> ~p;\n",
-                    [ClusterNameIn, WorkersPerServer]) | Acc]
-        end, [], lists:reverse(ClusterConfig)).
-
+    lists:foldl(fun ({ClusterName, Config}, []) ->
+                        WorkersPerServer = get_config(workers_per_shard, Config),
+                        [io_lib:format("workers_per_shard(~p) -> ~p.\n\n",
+                                       [ClusterName, WorkersPerServer])];
+                    ({ClusterNameIn, Config}, Acc) ->
+                        WorkersPerServer = get_config(workers_per_shard, Config),
+                        [io_lib:format("workers_per_shard(~p) -> ~p;\n",
+                                       [ClusterNameIn, WorkersPerServer])
+                         | Acc]
+                end,
+                [],
+                lists:reverse(ClusterConfig)).
 
 sharding_algorithm_function(ClusterConfig) ->
-    lists:foldl(
-        fun
-            ({ClusterName, Config}, []) ->
-                {Module, Function} = get_config(sharding_algorithm, Config),
-                [io_lib:format("sharding_algorithm(~p) -> {~p, ~p}.\n\n",
-                    [ClusterName, Module, Function])];
-            ({ClusterNameIn, Config}, Acc) ->
-                {Module, Function} = get_config(sharding_algorithm, Config),
-                [io_lib:format("sharding_algorithm(~p) -> {~p, ~p};\n",
-                    [ClusterNameIn, Module, Function]) | Acc]
-        end, [], lists:reverse(ClusterConfig)).
-
+    lists:foldl(fun ({ClusterName, Config}, []) ->
+                        {Module, Function} = get_config(sharding_algorithm, Config),
+                        [io_lib:format("sharding_algorithm(~p) -> {~p, ~p}.\n\n",
+                                       [ClusterName, Module, Function])];
+                    ({ClusterNameIn, Config}, Acc) ->
+                        {Module, Function} = get_config(sharding_algorithm, Config),
+                        [io_lib:format("sharding_algorithm(~p) -> {~p, ~p};\n",
+                                       [ClusterNameIn, Module, Function])
+                         | Acc]
+                end,
+                [],
+                lists:reverse(ClusterConfig)).
 
 pool_worker_module_function(ClusterConfig) ->
-    lists:foldl(
-        fun
-            ({ClusterName, Config}, []) ->
-                Module = get_config(pool_worker_module, Config),
-                [io_lib:format("pool_worker_module(~p) -> ~p.\n\n",
-                    [ClusterName, Module])];
-            ({ClusterNameIn, Config}, Acc) ->
-                Module = get_config(pool_worker_module, Config),
-                [io_lib:format("pool_worker_module(~p) -> ~p;\n",
-                    [ClusterNameIn, Module]) | Acc]
-        end, [], lists:reverse(ClusterConfig)).
+    lists:foldl(fun ({ClusterName, Config}, []) ->
+                        Module = get_config(pool_worker_module, Config),
+                        [io_lib:format("pool_worker_module(~p) -> ~p.\n\n", [ClusterName, Module])];
+                    ({ClusterNameIn, Config}, Acc) ->
+                        Module = get_config(pool_worker_module, Config),
+                        [io_lib:format("pool_worker_module(~p) -> ~p;\n", [ClusterNameIn, Module])
+                         | Acc]
+                end,
+                [],
+                lists:reverse(ClusterConfig)).
 
 clusters_function(ClusterConfig) ->
     Clusters = [ClusterName || {ClusterName, _} <- ClusterConfig],
     io_lib:format("clusters() -> \n ~p.\n\n", [Clusters]).
 
-
 child_definitions_function(WorkerDefs) ->
     AllDefs = [Args || {_Name, _, _, Args} <- WorkerDefs],
     Clusters = lists:usort([Cluster || {Cluster, _Host, _Port, _Name, _Module} <- AllDefs]),
-    [io_lib:format(
-        "child_definitions(~p) ->\n ~p;\n\n",
-        [Cluster, [{H, P, N, M} || {C, H, P, N, M} <- AllDefs, C == Cluster]]
-    ) || Cluster <- Clusters] ++ "child_definitions(_) ->\n [].\n\n".
-
+    [io_lib:format("child_definitions(~p) ->\n ~p;\n\n",
+                   [Cluster, [{H, P, N, M} || {C, H, P, N, M} <- AllDefs, C == Cluster]])
+     || Cluster <- Clusters]
+      ++ "child_definitions(_) ->\n [].\n\n".
 
 sup_by_cluster_name_function(WorkerDefs) ->
     AllDefs = [Args || {_Name, _, _, Args} <- WorkerDefs],
     Clusters = lists:usort([Cluster || {Cluster, _Host, _Port, _Name, _Module} <- AllDefs]),
     [io_lib:format("sup_by_cluster_name(~p) ->\n mero_~p_sup;\n\n", [Cluster, Cluster])
-        || Cluster <- Clusters
-    ] ++ "sup_by_cluster_name(_) ->\n undefined.\n\n".
-
+     || Cluster <- Clusters]
+      ++ "sup_by_cluster_name(_) ->\n undefined.\n\n".
 
 worker_by_index_function(WorkerDefs) ->
-    lists:foldr(
-        fun
-            (WorkerDef, []) ->
-                worker_by_index_clause(WorkerDef, ".");
-            (WorkerDef, Acc) ->
-                [worker_by_index_clause(WorkerDef, ";"), Acc]
-        end, [], WorkerDefs).
+    lists:foldr(fun (WorkerDef, []) ->
+                        worker_by_index_clause(WorkerDef, ".");
+                    (WorkerDef, Acc) ->
+                        [worker_by_index_clause(WorkerDef, ";"), Acc]
+                end,
+                [],
+                WorkerDefs).
 
-worker_by_index_clause(
-    {Name, ShardSizeAcc, ReplicationNumber, {_Name, _Host, _Port, WorkerName, _WorkerModule}},
-    Separator) ->
-    io_lib:format(
-        "worker_by_index(~p, ~p, ~p) -> ~p~s\n\n",
-        [Name, ShardSizeAcc, ReplicationNumber, WorkerName, Separator]
-    ).
+worker_by_index_clause({Name,
+                        ShardSizeAcc,
+                        ReplicationNumber,
+                        {_Name, _Host, _Port, WorkerName, _WorkerModule}},
+                       Separator) ->
+    io_lib:format("worker_by_index(~p, ~p, ~p) -> ~p~s\n\n",
+                  [Name, ShardSizeAcc, ReplicationNumber, WorkerName, Separator]).
 
 get_config(Type, ClusterConfig) ->
     case proplists:get_value(Type, ClusterConfig) of
-        undefined ->
-            error({undefined_config, Type, ClusterConfig});
-        Value ->
-            Value
+      undefined ->
+          error({undefined_config, Type, ClusterConfig});
+      Value ->
+          Value
     end.
 
 %% PoolName :: mero_pool_127.0.0.1_0
 worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc) ->
-    list_to_atom("mero_" ++ atom_to_list(ClusterName) ++ "_" ++ Host ++ "_" ++
-        integer_to_list(ShardSizeAcc) ++ "_" ++ integer_to_list(ReplicationNumber)).
+    list_to_atom("mero_" ++
+                   atom_to_list(ClusterName) ++
+                     "_" ++
+                       Host ++
+                         "_" ++
+                           integer_to_list(ShardSizeAcc) ++
+                             "_" ++ integer_to_list(ReplicationNumber)).
+

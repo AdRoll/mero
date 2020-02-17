@@ -37,46 +37,23 @@
 %% It's dynamically invoked using rpc:pmap/3
 -ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
 
--export([cluster_config/0,
-         cluster_config/1,
-         pool_timeout_read/1,
-         timeout_read/1,
-         pool_timeout_write/1,
-         timeout_write/1,
-         pool_key_expiration_time/1,
-         key_expiration_time/1,
-         pool_write_retries/1,
-         write_retries/1,
-         pool_max_connections/1,
-         max_connections_per_pool/1,
-         pool_initial_connections/1,
-         initial_connections_per_pool/1,
-         pool_expiration_interval/1,
-         expiration_interval/1,
-         pool_min_free_connections/1,
-         min_free_connections_per_pool/1,
-         pool_connection_unused_max_time/1,
-         connection_unused_max_time/1,
-         pool_max_connection_delay_time/1,
-         pool_min_connection_interval/1,
-         max_connection_delay_time/1,
-         stat_callback/0,
-         stat_callback/1,
-         add_now/1,
-         add_now/2,
-         millis_to/1,
-         millis_to/2,
-         process_server_specs/1,
-         elasticache_load_config_delay/0,
-         elasticache_load_config_delay/1,
-         monitor_heartbeat_delay/0,
-         monitor_heartbeat_delay/2,
-         get_elasticache_cluster_configs/1
-         ]).
+-export([cluster_config/0, cluster_config/1, pool_timeout_read/1, timeout_read/1,
+         pool_timeout_write/1, timeout_write/1, pool_key_expiration_time/1, key_expiration_time/1,
+         pool_write_retries/1, write_retries/1, pool_max_connections/1, max_connections_per_pool/1,
+         pool_initial_connections/1, initial_connections_per_pool/1, pool_expiration_interval/1,
+         expiration_interval/1, pool_min_free_connections/1, min_free_connections_per_pool/1,
+         pool_connection_unused_max_time/1, connection_unused_max_time/1,
+         pool_max_connection_delay_time/1, pool_min_connection_interval/1,
+         max_connection_delay_time/1, stat_callback/0, stat_callback/1, add_now/1, add_now/2,
+         millis_to/1, millis_to/2, process_server_specs/1, elasticache_load_config_delay/0,
+         elasticache_load_config_delay/1, monitor_heartbeat_delay/0, monitor_heartbeat_delay/2,
+         get_elasticache_cluster_configs/1]).
 
 -include_lib("mero/include/mero.hrl").
 
--type per_pool_config_value(Type) :: {by_pool, Default :: Type, [{Pool :: atom(), Value :: Type}]}.
+-type per_pool_config_value(Type) :: {by_pool,
+                                      Default :: Type,
+                                      [{Pool :: atom(), Value :: Type}]}.
 -type mero_conf_value(Type) :: Type | per_pool_config_value(Type).
 
 %%%=============================================================================
@@ -113,38 +90,34 @@ cluster_config() ->
 cluster_config(ClusterConfig) ->
     application:set_env(mero, cluster_config, ClusterConfig).
 
-
 %% @doc: Number of sockets that each pool will open on startup
 -spec pool_initial_connections(Pool :: atom()) -> integer().
 pool_initial_connections(Pool) ->
-  get_env_per_pool(initial_connections_per_pool, Pool).
+    get_env_per_pool(initial_connections_per_pool, Pool).
 
 -spec initial_connections_per_pool(Initial :: mero_conf_value(integer())) -> ok.
 initial_connections_per_pool(Initial) ->
-  application:set_env(mero, initial_connections_per_pool, Initial).
-
+    application:set_env(mero, initial_connections_per_pool, Initial).
 
 %% @doc: If the number of free sockets is smaller than this
 %% the pool will asyncronously create new ones to ensure we
 %% dont run out of them.
 -spec pool_min_free_connections(Pool :: atom()) -> integer().
 pool_min_free_connections(Pool) ->
-  get_env_per_pool(min_free_connections_per_pool, Pool).
+    get_env_per_pool(min_free_connections_per_pool, Pool).
 
 -spec min_free_connections_per_pool(MinFree :: mero_conf_value(integer())) -> ok.
 min_free_connections_per_pool(MinFree) ->
-  application:set_env(mero, min_free_connections_per_pool, MinFree).
-
+    application:set_env(mero, min_free_connections_per_pool, MinFree).
 
 %% Maximun number of connections that each pool will open.
 -spec pool_max_connections(Pool :: atom()) -> integer().
 pool_max_connections(Pool) ->
-  get_env_per_pool(max_connections_per_pool, Pool).
+    get_env_per_pool(max_connections_per_pool, Pool).
 
 -spec max_connections_per_pool(Max :: mero_conf_value(integer())) -> ok.
 max_connections_per_pool(Max) ->
-  application:set_env(mero, max_connections_per_pool, Max).
-
+    application:set_env(mero, max_connections_per_pool, Max).
 
 %% @doc: Read timeout in milliseconds
 -spec pool_timeout_read(Pool :: atom()) -> integer().
@@ -155,7 +128,6 @@ pool_timeout_read(Pool) ->
 timeout_read(Timeout) ->
     application:set_env(mero, timeout_read, Timeout).
 
-
 %% @doc: Write timeout in milliseconds
 -spec pool_timeout_write(Pool :: atom()) -> integer().
 pool_timeout_write(Pool) ->
@@ -165,16 +137,14 @@ pool_timeout_write(Pool) ->
 timeout_write(Timeout) ->
     application:set_env(mero, timeout_write, Timeout).
 
-
 %% @doc: Number of retries for write operations
 -spec pool_write_retries(Pool :: atom()) -> integer().
 pool_write_retries(Pool) ->
-  get_env_per_pool(write_retries, Pool).
+    get_env_per_pool(write_retries, Pool).
 
 -spec write_retries(Timeout :: mero_conf_value(integer())) -> ok.
 write_retries(Timeout) ->
-  application:set_env(mero, write_retries, Timeout).
-
+    application:set_env(mero, write_retries, Timeout).
 
 %% @doc: Gets the default value for a key expiration time
 -spec pool_key_expiration_time(Pool :: atom()) -> integer().
@@ -184,7 +154,6 @@ pool_key_expiration_time(Pool) ->
 -spec key_expiration_time(Time :: mero_conf_value(integer())) -> ok.
 key_expiration_time(Time) ->
     application:set_env(mero, expiration_time, Time).
-
 
 %% @doc: Checks for unused sockets every XX (millis) and closes them.
 -spec pool_expiration_interval(Pool :: atom()) -> integer().
@@ -204,58 +173,57 @@ pool_connection_unused_max_time(Pool) ->
 connection_unused_max_time(Val) ->
     application:set_env(mero, connection_unused_max_time, Val).
 
-
 %% @doc: maximum delay establishing initial connections
 -spec pool_max_connection_delay_time(Pool :: atom()) -> integer().
 pool_max_connection_delay_time(Pool) ->
-  get_env_per_pool(max_connection_delay_time, Pool).
+    get_env_per_pool(max_connection_delay_time, Pool).
 
 %% @doc: min delay between connection attempts
 -spec pool_min_connection_interval(Pool :: atom()) -> integer().
 pool_min_connection_interval(Pool) ->
-  try
-    get_env_per_pool(min_connection_interval, Pool)
-  catch _:_ ->
-    %% Don't want to make this mandatory, but the rest are mandatory already.
-    undefined
-  end.
+    try
+      get_env_per_pool(min_connection_interval, Pool)
+    catch
+      _:_ ->
+          %% Don't want to make this mandatory, but the rest are mandatory already.
+          undefined
+    end.
 
 -spec max_connection_delay_time(mero_conf_value(integer())) -> ok.
 max_connection_delay_time(Val) ->
-  application:set_env(mero, max_connection_delay_time, Val).
-
+    application:set_env(mero, max_connection_delay_time, Val).
 
 %% @doc: maximum delay establishing initial connections (ms)
--spec stat_callback() -> {Module::module(), Function :: atom()}.
+-spec stat_callback() -> {Module :: module(), Function :: atom()}.
 stat_callback() ->
-  get_env(stat_event_callback).
+    get_env(stat_event_callback).
 
--spec stat_callback({Module::module(), Function :: atom()}) -> ok.
+-spec stat_callback({Module :: module(), Function :: atom()}) -> ok.
 stat_callback(Val) ->
-  application:set_env(mero, stat_event_callback, Val).
-
+    application:set_env(mero, stat_event_callback, Val).
 
 add_now(Timeout) ->
-  add_now(Timeout, os:timestamp()).
-
+    add_now(Timeout, os:timestamp()).
 
 add_now(Timeout, Then) ->
-  {M, S, MS} = Then,
-  {M, S, MS + (Timeout * 1000)}.
-
+    {M, S, MS} = Then,
+    {M, S, MS + Timeout * 1000}.
 
 millis_to(TimeLimit) ->
-  millis_to(TimeLimit, os:timestamp()).
+    millis_to(TimeLimit, os:timestamp()).
 
 millis_to(TimeLimit, Then) ->
-  case (timer:now_diff(TimeLimit, Then) div 1000) of
-    N when N > 0 -> N;
-    _ -> 0
-  end.
+    case timer:now_diff(TimeLimit, Then) div 1000 of
+      N when N > 0 ->
+          N;
+      _ ->
+          0
+    end.
 
 -spec process_server_specs(mero:cluster_config()) -> mero:cluster_config().
 process_server_specs(Clusters) ->
-    [{ClusterName, [process_value(Attr) || Attr <- Attrs]} || {ClusterName, Attrs} <- Clusters].
+    [{ClusterName, [process_value(Attr) || Attr <- Attrs]}
+     || {ClusterName, Attrs} <- Clusters].
 
 %%%=============================================================================
 %%% Internal functions
@@ -263,39 +231,38 @@ process_server_specs(Clusters) ->
 
 get_env(Key) ->
     case application:get_env(mero, Key) of
-        {ok, Value} ->
-            Value;
-        undefined ->
-            exit({undefined_configuration, Key})
+      {ok, Value} ->
+          Value;
+      undefined ->
+          exit({undefined_configuration, Key})
     end.
 
 get_env_per_pool(Key, Pool) ->
     case get_env(Key) of
-        {by_pool, Default, ByPool} ->
-            maps:get(Pool, ByPool, Default);
-        Value ->
-            Value
+      {by_pool, Default, ByPool} ->
+          maps:get(Pool, ByPool, Default);
+      Value ->
+          Value
     end.
-
-
 
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts =
-        try rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
-        catch
-            _:badrpc -> % Fallback to sequential execution, mostly to get proper error descriptions
-                lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
-        end,
+    HostsPorts = try
+                   rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
+                 catch
+                   _:badrpc ->
+                       % Fallback to sequential execution, mostly to get proper error descriptions
+                       lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
+                 end,
     {servers, lists:flatten(HostsPorts)};
 process_value({servers, {mfa, {Module, Function, Args}}}) ->
     try erlang:apply(Module, Function, Args) of
-        {ok, HostsPorts} when is_list(HostsPorts) ->
-            {servers, HostsPorts}
+      {ok, HostsPorts} when is_list(HostsPorts) ->
+          {servers, HostsPorts}
     catch
-        Type:Reason ->
-            error({invalid_call, {Module, Function, Args}, {Type, Reason}})
+      Type:Reason ->
+          error({invalid_call, {Module, Function, Args}, {Type, Reason}})
     end;
 process_value(V) ->
     V.
@@ -305,9 +272,11 @@ get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}) ->
 get_elasticache_cluster_configs({Host, Port}) ->
     [get_elasticache_cluster_config(Host, Port)].
 
-
 get_elasticache_cluster_config(Host, Port) ->
-    get_elasticache_cluster_config(Host, Port, 0, mero_elasticache:get_cluster_config(Host, Port)).
+    get_elasticache_cluster_config(Host,
+                                   Port,
+                                   0,
+                                   mero_elasticache:get_cluster_config(Host, Port)).
 
 get_elasticache_cluster_config(_Host, _Port, _Retries, {ok, Entries}) ->
     Entries;
@@ -315,5 +284,8 @@ get_elasticache_cluster_config(Host, Port, ?MAX_RETRIES, {error, Reason}) ->
     error({Reason, Host, Port});
 get_elasticache_cluster_config(Host, Port, Retries, {error, _Reason}) ->
     timer:sleep(trunc(math:pow(2, Retries)) * 100),
-    get_elasticache_cluster_config(
-        Host, Port, Retries + 1, mero_elasticache:get_cluster_config(Host, Port)).
+    get_elasticache_cluster_config(Host,
+                                   Port,
+                                   Retries + 1,
+                                   mero_elasticache:get_cluster_config(Host, Port)).
+
