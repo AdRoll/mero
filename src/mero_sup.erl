@@ -30,15 +30,11 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([
-    start_link/1,
-    restart_child/1,
-    init/1
-]).
+-export([start_link/1, restart_child/1, init/1]).
 
 -behaviour(supervisor).
 
--ignore_xref([{mero_cluster, size,0},
+-ignore_xref([{mero_cluster, size, 0},
               {mero_cluster, cluster_size, 0},
               {mero_cluster, pools, 0},
               {mero_cluster, server, 1}]).
@@ -53,11 +49,9 @@
 start_link(OrigConfig) ->
     ProcessedConfig = mero_conf:process_server_specs(OrigConfig),
     ok = mero_cluster:load_clusters(ProcessedConfig),
-    supervisor:start_link(
-        {local, ?MODULE},
-        ?MODULE,
-        #{orig_config => OrigConfig, processed_config => ProcessedConfig}
-    ).
+    supervisor:start_link({local, ?MODULE},
+                          ?MODULE,
+                          #{orig_config => OrigConfig, processed_config => ProcessedConfig}).
 
 -spec restart_child(ClusterName :: atom()) -> ok.
 restart_child(ClusterName) ->
@@ -65,7 +59,6 @@ restart_child(ClusterName) ->
     ok = supervisor:delete_child(?MODULE, ClusterName),
     {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
     ok.
-
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -77,21 +70,18 @@ init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
     {ok, {{one_for_one, 10, 10}, [MonitorSpec | ClusterSupSpecs]}}.
 
 cluster_sup_spec(ClusterName) ->
-    {
-        ClusterName,
-        {mero_cluster_sup, start_link, [ClusterName]},
-        permanent,
-        5000,
-        supervisor,
-        [mero_cluster_sup]
-    }.
+    {ClusterName,
+     {mero_cluster_sup, start_link, [ClusterName]},
+     permanent,
+     5000,
+     supervisor,
+     [mero_cluster_sup]}.
 
 monitor_spec(OrigConfig, ProcessedConfig) ->
-    {
-        mero_conf_monitor,
-        {mero_conf_monitor, start_link, [OrigConfig, ProcessedConfig]},
-        permanent,
-        5000,
-        worker,
-        [mero_conf_monitor]
-    }.
+    {mero_conf_monitor,
+     {mero_conf_monitor, start_link, [OrigConfig, ProcessedConfig]},
+     permanent,
+     5000,
+     worker,
+     [mero_conf_monitor]}.
+

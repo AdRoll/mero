@@ -35,36 +35,42 @@
 
 %% API
 -export([get_cluster_config/2]).
-
 %% Just for testing purposes
 -export([request_response/4]).
 
 -define(GET_CLUSTER, <<"config get cluster\n">>).
 
--type cluster_entry() :: {Host :: string(), Addr :: inet:ip_address(), Port :: pos_integer()}.
+-type cluster_entry() :: {Host :: string(),
+                          Addr :: inet:ip_address(),
+                          Port :: pos_integer()}.
+
 -export_type([cluster_entry/0]).
 
 %%%=============================================================================
 %%% External functions
 %%%=============================================================================
 %% Given an elasticache config endpoint:port, returns parsed list of {host, port} nodes in cluster
--spec get_cluster_config(string(), integer()) ->
-    {ok, list({string(), integer()})} | {error, Reason :: atom()}.
+-spec get_cluster_config(string(), integer()) -> {ok, [{string(), integer()}]} |
+                                                 {error, Reason :: atom()}.
 get_cluster_config(ConfigHost, ConfigPort) ->
     %% We wait for a bit before loading elasticache configuration to prevent runaway elasticache
     %% spam during error loops (which used to occur on occasion).
     timer:sleep(mero_conf:elasticache_load_config_delay()),
     LineDefinitions = [banner, version, hosts, crlf, eom],
-    case mero_elasticache:request_response(ConfigHost, ConfigPort, ?GET_CLUSTER, LineDefinitions) of
-        {ok, Result} ->
-            case parse_cluster_config(proplists:get_value(hosts, Result)) of
-                {error, Reason} ->
-                    {error, Reason};
-                {ok, Config} ->
-                    {ok, [{Host, Port} || {Host, _IPAddr, Port} <- Config]}
-            end;
-        {error, Reason} ->
-            {error, Reason}
+    case mero_elasticache:request_response(ConfigHost,
+                                           ConfigPort,
+                                           ?GET_CLUSTER,
+                                           LineDefinitions)
+        of
+      {ok, Result} ->
+          case parse_cluster_config(proplists:get_value(hosts, Result)) of
+            {error, Reason} ->
+                {error, Reason};
+            {ok, Config} ->
+                {ok, [{Host, Port} || {Host, _IPAddr, Port} <- Config]}
+          end;
+      {error, Reason} ->
+          {error, Reason}
     end.
 
 %%%=============================================================================
@@ -75,34 +81,33 @@ request_response(Host, Port, Command, Names) ->
     %% @see https://github.com/erlang/otp/pull/2191
     %%      Even with Timeout == infinity, connect attempts may result in {error, etimedout}
     case gen_tcp:connect(Host, Port, Opts) of
-        {ok, Socket} ->
-            ok = gen_tcp:send(Socket, Command),
-            Lines = receive_lines(Names, Socket),
-            ok = gen_tcp:close(Socket),
-            Lines;
-        Error ->
-            Error
+      {ok, Socket} ->
+          ok = gen_tcp:send(Socket, Command),
+          Lines = receive_lines(Names, Socket),
+          ok = gen_tcp:close(Socket),
+          Lines;
+      Error ->
+          Error
     end.
 
--spec receive_lines([atom()], gen_tcp:socket()) -> {ok, [{atom(), binary()}]} | {error, atom()}.
+-spec receive_lines([atom()], gen_tcp:socket()) -> {ok, [{atom(), binary()}]} |
+                                                   {error, atom()}.
 receive_lines(Names, Socket) ->
     receive_lines(Names, Socket, []).
 
-
 receive_lines([], _Socket, Lines) ->
     {ok, lists:reverse(Lines)};
-
-receive_lines([Name|Names], Socket, Acc) ->
+receive_lines([Name | Names], Socket, Acc) ->
     case gen_tcp:recv(Socket, 0, 10000) of
-        {ok, Line} ->
-            receive_lines(Names, Socket, [{Name, Line}|Acc]);
-        {error, Error} ->
-            {error, Error}
+      {ok, Line} ->
+          receive_lines(Names, Socket, [{Name, Line} | Acc]);
+      {error, Error} ->
+          {error, Error}
     end.
 
 %% Parse host and version lines to return version and list of {host, port} cluster nodes
--spec parse_cluster_config(binary()) ->
-    {ok, Config :: [cluster_entry()]} | {error, Reason :: atom()}.
+-spec parse_cluster_config(binary()) -> {ok, Config :: [cluster_entry()]} |
+                                        {error, Reason :: atom()}.
 parse_cluster_config(HostLine) ->
     %% Strip any newlines
     Entries = binary:replace(HostLine, <<"\n">>, <<>>),
@@ -115,24 +120,24 @@ parse_cluster_config(HostLine) ->
 
 parse_cluster_entries([], Accum) ->
     {ok, lists:reverse(Accum)};
-parse_cluster_entries([H|T], Accum) ->
+parse_cluster_entries([H | T], Accum) ->
     case string:tokens(H, "|") of
-        [Host, IP, Port] ->
-            case inet:parse_ipv4_address(IP) of
-                {ok, IPAddr} ->
-                    case catch erlang:list_to_integer(Port) of
-                        {'EXIT', _} ->
-                            {error, bad_port};
-                        P when P < 1 orelse P > 65535 ->
-                            {error, bad_port};
-                        P ->
-                            parse_cluster_entries(T, [{Host, IPAddr, P}|Accum])
-                    end;
-                {error, _} ->
-                    {error, bad_ip}
-            end;
-        _BadClusterEntry ->
-            {error, bad_cluster_entry}
+      [Host, IP, Port] ->
+          case inet:parse_ipv4_address(IP) of
+            {ok, IPAddr} ->
+                case catch erlang:list_to_integer(Port) of
+                  {'EXIT', _} ->
+                      {error, bad_port};
+                  P when P < 1 orelse P > 65535 ->
+                      {error, bad_port};
+                  P ->
+                      parse_cluster_entries(T, [{Host, IPAddr, P} | Accum])
+                end;
+            {error, _} ->
+                {error, bad_ip}
+          end;
+      _BadClusterEntry ->
+          {error, bad_cluster_entry}
     end.
 
 %%%===================================================================
@@ -144,42 +149,43 @@ parse_cluster_entries([H|T], Accum) ->
 -include_lib("eunit/include/eunit.hrl").
 
 get_cluster_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 "
-                 "server2.cache.amazonaws.com|10.101.101.0|11211 "
-                 "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazo"
+                 "naws.com|10.101.101.0|11211 server3.cache.amazonaws.com|10.102.00.10"
+                 "2|11211\n">>,
     ExpectedParse = [{"server1.cache.amazonaws.com", {10, 100, 100, 100}, 11211},
                      {"server2.cache.amazonaws.com", {10, 101, 101, 0}, 11211},
                      {"server3.cache.amazonaws.com", {10, 102, 0, 102}, 11211}],
     ?assertEqual({ok, ExpectedParse}, parse_cluster_config(HostLine)).
 
 get_bad_ip_addr_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 "
-                 "server2.cache.amazonaws.com|10.101.101.|11211 "
-                 "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazo"
+                 "naws.com|10.101.101.|11211 server3.cache.amazonaws.com|10.102.00.102"
+                 "|11211\n">>,
     ?assertEqual({error, bad_ip}, parse_cluster_config(HostLine)).
 
 get_non_integer_port_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 "
-                 "server2.cache.amazonaws.com|10.101.101.0|11211 "
-                 "server3.cache.amazonaws.com|10.102.00.102|1l211\n">>,
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazo"
+                 "naws.com|10.101.101.0|11211 server3.cache.amazonaws.com|10.102.00.10"
+                 "2|1l211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
 
 get_bad_low_port_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|0 "
-                 "server2.cache.amazonaws.com|10.101.101.0|11211 "
-                 "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|0 server2.cache.amazonaws"
+                 ".com|10.101.101.0|11211 server3.cache.amazonaws.com|10.102.00.102|11"
+                 "211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
 
 get_bad_high_port_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|72000 "
-                 "server2.cache.amazonaws.com|10.101.101.0|11211 "
-                 "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|72000 server2.cache.amazo"
+                 "naws.com|10.101.101.0|11211 server3.cache.amazonaws.com|10.102.00.10"
+                 "2|11211\n">>,
     ?assertEqual({error, bad_port}, parse_cluster_config(HostLine)).
 
 get_bad_entry_config_test() ->
-    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 "
-                 "server2.cache.amazonaws.com|10.101.101.0| "
-                 "server3.cache.amazonaws.com|10.102.00.102|11211\n">>,
+    HostLine = <<"server1.cache.amazonaws.com|10.100.100.100|11211 server2.cache.amazo"
+                 "naws.com|10.101.101.0| server3.cache.amazonaws.com|10.102.00.102|112"
+                 "11\n">>,
     ?assertEqual({error, bad_cluster_entry}, parse_cluster_config(HostLine)).
 
 -endif.
+

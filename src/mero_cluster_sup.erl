@@ -52,5 +52,10 @@ init({ClusterName, PoolDefs}) ->
     {ok, {{one_for_one, 10, 10}, Children}}.
 
 child(ClusterName, {Host, Port, Name, WrkModule}) ->
-    {Name, {mero_pool, start_link, [ClusterName, Host, Port, Name, WrkModule]}, permanent,
-      5000, worker, [mero_pool]}.
+    {Name,
+     {mero_pool, start_link, [ClusterName, Host, Port, Name, WrkModule]},
+     permanent,
+     5000,
+     worker,
+     [mero_pool]}.
+
