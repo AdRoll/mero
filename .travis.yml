@@ -12,7 +12,6 @@ notifications:
 script:
   - rebar3 --version
   - erl -version
+  - rebar3 format --verify
   - rebar3 test
-  - git --no-pager diff
-  - if [[ $(git --no-pager diff) ]]; then echo "Your code is not properly formatted, run rebar3 format on it"; exit 999; fi
 

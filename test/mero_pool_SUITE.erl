@@ -286,7 +286,6 @@ checkout_timeout(_) ->
     ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
     mero_test_util:wait_for_pool_state(?POOL, 0, 2, 0, 0).
 
-
 %%%=============================================================================
 %%% Helper functions
 %%%=============================================================================

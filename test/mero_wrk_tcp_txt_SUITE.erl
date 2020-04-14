@@ -245,4 +245,3 @@ mero_mget(_Conf) ->
                            #mero_item{key = <<"c">>, value = undefined}],
                           {async_mget_response,
                            [[<<"b">>, <<"aa">>, <<"c">>], mero_conf:add_now(100)]}).
-

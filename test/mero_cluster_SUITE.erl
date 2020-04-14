@@ -232,4 +232,3 @@ group_by_shards_clustered_key(_Conf) ->
                                                {y, {<<"13">>, <<"K13">>}}],
                                               2)),
     ok.
-

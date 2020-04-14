@@ -537,4 +537,3 @@ response_status(?OOM) ->
     {error, out_of_memory};
 response_status(StatusCode) ->
     throw({failed, {response_status, StatusCode}}).
-

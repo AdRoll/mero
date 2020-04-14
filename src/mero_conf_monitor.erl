@@ -140,4 +140,3 @@ update_clusters([{ClusterName, OldAttrs} | OldClusterDefs],
                mero_sup:restart_child(ClusterName)
          end,
     update_clusters(OldClusterDefs, NewClusterDefs).
-

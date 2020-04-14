@@ -518,4 +518,3 @@ is_config_valid(ClusterName) ->
                                      {initial_connections, Initial}]),
           false
     end.
-

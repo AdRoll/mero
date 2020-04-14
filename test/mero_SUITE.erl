@@ -522,4 +522,3 @@ await_connected(Cluster) ->
                    end
            end,
     Wait().
-

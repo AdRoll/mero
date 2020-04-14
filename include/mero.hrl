@@ -66,4 +66,3 @@
 -record(mero_item, {key, value, cas}).
 
 -endif.
-

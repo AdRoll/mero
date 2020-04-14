@@ -232,4 +232,3 @@ per_pool_config(_Conf) ->
     ?assertEqual(30, mero_conf:pool_initial_connections(pool_1)),
     ?assertEqual(50, mero_conf:pool_initial_connections(pool_2)),
     ok.
-

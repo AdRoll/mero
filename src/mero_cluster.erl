@@ -419,4 +419,3 @@ worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc) ->
                          "_" ++
                            integer_to_list(ShardSizeAcc) ++
                              "_" ++ integer_to_list(ReplicationNumber)).
-

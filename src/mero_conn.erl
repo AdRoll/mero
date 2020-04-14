@@ -273,4 +273,3 @@ pool_execute(PoolName, Op, Args, TimeLimit) when is_tuple(TimeLimit) ->
       {error, Reason} ->
           {error, Reason}
     end.
-
