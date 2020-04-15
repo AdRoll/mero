@@ -770,4 +770,3 @@ parse_get(Acc,
             Key:KeySize/binary,
             Rest/binary>>) ->
     parse_get([{?MEMCACHE_GETKQ, Key} | Acc], Rest).
-

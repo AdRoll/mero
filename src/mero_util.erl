@@ -34,4 +34,3 @@ foreach(continue, _Fun, []) ->
     ok;
 foreach(continue, Fun, [H | Rest]) ->
     foreach(Fun(H), Fun, Rest).
-

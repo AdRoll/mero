@@ -84,4 +84,3 @@ monitor_spec(OrigConfig, ProcessedConfig) ->
      5000,
      worker,
      [mero_conf_monitor]}.
-

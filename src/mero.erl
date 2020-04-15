@@ -392,4 +392,3 @@ deep_state(ClusterName) ->
 %% @doc: Returns the state of the sockets for all clusters
 deep_state() ->
     [{Cluster, deep_state(Cluster)} || Cluster <- mero_cluster:clusters()].
-

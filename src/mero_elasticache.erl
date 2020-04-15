@@ -188,4 +188,3 @@ get_bad_entry_config_test() ->
     ?assertEqual({error, bad_cluster_entry}, parse_cluster_config(HostLine)).
 
 -endif.
-

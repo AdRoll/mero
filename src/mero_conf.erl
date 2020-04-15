@@ -288,4 +288,3 @@ get_elasticache_cluster_config(Host, Port, Retries, {error, _Reason}) ->
                                    Port,
                                    Retries + 1,
                                    mero_elasticache:get_cluster_config(Host, Port)).
-

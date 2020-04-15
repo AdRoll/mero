@@ -133,4 +133,3 @@ process_server_specs(ClusterConfig) ->
           ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, erlang:get_stacktrace()]),
           exit(E)
     end.
-

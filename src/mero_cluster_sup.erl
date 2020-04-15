@@ -58,4 +58,3 @@ child(ClusterName, {Host, Port, Name, WrkModule}) ->
      5000,
      worker,
      [mero_pool]}.
-

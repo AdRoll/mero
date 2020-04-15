@@ -428,4 +428,3 @@ async_mget_response(Client, Keys, TimeLimit) ->
       {failed, Reason} ->
           {error, Reason}
     end.
-

@@ -285,4 +285,3 @@ mock_elasticache(Lines) ->
 
 mock_elasticache_timeout() ->
     meck:expect(mero_elasticache, request_response, 4, {error, etimedout}).
-
