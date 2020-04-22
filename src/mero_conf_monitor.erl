@@ -68,11 +68,11 @@ handle_info(heartbeat, State) ->
     NewState = try
                  update_cluster_defs(State)
                catch
-                 Kind:Desc ->
+                 Kind:Desc:Stack ->
                      error_logger:error_report([{error, mero_config_heartbeat_failed},
                                                 {kind, Kind},
                                                 {desc, Desc},
-                                                {stack, erlang:get_stacktrace()},
+                                                {stack, Stack},
                                                 {orig_config, State#state.orig_config},
                                                 {processed_config, State#state.processed_config}]),
                      State
