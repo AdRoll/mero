@@ -129,7 +129,7 @@ process_server_specs(ClusterConfig) ->
     try
       mero_conf:process_server_specs(ClusterConfig)
     catch
-      K:E ->
-          ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, erlang:get_stacktrace()]),
+      K:E:S ->
+          ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, S]),
           exit(E)
     end.

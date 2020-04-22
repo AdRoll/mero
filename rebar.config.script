@@ -1,8 +1,0 @@
-IsRebar3 = erlang:function_exported(rebar3, main, 1),
-case IsRebar3 of
-    false ->
-        {ok, OldConfig} = file:consult("old.rebar.config"),
-        OldConfig;
-    true ->
-        CONFIG
-end.
