@@ -30,9 +30,7 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([start_server/5,
-         stop_servers/1,
-         wait_for_pool_state/5,
+-export([start_server/5, stop_servers/1, wait_for_pool_state/5,
          wait_for_min_connections_failed/4]).
 
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
@@ -42,39 +40,39 @@ wait_for_pool_state(Pool, _Free, _Connected, _Connecting, _NumFailedConnecting, 
     exit({pool_failed_to_start, Pool, mero_pool:state(Pool)});
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries) ->
     case mero_pool:state(Pool) of
-      [_QueueInfo,
-       _Links,
-       _Monitors,
-       {free, Free},
-       {num_connected, Connected},
-       {num_connecting, Connecting},
-       {num_failed_connecting, NumFailedConnecting}] =
-          State ->
-          io:format("Pool State is ~p ~p... GOT IT! ~n", [os:timestamp(), State]),
-          ok;
-      State ->
-          io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
-          timer:sleep(30),
-          wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries - 1)
+        [_QueueInfo,
+         _Links,
+         _Monitors,
+         {free, Free},
+         {num_connected, Connected},
+         {num_connecting, Connecting},
+         {num_failed_connecting, NumFailedConnecting}] =
+            State ->
+            io:format("Pool State is ~p ~p... GOT IT! ~n", [os:timestamp(), State]),
+            ok;
+        State ->
+            io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
+            timer:sleep(30),
+            wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries - 1)
     end.
 
 wait_for_min_connections_failed(Pool, Free, Connected, MinFailed) ->
     case mero_pool:state(Pool) of
-      [_QueueInfo,
-       _Links,
-       _Monitors,
-       {free, Free},
-       {num_connected, Connected},
-       {num_connecting, _},
-       {num_failed_connecting, NumFailed}] =
-          State
-          when MinFailed =< NumFailed ->
-          io:format("Pool State is ~p ~p... GOT IT! ~n", [os:timestamp(), State]),
-          ok;
-      State ->
-          io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
-          timer:sleep(30),
-          wait_for_min_connections_failed(Pool, Free, Connected, MinFailed)
+        [_QueueInfo,
+         _Links,
+         _Monitors,
+         {free, Free},
+         {num_connected, Connected},
+         {num_connecting, _},
+         {num_failed_connecting, NumFailed}] =
+            State
+            when MinFailed =< NumFailed ->
+            io:format("Pool State is ~p ~p... GOT IT! ~n", [os:timestamp(), State]),
+            ok;
+        State ->
+            io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
+            timer:sleep(30),
+            wait_for_min_connections_failed(Pool, Free, Connected, MinFailed)
     end.
 
 start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
@@ -90,27 +88,25 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
     ok = mero_conf:timeout_write(1000),
     ok = mero_conf:elasticache_load_config_delay(0),
 
-    ServerPids = lists:foldr(fun ({_, Config}, Acc) ->
-                                     HostPortList = proplists:get_value(servers, Config),
-                                     lists:foldr(fun ({_Host, Port}, Acc2) ->
-                                                         ct:log("Starting server on Port ~p",
-                                                                [Port]),
-                                                         ServerPid = case
-                                                                       mero_dummy_server:start_link(Port)
-                                                                         of
-                                                                       {ok, Pid} ->
-                                                                           Pid;
-                                                                       {error,
-                                                                        {already_started, Pid}} ->
-                                                                           Pid
-                                                                     end,
-                                                         [ServerPid | Acc2]
-                                                 end,
-                                                 Acc,
-                                                 HostPortList)
-                             end,
-                             [],
-                             process_server_specs(ClusterConfig)),
+    ServerPids =
+        lists:foldr(fun ({_, Config}, Acc) ->
+                            HostPortList = proplists:get_value(servers, Config),
+                            lists:foldr(fun ({_Host, Port}, Acc2) ->
+                                                ct:log("Starting server on Port ~p", [Port]),
+                                                ServerPid =
+                                                    case mero_dummy_server:start_link(Port) of
+                                                        {ok, Pid} ->
+                                                            Pid;
+                                                        {error, {already_started, Pid}} ->
+                                                            Pid
+                                                    end,
+                                                [ServerPid | Acc2]
+                                        end,
+                                        Acc,
+                                        HostPortList)
+                    end,
+                    [],
+                    process_server_specs(ClusterConfig)),
     {ok, _} = application:ensure_all_started(mero),
 
     %% Wait for the connections
@@ -127,9 +123,9 @@ stop_servers(Pids) ->
 
 process_server_specs(ClusterConfig) ->
     try
-      mero_conf:process_server_specs(ClusterConfig)
+        mero_conf:process_server_specs(ClusterConfig)
     catch
-      K:E:S ->
-          ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, S]),
-          exit(E)
+        K:E:S ->
+            ct:pal("Can't process specs: ~p:~p~n~p~n", [K, E, S]),
+            exit(E)
     end.

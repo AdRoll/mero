@@ -33,31 +33,10 @@
 -behaviour(application).
 
 -export([start/0, start/2, stop/1]).
--export([increment_counter/2,
-         increment_counter/7,
-         mincrement_counter/2,
-         mincrement_counter/7,
-         get/2,
-         get/3,
-         gets/2,
-         gets/3,
-         delete/3,
-         mdelete/3,
-         mget/2,
-         mget/3,
-         mgets/2,
-         mgets/3,
-         set/5,
-         mset/3,
-         cas/6,
-         mcas/3,
-         add/5,
-         madd/3,
-         flush_all/1,
-         shard_phash2/2,
-         shard_crc32/2,
-         clustering_key/1,
-         storage_key/1]).
+-export([increment_counter/2, increment_counter/7, mincrement_counter/2,
+         mincrement_counter/7, get/2, get/3, gets/2, gets/3, delete/3, mdelete/3, mget/2, mget/3,
+         mgets/2, mgets/3, set/5, mset/3, cas/6, mcas/3, add/5, madd/3, flush_all/1,
+         shard_phash2/2, shard_crc32/2, clustering_key/1, storage_key/1]).
 -export([state/0, state/1, deep_state/0, deep_state/1]).
 
 -include_lib("mero/include/mero.hrl").
@@ -97,72 +76,66 @@ stop(_State) ->
 %%% External functions
 %%%=============================================================================
 
--spec get(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) -> result() |
-                                                                             {error,
-                                                                              Reason :: term()}.
+-spec get(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
+             result() | {error, Reason :: term()}.
 get(ClusterName, Key, Timeout) ->
     case gets(ClusterName, Key, Timeout) of
-      {error, Reason} ->
-          {error, Reason};
-      {Key, Value, _CAS} ->
-          {Key, Value}
+        {error, Reason} ->
+            {error, Reason};
+        {Key, Value, _CAS} ->
+            {Key, Value}
     end.
 
 get(ClusterName, Key) ->
     get(ClusterName, Key, mero_conf:pool_timeout_read(ClusterName)).
 
--spec mget(ClusterName :: atom(),
-           Keys :: [mero_key()],
-           Timeout :: integer()) -> [result()] |
-                                    {error, [Reason :: term()], ProcessedKeyValues :: [result()]}.
+-spec mget(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
+              [result()] | {error, [Reason :: term()], ProcessedKeyValues :: [result()]}.
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
-    Extract = fun (Items) ->
-                      [{Key, Value} || {Key, Value, _} <- Items]
-              end,
+    Extract =
+        fun (Items) ->
+                [{Key, Value} || {Key, Value, _} <- Items]
+        end,
     case mgets(ClusterName, Keys, Timeout) of
-      {error, Reason, ProcessedKeyValues} ->
-          {error, Reason, Extract(ProcessedKeyValues)};
-      KeyValues ->
-          Extract(KeyValues)
+        {error, Reason, ProcessedKeyValues} ->
+            {error, Reason, Extract(ProcessedKeyValues)};
+        KeyValues ->
+            Extract(KeyValues)
     end.
 
 mget(ClusterName, Keys) ->
     mget(ClusterName, Keys, mero_conf:pool_timeout_read(ClusterName)).
 
--spec gets(ClusterName :: atom(),
-           Key :: mero_key(),
-           Timeout :: integer()) -> extended_result() | {error, Reason :: term()}.
+-spec gets(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
+              extended_result() | {error, Reason :: term()}.
 gets(ClusterName, Key, Timeout) ->
     case mgets(ClusterName, [Key], Timeout) of
-      {error, [Reason], []} ->
-          {error, Reason};
-      {error, _Reason, [Processed]} ->
-          Processed;
-      [Result] ->
-          Result;
-      [] ->
-          {Key, undefined, undefined}
+        {error, [Reason], []} ->
+            {error, Reason};
+        {error, _Reason, [Processed]} ->
+            Processed;
+        [Result] ->
+            Result;
+        [] ->
+            {Key, undefined, undefined}
     end.
 
 gets(ClusterName, Key) ->
     gets(ClusterName, Key, mero_conf:pool_timeout_read(ClusterName)).
 
--spec mgets(ClusterName :: atom(),
-            Keys :: [mero_key()],
-            Timeout :: integer()) -> [extended_result()] |
-                                     {error,
-                                      [Reason :: term()],
-                                      ProcessedKeyValues :: [extended_result()]}.
+-spec mgets(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
+               [extended_result()] |
+               {error, [Reason :: term()], ProcessedKeyValues :: [extended_result()]}.
 mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
-    Extract = fun (Items) ->
-                      [{Key, Value, CAS}
-                       || #mero_item{key = Key, value = Value, cas = CAS} <- Items]
-              end,
+    Extract =
+        fun (Items) ->
+                [{Key, Value, CAS} || #mero_item{key = Key, value = Value, cas = CAS} <- Items]
+        end,
     case mero_conn:get(ClusterName, Keys, Timeout) of
-      {error, Reason, ProcessedKeyValues} ->
-          {error, Reason, Extract(ProcessedKeyValues)};
-      KeyValues ->
-          Extract(KeyValues)
+        {error, Reason, ProcessedKeyValues} ->
+            {error, Reason, Extract(ProcessedKeyValues)};
+        KeyValues ->
+            Extract(KeyValues)
     end.
 
 mgets(ClusterName, Keys) ->
@@ -172,7 +145,8 @@ mgets(ClusterName, Keys) ->
           Key :: mero_key(),
           Value :: binary(),
           ExpTime :: integer(),
-          Timeout :: integer()) -> ok | {error, Reason :: term()}.
+          Timeout :: integer()) ->
+             ok | {error, Reason :: term()}.
 add(ClusterName, Key, Value, ExpTime, Timeout)
     when is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
@@ -180,9 +154,11 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
 
 -spec madd(ClusterName :: atom(),
            [{Key :: mero_key(), Value :: binary(), ExpTime :: integer()}],
-           Timeout :: integer()) -> [ok | {error, Reason :: term()}].
+           Timeout :: integer()) ->
+              [ok | {error, Reason :: term()}].
 madd(ClusterName, KVEs, Timeout) when is_atom(ClusterName) ->
-    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime))}
+    L =
+        [{Key, Value, list_to_binary(integer_to_list(ExpTime))}
          || {Key, Value, ExpTime} <- KVEs, is_binary(Key), is_binary(Value), is_integer(ExpTime)],
     mero_conn:madd(ClusterName, L, Timeout).
 
@@ -190,7 +166,8 @@ madd(ClusterName, KVEs, Timeout) when is_atom(ClusterName) ->
           Key :: mero_key(),
           Value :: binary(),
           ExpTime :: integer(),
-          Timeout :: integer()) -> ok | {error, Reason :: term()}.
+          Timeout :: integer()) ->
+             ok | {error, Reason :: term()}.
                                 % value is in seconds
 
 set(ClusterName, Key, Value, ExpTime, Timeout) ->
@@ -198,7 +175,8 @@ set(ClusterName, Key, Value, ExpTime, Timeout) ->
 
 -spec mset(ClusterName :: atom(),
            [{Key :: mero_key(), Value :: binary(), ExpTime :: integer()}],
-           Timeout :: integer()) -> [ok | {error, Reason :: term()}].
+           Timeout :: integer()) ->
+              [ok | {error, Reason :: term()}].
                                      % value is in seconds
 
 mset(ClusterName, KVEs, Timeout) ->
@@ -210,7 +188,8 @@ mset(ClusterName, KVEs, Timeout) ->
           Value :: binary(),
           ExpTime :: integer(),
           Timeout :: integer(),
-          CAS :: cas_token()) -> ok | {error, Reason :: term()}.
+          CAS :: cas_token()) ->
+             ok | {error, Reason :: term()}.
                                 % value is in seconds
 
 cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
@@ -221,12 +200,14 @@ cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
 
 -spec mcas(ClusterName :: atom(),
            [{Key :: mero_key(), Value :: binary(), ExpTime :: integer(), CAS :: cas_token()}],
-           Timeout :: integer()) -> [ok | {error, Reason :: term()}].
+           Timeout :: integer()) ->
+              [ok | {error, Reason :: term()}].
                                    % value is in seconds
 
 mcas(ClusterName, KVECs, Timeout) when is_atom(ClusterName) ->
     %% note: if CAS is undefined, the corresponding set will be unconditional.
-    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
+    L =
+        [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
          || {Key, Value, ExpTime, CAS} <- KVECs,
             is_binary(Key),
             is_binary(Value),
@@ -235,8 +216,8 @@ mcas(ClusterName, KVECs, Timeout) when is_atom(ClusterName) ->
 
 %% @doc: Increments a counter: initial value is 1, steps of 1, timeout defaults to 24 hours.
 %%    3 retries.
--spec increment_counter(ClusterName :: atom(), Key :: mero_key()) -> {ok, integer()} |
-                                                                     {error, Reason :: term()}.
+-spec increment_counter(ClusterName :: atom(), Key :: mero_key()) ->
+                           {ok, integer()} | {error, Reason :: term()}.
 increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
     increment_counter(ClusterName,
                       Key,
@@ -252,7 +233,8 @@ increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
                         Initial :: integer(),
                         ExpTime :: integer(),
                         Retries :: integer(),
-                        Timeout :: integer()) -> {ok, integer()} | {error, Reason :: term()}.
+                        Timeout :: integer()) ->
+                           {ok, integer()} | {error, Reason :: term()}.
 increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
     when is_integer(Value),
          is_integer(ExpTime),
@@ -270,8 +252,8 @@ increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
                                 Retries,
                                 Timeout).
 
--spec mincrement_counter(ClusterName :: atom(), Key :: [mero_key()]) -> ok |
-                                                                        {error, Reason :: term()}.
+-spec mincrement_counter(ClusterName :: atom(), Key :: [mero_key()]) ->
+                            ok | {error, Reason :: term()}.
 mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) ->
     mincrement_counter(ClusterName,
                        Keys,
@@ -287,7 +269,8 @@ mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) -
                          Initial :: integer(),
                          ExpTime :: integer(),
                          Retries :: integer(),
-                         Timeout :: integer()) -> ok | {error, Reason :: term()}.
+                         Timeout :: integer()) ->
+                            ok | {error, Reason :: term()}.
 mincrement_counter(ClusterName, Keys, Value, Initial, ExpTime, Retries, Timeout)
     when is_list(Keys),
          is_integer(Value),
@@ -306,9 +289,8 @@ mincrement_counter(ClusterName, Keys, Value, Initial, ExpTime, Retries, Timeout)
                                  Retries,
                                  Timeout).
 
--spec delete(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) -> ok |
-                                                                                {error,
-                                                                                 Reason :: term()}.
+-spec delete(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->
+                ok | {error, Reason :: term()}.
 delete(ClusterName, Key, Timeout) when is_atom(ClusterName) ->
     mero_conn:delete(ClusterName, Key, Timeout).
 
@@ -351,13 +333,14 @@ shard_crc32(Key, ShardSize) ->
 
 %% @doc: Returns the state of the sockets of a Cluster
 state(ClusterName) ->
-    ZeroState = [{links, 0},
-                 {monitors, 0},
-                 {free, 0},
-                 {connected, 0},
-                 {connecting, 0},
-                 {failed, 0},
-                 {message_queue_len, 0}],
+    ZeroState =
+        [{links, 0},
+         {monitors, 0},
+         {free, 0},
+         {connected, 0},
+         {connecting, 0},
+         {failed, 0},
+         {message_queue_len, 0}],
     lists:foldr(fun ({_, _, Pool, _}, Acc) ->
                         inc_state(mero_pool:state(Pool), Acc)
                 end,
@@ -383,7 +366,8 @@ inc_state(St, Acc) ->
               Acc).
 
 deep_state(ClusterName) ->
-    F = fun ({_, _, Pool, _}, Acc) ->
+    F =
+        fun ({_, _, Pool, _}, Acc) ->
                 St = mero_pool:state(Pool),
                 [[{pool, Pool} | St] | Acc]
         end,

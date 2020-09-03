@@ -32,13 +32,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--export([all/0,
-         init_per_testcase/2,
-         end_per_testcase/2,
-         mero_get_not_found/1,
-         mero_get_found/1,
-         mero_set/1,
-         mero_mget/1]).
+-export([all/0, init_per_testcase/2, end_per_testcase/2, mero_get_not_found/1,
+         mero_get_found/1, mero_set/1, mero_mget/1]).
 -export([stats/1]).
 
 all() ->
@@ -94,22 +89,22 @@ end_per_testcase(_, _Conf) ->
 %% Return up to L of the remaining bytes in buffer in each call.
 fake_network_recv(Buffer, L) ->
     receive
-      {read, Pid} ->
-          case Buffer of
-            <<B:L/binary, Rest/binary>> ->
-                Pid ! {ok, B},
-                fake_network_recv(Rest, L);
-            _ ->
-                Pid ! {ok, Buffer},
-                fake_network_recv(<<>>, L)
-          end
+        {read, Pid} ->
+            case Buffer of
+                <<B:L/binary, Rest/binary>> ->
+                    Pid ! {ok, B},
+                    fake_network_recv(Rest, L);
+                _ ->
+                    Pid ! {ok, Buffer},
+                    fake_network_recv(<<>>, L)
+            end
     end.
 
 network_read(Pid) ->
     Pid ! {read, self()},
     receive
-      {ok, B} ->
-          {ok, B}
+        {ok, B} ->
+            {ok, B}
     end.
 
 stats(Metric) ->
@@ -119,17 +114,17 @@ test_response_parsing(Buffer, ExpectedResult, {MemcachedOp, MemcachedOpArgs}) ->
     %% Reads from the buffer in different chunk sizes, to exercise the buffering done
     %% on mero_wrk_tcp_binary.  Check that the parsed result is the expected one.
     lists:foreach(fun (ReadSize) ->
-                          FakeNetwork = spawn_link(fun () ->
-                                                           fake_network_recv(Buffer, ReadSize)
-                                                   end),
+                          FakeNetwork =
+                              spawn_link(fun () ->
+                                                 fake_network_recv(Buffer, ReadSize)
+                                         end),
                           meck:expect(gen_tcp,
                                       recv,
                                       fun (_, 0, _Timeout) ->
                                               network_read(FakeNetwork)
                                       end),
-                          {ok, Client} = mero_wrk_tcp_binary:connect("localhost",
-                                                                     5000,
-                                                                     {?MODULE, stats, []}),
+                          {ok, Client} =
+                              mero_wrk_tcp_binary:connect("localhost", 5000, {?MODULE, stats, []}),
                           ?assertMatch({Client, ExpectedResult},
                                        mero_wrk_tcp_binary:transaction(Client,
                                                                        MemcachedOp,

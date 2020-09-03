@@ -36,15 +36,8 @@
 -behaviour(gen_server).
 
 %%% Macros
--export([start_link/1,
-         stop/1,
-         reset/1,
-         init/1,
-         handle_call/3,
-         handle_cast/2,
-         handle_info/2,
-         code_change/3,
-         terminate/2]).
+-export([start_link/1, stop/1, reset/1, init/1, handle_call/3, handle_cast/2,
+         handle_info/2, code_change/3, terminate/2]).
 -export([accept/4]).
 
 -define(TCP_SEND_TIMEOUT, 15000).
@@ -65,9 +58,9 @@ stop(Pid) when is_pid(Pid) ->
     MRef = erlang:monitor(process, Pid),
     gen_server:call(Pid, stop),
     receive
-      {'DOWN', MRef, _, Object, Info} ->
-          ct:pal("server ~p stopped ~p: ~p", [Object, whereis(?MODULE), Info]),
-          ok
+        {'DOWN', MRef, _, Object, Info} ->
+            ct:pal("server ~p stopped ~p: ~p", [Object, whereis(?MODULE), Info]),
+            ok
     end;
 stop(Port) when is_integer(Port) ->
     Name = name(Port),
@@ -84,13 +77,14 @@ handle_call({put_key, Port, Key, undefined, _}, _From, #state{keys = Keys} = Sta
     {reply, ok, State#state{keys = NKeys}};
 handle_call({put_key, Port, Key, Value, CAS}, _From, #state{keys = Keys} = State) ->
     ct:log("~p setting key ~p (cas: ~p)", [Port, Key, CAS]),
-    ActualCAS = case CAS of
-                  undefined ->
-                      {Mega, Sec, Micro} = os:timestamp(),
-                      Mega + Sec + Micro;
-                  _ ->
-                      CAS
-                end,
+    ActualCAS =
+        case CAS of
+            undefined ->
+                {Mega, Sec, Micro} = os:timestamp(),
+                Mega + Sec + Micro;
+            _ ->
+                CAS
+        end,
     NKeys = lists:keystore({Port, Key}, 1, Keys, {{Port, Key}, {Value, ActualCAS}}),
     ct:log("new keys: ~p", [NKeys]),
     {reply, ok, State#state{keys = NKeys}};
@@ -98,12 +92,13 @@ handle_call({get_key, Port, Key}, _From, #state{keys = Keys} = State) ->
     {reply, {ok, proplists:get_value({Port, Key}, Keys)}, State};
 handle_call({flush_all, Port}, _From, #state{keys = Keys} = State) ->
     ct:log("~p flushing all keys", [Port]),
-    NKeys = lists:filter(fun ({{KeyPort, _}, _}) when KeyPort == Port ->
-                                 false;
-                             (_) ->
-                                 true
-                         end,
-                         Keys),
+    NKeys =
+        lists:filter(fun ({{KeyPort, _}, _}) when KeyPort == Port ->
+                             false;
+                         (_) ->
+                             true
+                     end,
+                     Keys),
     ct:log("new keys: ~p", [NKeys]),
     {reply, ok, State#state{keys = NKeys}};
 handle_call(stop, _From, State) ->
@@ -128,13 +123,13 @@ code_change(_, _, State) ->
 init([Port, Opts]) ->
     process_flag(trap_exit, true),
     case listen(Port, Opts) of
-      {ok, ListenSocket} ->
-          ct:pal("memcached mocked server started on port ~p", [Port]),
-          start_acceptor([self(), Port, ListenSocket, Opts]),
-          {ok, #state{listen_socket = ListenSocket, opts = Opts}};
-      {error, Reason} ->
-          ct:pal("memcached dummy server error: ~p", [Reason]),
-          {stop, Reason}
+        {ok, ListenSocket} ->
+            ct:pal("memcached mocked server started on port ~p", [Port]),
+            start_acceptor([self(), Port, ListenSocket, Opts]),
+            {ok, #state{listen_socket = ListenSocket, opts = Opts}};
+        {error, Reason} ->
+            ct:pal("memcached dummy server error: ~p", [Reason]),
+            {stop, Reason}
     end.
 
 start_acceptor(Args) ->
@@ -154,25 +149,25 @@ listen(Port, SockOpts) ->
 
 accept(Parent, Port, ListenSocket, Opts) ->
     try
-      link(Parent)
+        link(Parent)
     catch
-      error:noproc ->
-          exit(normal)
+        error:noproc ->
+            exit(normal)
     end,
     put('$ancestors', tl(get('$ancestors'))),
     start_accept(Parent, Port, ListenSocket, Opts).
 
 start_accept(Parent, Port, ListenSocket, Opts) ->
     case gen_tcp:accept(ListenSocket) of
-      {ok, Socket} ->
-          unlink(Parent),
-          start_acceptor([Parent, Port, ListenSocket, Opts]),
-          loop(Parent, Socket, Port, Opts);
-      {error, closed} ->
-          unlink(Parent),
-          exit(normal);
-      {error, _Reason} ->
-          start_accept(Parent, Port, ListenSocket, Opts)
+        {ok, Socket} ->
+            unlink(Parent),
+            start_acceptor([Parent, Port, ListenSocket, Opts]),
+            loop(Parent, Socket, Port, Opts);
+        {error, closed} ->
+            unlink(Parent),
+            exit(normal);
+        {error, _Reason} ->
+            start_accept(Parent, Port, ListenSocket, Opts)
     end.
 
 loop(Parent, Sock, Port, Opts) ->
@@ -180,11 +175,11 @@ loop(Parent, Sock, Port, Opts) ->
 
 loop(Parent, Sock, Port, Opts, Buf) ->
     case gen_tcp:recv(Sock, 0) of
-      {ok, Data} ->
-          handle_data(Parent, Sock, Port, <<Buf/binary, Data/binary>>),
-          loop(Parent, Sock, Port, Opts, Buf);
-      {error, _Reason} = Error ->
-          Error
+        {ok, Data} ->
+            handle_data(Parent, Sock, Port, <<Buf/binary, Data/binary>>),
+            loop(Parent, Sock, Port, Opts, Buf);
+        {error, _Reason} = Error ->
+            Error
     end.
 
 %%%-----------------------------------------------------------------------------
@@ -198,10 +193,10 @@ handle_data(Parent, Sock, Port, Data) ->
     send(Sock, iolist_to_binary(Response)),
     %% this assumes any remaining buffered data includes only complete requests.
     case Unparsed of
-      <<>> ->
-          ok;
-      _ ->
-          handle_data(Parent, Sock, Port, Unparsed)
+        <<>> ->
+            ok;
+        _ ->
+            handle_data(Parent, Sock, Port, Unparsed)
     end.
 
 %% We send one byte at a time to test that we are handling package split correctly
@@ -398,27 +393,28 @@ text_response_get_keys(_Parent, _Port, [], Acc, _WithCas) ->
     [Acc, "END\r\n"];
 text_response_get_keys(Parent, Port, [Key | Keys], Acc, WithCas) ->
     case get_key(Parent, Port, Key) of
-      undefined ->
-          text_response_get_keys(Parent, Port, Keys, Acc, WithCas);
-      {Value, CAS} ->
-          LValue = mero_util:to_bin(Value),
-          NBytes = size(LValue),
-          NAcc = [Acc,
-                  "VALUE",
-                  " ",
-                  mero_util:to_bin(Key),
-                  " 00 ",
-                  mero_util:to_bin(NBytes),
-                  case WithCas of
-                    true ->
-                        [" ", mero_util:to_bin(CAS)];
-                    _ ->
-                        ""
-                  end,
-                  "\r\n",
-                  mero_util:to_bin(LValue),
-                  "\r\n"],
-          text_response_get_keys(Parent, Port, Keys, NAcc, WithCas)
+        undefined ->
+            text_response_get_keys(Parent, Port, Keys, Acc, WithCas);
+        {Value, CAS} ->
+            LValue = mero_util:to_bin(Value),
+            NBytes = size(LValue),
+            NAcc =
+                [Acc,
+                 "VALUE",
+                 " ",
+                 mero_util:to_bin(Key),
+                 " 00 ",
+                 mero_util:to_bin(NBytes),
+                 case WithCas of
+                     true ->
+                         [" ", mero_util:to_bin(CAS)];
+                     _ ->
+                         ""
+                 end,
+                 "\r\n",
+                 mero_util:to_bin(LValue),
+                 "\r\n"],
+            text_response_get_keys(Parent, Port, Keys, NAcc, WithCas)
     end.
 
 %% NOTE: This is not correct. Right now we don't distinguish between multiple
@@ -426,24 +422,26 @@ text_response_get_keys(Parent, Port, [Key | Keys], Acc, WithCas) ->
 binary_response_get_keys(_Parent, _Port, [], Acc, _WithCas) ->
     Acc;
 binary_response_get_keys(Parent, Port, [{Op, Key} | Keys], Acc, WithCas) ->
-    {Status, Value, CAS} = case get_key(Parent, Port, Key) of
-                             undefined ->
-                                 {?NOT_FOUND, <<>>, undefined};
-                             {Val, StoredCAS} ->
-                                 {?NO_ERROR, Val, StoredCAS}
-                           end,
+    {Status, Value, CAS} =
+        case get_key(Parent, Port, Key) of
+            undefined ->
+                {?NOT_FOUND, <<>>, undefined};
+            {Val, StoredCAS} ->
+                {?NO_ERROR, Val, StoredCAS}
+        end,
     LValue = mero_util:to_bin(Value),
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     BodyOut = <<ExtrasOut/binary, Key/binary, LValue/binary>>,
     BodySizeOut = size(BodyOut),
     KeySize = size(Key),
-    CASValue = case CAS of
-                 undefined ->
-                     0;
-                 _ ->
-                     CAS
-               end,
+    CASValue =
+        case CAS of
+            undefined ->
+                0;
+            _ ->
+                CAS
+        end,
     binary_response_get_keys(Parent,
                              Port,
                              Keys,
@@ -468,116 +466,115 @@ response(Parent, Port, Request) ->
                           put_key(Parent, Port, K, undefined)
                   end,
                   DeleteKeys),
-    Response = case {Kind, Cmd} of
-                 {Kind, flush_all} ->
-                     flush_all(Parent, Port),
-                     canned_responses(Kind, undefined, undefined, ?MEMCACHE_FLUSH_ALL, flushed);
-                 {Kind, {get, Keys}} ->
-                     case Kind of
-                       text ->
-                           text_response_get_keys(Parent, Port, Keys, [], false);
-                       binary ->
-                           binary_response_get_keys(Parent, Port, Keys, [], false)
-                     end;
-                 {Kind, {gets, Keys}} ->
-                     case Kind of
-                       text ->
-                           R = text_response_get_keys(Parent, Port, Keys, [], true),
-                           ct:log("gets result: ~p", [iolist_to_binary(R)]),
-                           R;
-                       binary ->
-                           binary_response_get_keys(Parent, Port, Keys, [], true)
-                     end;
-                 {_Kind, {set, Key, Bytes, _Index, true = _Quiet}} ->
-                     put_key(Parent, Port, Key, Bytes),
-                     <<>>;
-                 {Kind, {set, Key, Bytes, Index, false}} ->
-                     put_key(Parent, Port, Key, Bytes),
-                     canned_responses(Kind, Index, Key, ?MEMCACHE_SET, stored);
-                 {Kind, {cas, Key, Bytes, CAS, Index, Quiet}} ->
-                     Op = case Quiet of
+    Response =
+        case {Kind, Cmd} of
+            {Kind, flush_all} ->
+                flush_all(Parent, Port),
+                canned_responses(Kind, undefined, undefined, ?MEMCACHE_FLUSH_ALL, flushed);
+            {Kind, {get, Keys}} ->
+                case Kind of
+                    text ->
+                        text_response_get_keys(Parent, Port, Keys, [], false);
+                    binary ->
+                        binary_response_get_keys(Parent, Port, Keys, [], false)
+                end;
+            {Kind, {gets, Keys}} ->
+                case Kind of
+                    text ->
+                        R = text_response_get_keys(Parent, Port, Keys, [], true),
+                        ct:log("gets result: ~p", [iolist_to_binary(R)]),
+                        R;
+                    binary ->
+                        binary_response_get_keys(Parent, Port, Keys, [], true)
+                end;
+            {_Kind, {set, Key, Bytes, _Index, true = _Quiet}} ->
+                put_key(Parent, Port, Key, Bytes),
+                <<>>;
+            {Kind, {set, Key, Bytes, Index, false}} ->
+                put_key(Parent, Port, Key, Bytes),
+                canned_responses(Kind, Index, Key, ?MEMCACHE_SET, stored);
+            {Kind, {cas, Key, Bytes, CAS, Index, Quiet}} ->
+                Op =
+                    case Quiet of
+                        true ->
+                            ?MEMCACHE_SETQ;
+                        false ->
+                            ?MEMCACHE_SET
+                    end,
+                case get_key(Parent, Port, Key) of
+                    undefined ->
+                        ct:log("cas of non-existent key ~p", [Key]),
+                        canned_responses(Kind, Index, Key, Op, not_found);
+                    {_, CAS} ->
+                        ct:log("cas of existing key ~p with correct token ~p", [Key, CAS]),
+                        put_key(Parent, Port, Key, Bytes, CAS + 1),
+                        case Quiet of
                             true ->
-                                ?MEMCACHE_SETQ;
+                                <<>>;
                             false ->
-                                ?MEMCACHE_SET
-                          end,
-                     case get_key(Parent, Port, Key) of
-                       undefined ->
-                           ct:log("cas of non-existent key ~p", [Key]),
-                           canned_responses(Kind, Index, Key, Op, not_found);
-                       {_, CAS} ->
-                           ct:log("cas of existing key ~p with correct token ~p", [Key, CAS]),
-                           put_key(Parent, Port, Key, Bytes, CAS + 1),
-                           case Quiet of
-                             true ->
-                                 <<>>;
-                             false ->
-                                 canned_responses(Kind, Index, Key, Op, stored)
-                           end;
-                       {_, ExpectedCAS} ->
-                           ct:log("cas of existing key ~p with incorrect token ~p (wanted ~p)",
-                                  [Key, CAS, ExpectedCAS]),
-                           canned_responses(Kind, Index, Key, Op, already_exists)
-                     end;
-                 {Kind, {delete, Key}} ->
-                     ct:log("deleting ~p", [Key]),
-                     case get_key(Parent, Port, Key) of
-                       undefined ->
-                           ct:log("was not present"),
-                           canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, not_found);
-                       {_Value, _} ->
-                           ct:log("key was present"),
-                           put_key(Parent, Port, Key, undefined, undefined),
-                           canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, deleted)
-                     end;
-                 {Kind, {add, Key, Bytes, Index, Quiet}} ->
-                     Op = case Quiet of
+                                canned_responses(Kind, Index, Key, Op, stored)
+                        end;
+                    {_, ExpectedCAS} ->
+                        ct:log("cas of existing key ~p with incorrect token ~p (wanted ~p)",
+                               [Key, CAS, ExpectedCAS]),
+                        canned_responses(Kind, Index, Key, Op, already_exists)
+                end;
+            {Kind, {delete, Key}} ->
+                ct:log("deleting ~p", [Key]),
+                case get_key(Parent, Port, Key) of
+                    undefined ->
+                        ct:log("was not present"),
+                        canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, not_found);
+                    {_Value, _} ->
+                        ct:log("key was present"),
+                        put_key(Parent, Port, Key, undefined, undefined),
+                        canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, deleted)
+                end;
+            {Kind, {add, Key, Bytes, Index, Quiet}} ->
+                Op =
+                    case Quiet of
+                        true ->
+                            ?MEMCACHE_ADDQ;
+                        false ->
+                            ?MEMCACHE_ADD
+                    end,
+                case get_key(Parent, Port, Key) of
+                    undefined ->
+                        put_key(Parent, Port, Key, Bytes, undefined),
+                        case Quiet of
                             true ->
-                                ?MEMCACHE_ADDQ;
+                                <<>>;
                             false ->
-                                ?MEMCACHE_ADD
-                          end,
-                     case get_key(Parent, Port, Key) of
-                       undefined ->
-                           put_key(Parent, Port, Key, Bytes, undefined),
-                           case Quiet of
-                             true ->
-                                 <<>>;
-                             false ->
-                                 canned_responses(Kind, Index, Key, Op, stored)
-                           end;
-                       {_Value, _} ->
-                           canned_responses(Kind, Index, Key, Op, already_exists)
-                     end;
-                 {Kind, {incr, Key, ExpTime, Initial, Bytes}} ->
-                     case get_key(Parent, Port, Key) of
-                       undefined ->
-                           %% Return error
-                           case ExpTime of
-                             4294967295 -> %% 32 bits, all 1
-                                 canned_responses(Kind,
-                                                  undefined,
-                                                  Key,
-                                                  ?MEMCACHE_INCREMENT,
-                                                  not_found);
-                             _ ->
-                                 put_key(Parent, Port, Key, Initial),
-                                 canned_responses(Kind,
-                                                  undefined,
-                                                  Key,
-                                                  ?MEMCACHE_INCREMENT,
-                                                  {incr, Initial})
-                           end;
-                       {Value, _} ->
-                           Result = mero_util:to_int(Value) + mero_util:to_int(Bytes),
-                           put_key(Parent, Port, Key, Result),
-                           canned_responses(Kind,
-                                            undefined,
-                                            Key,
-                                            ?MEMCACHE_INCREMENT,
-                                            {incr, Result})
-                     end
-               end,
+                                canned_responses(Kind, Index, Key, Op, stored)
+                        end;
+                    {_Value, _} ->
+                        canned_responses(Kind, Index, Key, Op, already_exists)
+                end;
+            {Kind, {incr, Key, ExpTime, Initial, Bytes}} ->
+                case get_key(Parent, Port, Key) of
+                    undefined ->
+                        %% Return error
+                        case ExpTime of
+                            4294967295 -> %% 32 bits, all 1
+                                canned_responses(Kind,
+                                                 undefined,
+                                                 Key,
+                                                 ?MEMCACHE_INCREMENT,
+                                                 not_found);
+                            _ ->
+                                put_key(Parent, Port, Key, Initial),
+                                canned_responses(Kind,
+                                                 undefined,
+                                                 Key,
+                                                 ?MEMCACHE_INCREMENT,
+                                                 {incr, Initial})
+                        end;
+                    {Value, _} ->
+                        Result = mero_util:to_int(Value) + mero_util:to_int(Bytes),
+                        put_key(Parent, Port, Key, Result),
+                        canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, {incr, Result})
+                end
+        end,
     {Response, Unparsed}.
 
 %%% Parse
@@ -645,10 +642,10 @@ parse_binary(<<16#80:8,
     ValueSize = BodySize - ExtrasSize - KeySize,
     <<Value:ValueSize/binary, Remaining/binary>> = Rest,
     case CAS of
-      16#00 ->
-          {{[], {set, Key, Value, Index, Quiet}}, Remaining};
-      _ ->
-          {{[], {cas, Key, Value, CAS, Index, Quiet}}, Remaining}
+        16#00 ->
+            {{[], {set, Key, Value, Index, Quiet}}, Remaining};
+        _ ->
+            {{[], {cas, Key, Value, CAS, Index, Quiet}}, Remaining}
     end;
 parse_binary(<<16#80:8,
                Op:8,

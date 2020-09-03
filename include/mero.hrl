@@ -57,8 +57,8 @@
 -define(DEFAULT_TIMEOUT, 5000).
 -define(LOG_EVENT(MFA, KeyAndTags),
         begin
-          {StatModule, StatFunction, GlobalTags} = MFA,
-          apply(StatModule, StatFunction, [KeyAndTags ++ GlobalTags])
+            {StatModule, StatFunction, GlobalTags} = MFA,
+            apply(StatModule, StatFunction, [KeyAndTags ++ GlobalTags])
         end).
 -define(CALLBACK_CONTEXT(StatModule, StatFunction, ClusterName, Host, Port),
         {StatModule, StatFunction, [{cluster_name, ClusterName}, {host, Host}, {port, Port}]}).

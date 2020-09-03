@@ -33,17 +33,9 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--export([all/0,
-         init_per_testcase/2,
-         end_per_testcase/2,
-         start_stop/1,
-         start_stop_many/1,
-         checkout_checkin/1,
-         checkout_checkin_limits/1,
-         checkout_checkin_closed/1,
-         conn_failed_checkout_error/1,
-         checkout_and_die/1,
-         expire_connections/1,
+-export([all/0, init_per_testcase/2, end_per_testcase/2, start_stop/1, start_stop_many/1,
+         checkout_checkin/1, checkout_checkin_limits/1, checkout_checkin_closed/1,
+         conn_failed_checkout_error/1, checkout_and_die/1, expire_connections/1,
          checkout_timeout/1]).
 
 -define(POOL, mero_cluster_localhost_0_0).
@@ -268,10 +260,10 @@ checkout_and_die(_) ->
                        Parent ! done
                end),
     receive
-      done ->
-          mero_test_util:wait_for_pool_state(?POOL, 1, 1, 0, 0),
-          ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
-          mero_test_util:wait_for_pool_state(?POOL, 0, 1, 0, 0)
+        done ->
+            mero_test_util:wait_for_pool_state(?POOL, 1, 1, 0, 0),
+            ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
+            mero_test_util:wait_for_pool_state(?POOL, 0, 1, 0, 0)
     end.
 
 %% @doc Test that checkout the conn timeout, and the process dies.

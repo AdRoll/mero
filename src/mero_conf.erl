@@ -182,11 +182,11 @@ pool_max_connection_delay_time(Pool) ->
 -spec pool_min_connection_interval(Pool :: atom()) -> integer().
 pool_min_connection_interval(Pool) ->
     try
-      get_env_per_pool(min_connection_interval, Pool)
+        get_env_per_pool(min_connection_interval, Pool)
     catch
-      _:_ ->
-          %% Don't want to make this mandatory, but the rest are mandatory already.
-          undefined
+        _:_ ->
+            %% Don't want to make this mandatory, but the rest are mandatory already.
+            undefined
     end.
 
 -spec max_connection_delay_time(mero_conf_value(integer())) -> ok.
@@ -214,10 +214,10 @@ millis_to(TimeLimit) ->
 
 millis_to(TimeLimit, Then) ->
     case timer:now_diff(TimeLimit, Then) div 1000 of
-      N when N > 0 ->
-          N;
-      _ ->
-          0
+        N when N > 0 ->
+            N;
+        _ ->
+            0
     end.
 
 -spec process_server_specs(mero:cluster_config()) -> mero:cluster_config().
@@ -231,38 +231,39 @@ process_server_specs(Clusters) ->
 
 get_env(Key) ->
     case application:get_env(mero, Key) of
-      {ok, Value} ->
-          Value;
-      undefined ->
-          exit({undefined_configuration, Key})
+        {ok, Value} ->
+            Value;
+        undefined ->
+            exit({undefined_configuration, Key})
     end.
 
 get_env_per_pool(Key, Pool) ->
     case get_env(Key) of
-      {by_pool, Default, ByPool} ->
-          maps:get(Pool, ByPool, Default);
-      Value ->
-          Value
+        {by_pool, Default, ByPool} ->
+            maps:get(Pool, ByPool, Default);
+        Value ->
+            Value
     end.
 
 process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
     process_value({servers, {elasticache, [{ConfigEndpoint, ConfigPort, 1}]}});
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
-    HostsPorts = try
-                   rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
-                 catch
-                   _:badrpc ->
-                       % Fallback to sequential execution, mostly to get proper error descriptions
-                       lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
-                 end,
+    HostsPorts =
+        try
+            rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
+        catch
+            _:badrpc ->
+                % Fallback to sequential execution, mostly to get proper error descriptions
+                lists:map(fun get_elasticache_cluster_configs/1, ConfigList)
+        end,
     {servers, lists:flatten(HostsPorts)};
 process_value({servers, {mfa, {Module, Function, Args}}}) ->
     try erlang:apply(Module, Function, Args) of
-      {ok, HostsPorts} when is_list(HostsPorts) ->
-          {servers, HostsPorts}
+        {ok, HostsPorts} when is_list(HostsPorts) ->
+            {servers, HostsPorts}
     catch
-      Type:Reason ->
-          error({invalid_call, {Module, Function, Args}, {Type, Reason}})
+        Type:Reason ->
+            error({invalid_call, {Module, Function, Args}, {Type, Reason}})
     end;
 process_value(V) ->
     V.
