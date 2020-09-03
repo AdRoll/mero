@@ -47,7 +47,7 @@ all() ->
      non_heartbeat_messages_are_ignored].
 
 init_per_testcase(_, Conf) ->
-    meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, nolink]),
+    meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, no_link]),
     HostLinea =
         <<"a1.com|10.100.100.100|11112 ",
           "a2.com|10.101.101.00|11112 ",
