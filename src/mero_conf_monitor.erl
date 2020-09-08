@@ -65,18 +65,19 @@ init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
 -spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
 handle_info(heartbeat, State) ->
     program_heartbeat(),
-    NewState = try
-                 update_cluster_defs(State)
-               catch
-                 Kind:Desc:Stack ->
-                     error_logger:error_report([{error, mero_config_heartbeat_failed},
-                                                {kind, Kind},
-                                                {desc, Desc},
-                                                {stack, Stack},
-                                                {orig_config, State#state.orig_config},
-                                                {processed_config, State#state.processed_config}]),
-                     State
-               end,
+    NewState =
+        try
+            update_cluster_defs(State)
+        catch
+            Kind:Desc:Stack ->
+                error_logger:error_report([{error, mero_config_heartbeat_failed},
+                                           {kind, Kind},
+                                           {desc, Desc},
+                                           {stack, Stack},
+                                           {orig_config, State#state.orig_config},
+                                           {processed_config, State#state.processed_config}]),
+                State
+        end,
     {noreply, NewState};
 handle_info(_, State) ->
     {noreply, State}.
@@ -133,10 +134,11 @@ update_clusters([ClusterDef | OldClusterDefs],
 update_clusters([{ClusterName, OldAttrs} | OldClusterDefs],
                 [{ClusterName, NewAttrs} | NewClusterDefs]) ->
     OldServers = lists:sort(proplists:get_value(servers, OldAttrs)),
-    ok = case lists:sort(proplists:get_value(servers, NewAttrs)) of
-           OldServers ->
-               ok; %% Nothing of relevance changed
-           _ ->
-               mero_sup:restart_child(ClusterName)
-         end,
+    ok =
+        case lists:sort(proplists:get_value(servers, NewAttrs)) of
+            OldServers ->
+                ok; %% Nothing of relevance changed
+            _ ->
+                mero_sup:restart_child(ClusterName)
+        end,
     update_clusters(OldClusterDefs, NewClusterDefs).

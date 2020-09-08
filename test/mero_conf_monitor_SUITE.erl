@@ -32,12 +32,9 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
--export([conf_is_periodically_fetched/1,
-         cluster_is_restarted_when_new_nodes/1,
-         cluster_is_restarted_when_lost_nodes/1,
-         cluster_is_not_restarted_when_other_changes/1,
-         cluster_is_not_restarted_with_bad_info/1,
-         cluster_is_not_restarted_on_socket_error/1,
+-export([conf_is_periodically_fetched/1, cluster_is_restarted_when_new_nodes/1,
+         cluster_is_restarted_when_lost_nodes/1, cluster_is_not_restarted_when_other_changes/1,
+         cluster_is_not_restarted_with_bad_info/1, cluster_is_not_restarted_on_socket_error/1,
          non_heartbeat_messages_are_ignored/1]).
 
 all() ->
@@ -50,14 +47,16 @@ all() ->
      non_heartbeat_messages_are_ignored].
 
 init_per_testcase(_, Conf) ->
-    meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, nolink]),
-    HostLinea = <<"a1.com|10.100.100.100|11112 ",
-                  "a2.com|10.101.101.00|11112 ",
-                  "a3.com|10.102.00.102|11112\n">>,
+    meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, no_link]),
+    HostLinea =
+        <<"a1.com|10.100.100.100|11112 ",
+          "a2.com|10.101.101.00|11112 ",
+          "a3.com|10.102.00.102|11112\n">>,
     HostLineb = <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>,
-    HostLinec = <<"c1.com|10.100.100.100|11112 ",
-                  "c2.com|10.101.101.00|11112 ",
-                  "c3.com|10.102.00.102|11112 c4.com|10.102.00.102|11112\n">>,
+    HostLinec =
+        <<"c1.com|10.100.100.100|11112 ",
+          "c2.com|10.101.101.00|11112 ",
+          "c3.com|10.102.00.102|11112 c4.com|10.102.00.102|11112\n">>,
     Lines = #{a => HostLinea, b => HostLineb, c => HostLinec},
     mock_elasticache(Lines),
 
@@ -98,13 +97,14 @@ cluster_is_restarted_when_new_nodes(_) ->
     ?assertEqual(Cluster2Children,
                  supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
     %% Cluster1 stays, Cluster2 adds a node
-    Lines = #{a =>
-                  <<"a1.com|10.100.100.100|11112 ",
-                    "a2.com|10.101.101.00|11112 ",
-                    "a3.com|10.102.00.102|11112\n">>,
-              b =>
-                  <<"b1.com|10.100.100.100|11212 ",
-                    "b2.com|10.101.101.00|11212 b3.com|10.102.00.102|11212\n">>},
+    Lines =
+        #{a =>
+              <<"a1.com|10.100.100.100|11112 ",
+                "a2.com|10.101.101.00|11112 ",
+                "a3.com|10.102.00.102|11112\n">>,
+          b =>
+              <<"b1.com|10.100.100.100|11212 ",
+                "b2.com|10.101.101.00|11212 b3.com|10.102.00.102|11212\n">>},
     mock_elasticache(Lines),
 
     %% Cluster1 remains the same, Cluster2 is rebuilt
@@ -136,8 +136,9 @@ cluster_is_restarted_when_lost_nodes(_) ->
     ?assertEqual(Cluster2Children,
                  supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
     %% Cluster2 stays, Cluster1 lost a node
-    Lines = #{a => <<"a1.com|10.100.100.100|11112 ", "a2.com|10.101.101.00|11112\n">>,
-              b => <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>},
+    Lines =
+        #{a => <<"a1.com|10.100.100.100|11112 ", "a2.com|10.101.101.00|11112\n">>,
+          b => <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>},
     mock_elasticache(Lines),
 
     %% Cluster1 remains the same, Cluster2 is rebuilt
@@ -169,11 +170,12 @@ cluster_is_not_restarted_when_other_changes(_) ->
     ?assertEqual(Cluster2Children,
                  supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
     %% servers are reordered in both clusters, but that's irrelevant for us
-    Lines = #{a =>
-                  <<"a2.com|10.101.101.00|11112 ",
-                    "a1.com|10.100.100.100|11112 ",
-                    "a3.com|10.102.00.102|11112\n">>,
-              b => <<"b2.com|10.101.101.00|11212 ", "b1.com|10.100.100.100|11212\n">>},
+    Lines =
+        #{a =>
+              <<"a2.com|10.101.101.00|11112 ",
+                "a1.com|10.100.100.100|11112 ",
+                "a3.com|10.102.00.102|11112\n">>,
+          b => <<"b2.com|10.101.101.00|11212 ", "b1.com|10.100.100.100|11212\n">>},
     mock_elasticache(Lines),
 
     %% Nothing Changed...

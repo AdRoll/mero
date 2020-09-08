@@ -93,28 +93,30 @@ groups() ->
        state_timeout]}].
 
 init_per_group(text_protocol, Config) ->
-    ClusterConfig = [{cluster,
-                      [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
-                       {sharding_algorithm, {mero, shard_phash2}},
-                       {workers_per_shard, 1},
-                       {pool_worker_module, mero_wrk_tcp_txt}]},
-                     {cluster2,
-                      [{servers, [{"localhost", 11300}]},
-                       {sharding_algorithm, {mero, shard_crc32}},
-                       {workers_per_shard, 1},
-                       {pool_worker_module, mero_wrk_tcp_txt}]}],
+    ClusterConfig =
+        [{cluster,
+          [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
+           {sharding_algorithm, {mero, shard_phash2}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_txt}]},
+         {cluster2,
+          [{servers, [{"localhost", 11300}]},
+           {sharding_algorithm, {mero, shard_crc32}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_txt}]}],
     [{cluster_config, ClusterConfig} | Config];
 init_per_group(binary_protocol, Config) ->
-    ClusterConfig = [{cluster,
-                      [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
-                       {sharding_algorithm, {mero, shard_phash2}},
-                       {workers_per_shard, 1},
-                       {pool_worker_module, mero_wrk_tcp_binary}]},
-                     {cluster2,
-                      [{servers, [{"localhost", 11300}]},
-                       {sharding_algorithm, {mero, shard_crc32}},
-                       {workers_per_shard, 1},
-                       {pool_worker_module, mero_wrk_tcp_binary}]}],
+    ClusterConfig =
+        [{cluster,
+          [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
+           {sharding_algorithm, {mero, shard_phash2}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_binary}]},
+         {cluster2,
+          [{servers, [{"localhost", 11300}]},
+           {sharding_algorithm, {mero, shard_crc32}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_binary}]}],
     [{cluster_config, ClusterConfig} | Config].
 
 end_per_group(_GroupName, _Config) ->
@@ -270,9 +272,8 @@ multiget_undefineds(_Conf) ->
 
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    Resp = mero:mget(cluster,
-                     [<<"11">>, <<"12">>, <<"13">>, <<"14">>, <<"15">>, <<"16">>],
-                     1000),
+    Resp =
+        mero:mget(cluster, [<<"11">>, <<"12">>, <<"13">>, <<"14">>, <<"15">>, <<"16">>], 1000),
     [{<<"11">>, undefined},
      {<<"12">>, undefined},
      {<<"13">>, undefined},
@@ -294,13 +295,14 @@ multiget_defineds(_Conf) ->
     ?assertMatch({ok, 3}, mero:increment_counter(cluster, <<"16">>)),
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    Expected = [{<<"11">>, <<"1">>},
-                {<<"12">>, <<"1">>},
-                {<<"13">>, <<"1">>},
-                {<<"14">>, <<"2">>},
-                {<<"15">>, <<"2">>},
-                {<<"16">>, <<"3">>},
-                {<<"17">>, undefined}],
+    Expected =
+        [{<<"11">>, <<"1">>},
+         {<<"12">>, <<"1">>},
+         {<<"13">>, <<"1">>},
+         {<<"14">>, <<"2">>},
+         {<<"15">>, <<"2">>},
+         {<<"16">>, <<"3">>},
+         {<<"17">>, undefined}],
     ?assertEqual(Expected,
                  lists:sort(mero:mget(cluster,
                                       [<<"11">>,
@@ -321,11 +323,12 @@ multiget_defineds_clustered_keys(_Conf) ->
     ?assertMatch({ok, 3}, mero:increment_counter(cluster, {<<"3">>, <<"16">>})),
     %% 13, 14 and 15 will go to the same server
     %% 11, 12 and 16 to a different one
-    Expected = [{<<"11">>, <<"1">>},
-                {<<"12">>, <<"1">>},
-                {<<"13">>, <<"1">>},
-                {<<"16">>, <<"3">>},
-                {<<"17">>, undefined}],
+    Expected =
+        [{<<"11">>, <<"1">>},
+         {<<"12">>, <<"1">>},
+         {<<"13">>, <<"1">>},
+         {<<"16">>, <<"3">>},
+         {<<"17">>, undefined}],
     ?assertEqual(Expected,
                  lists:sort(mero:mget(cluster,
                                       [{<<"1">>, <<"11">>},
@@ -394,23 +397,26 @@ madd(_) ->
     %% with one existing key, add new keys repeatedly, moving the
     %% position of the existing key each time:
     ExistingKey = key(),
-    MakeKeys = fun (Start, Count) ->
-                       [<<"key", (integer_to_binary(I))/binary>>
-                        || I <- lists:seq(Start, Start + Count - 1)]
-               end,
+    MakeKeys =
+        fun (Start, Count) ->
+                [<<"key", (integer_to_binary(I))/binary>>
+                 || I <- lists:seq(Start, Start + Count - 1)]
+        end,
     Total = 10,
     lists:foreach(fun ({Start, N}) ->
                           mero:flush_all(cluster),
                           ok = mero:add(cluster, ExistingKey, ExistingKey, 10000, 1000),
-                          Keys = MakeKeys(Start, N) ++
-                                   [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
-                          Expected = [case Key of
-                                        ExistingKey ->
-                                            {error, already_exists};
-                                        _ ->
-                                            ok
-                                      end
-                                      || Key <- Keys],
+                          Keys =
+                              MakeKeys(Start, N) ++
+                                  [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
+                          Expected =
+                              [case Key of
+                                   ExistingKey ->
+                                       {error, already_exists};
+                                   _ ->
+                                       ok
+                               end
+                               || Key <- Keys],
                           ?assertEqual(Expected,
                                        mero:madd(cluster,
                                                  [{Key, Key, 10000} || Key <- Keys],
@@ -433,14 +439,15 @@ mcas(_) ->
     await_connected(cluster),
     KVCs = mero:mgets(cluster, Keys, 5000),
     FailingKeys = [hd(Keys), lists:nth(length(Keys), Keys)],
-    {NUpdates, Expected} = lists:unzip([case lists:member(Key, FailingKeys) of
-                                          true ->
-                                              {{Key, <<"should not update">>, 10000, CAS + 1},
-                                               {error, already_exists}};
-                                          false ->
-                                              {{Key, <<Key/binary, Key/binary>>, 10000, CAS}, ok}
-                                        end
-                                        || {Key, _, CAS} <- KVCs]),
+    {NUpdates, Expected} =
+        lists:unzip([case lists:member(Key, FailingKeys) of
+                         true ->
+                             {{Key, <<"should not update">>, 10000, CAS + 1},
+                              {error, already_exists}};
+                         false ->
+                             {{Key, <<Key/binary, Key/binary>>, 10000, CAS}, ok}
+                     end
+                     || {Key, _, CAS} <- KVCs]),
     ?assertEqual(Expected, mero:mcas(cluster, NUpdates, 5000)).
 
 state_ok(_) ->
@@ -511,14 +518,15 @@ key() ->
 
 await_connected(Cluster) ->
     ct:log("waiting for free connections"),
-    Wait = fun W() ->
-                   State = mero:state(),
-                   case proplists:get_value(connected, proplists:get_value(Cluster, State)) of
-                     N when is_integer(N) andalso N > 1 ->
-                         ok;
-                     _ ->
-                         timer:sleep(100),
-                         W()
-                   end
-           end,
+    Wait =
+        fun W() ->
+                State = mero:state(),
+                case proplists:get_value(connected, proplists:get_value(Cluster, State)) of
+                    N when is_integer(N) andalso N > 1 ->
+                        ok;
+                    _ ->
+                        timer:sleep(100),
+                        W()
+                end
+        end,
     Wait().
