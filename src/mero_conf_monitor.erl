@@ -85,8 +85,8 @@ handle_info(_, State) ->
 %%%-----------------------------------------------------------------------------
 %%% Boilerplate Callbacks
 %%%-----------------------------------------------------------------------------
--spec handle_call(Msg, _From, State) -> {reply, {unknown_call, Msg}, State} when State ::
-                                                                                     state().
+-spec handle_call(Msg, _From, State) -> {reply, {unknown_call, Msg}, State}
+     when State :: state().
 handle_call(Msg, _From, State) ->
     {reply, {unknown_call, Msg}, State}.
 
@@ -98,7 +98,8 @@ handle_cast(_Msg, State) ->
 %%% Private Functions
 %%%-----------------------------------------------------------------------------
 program_heartbeat() ->
-    erlang:send_after(mero_conf:monitor_heartbeat_delay(), self(), heartbeat).
+    erlang:send_after(
+        mero_conf:monitor_heartbeat_delay(), self(), heartbeat).
 
 update_cluster_defs(#state{orig_config = OrigConfig} = State) ->
     update_cluster_defs(mero_conf:process_server_specs(OrigConfig), State).
@@ -133,9 +134,13 @@ update_clusters([ClusterDef | OldClusterDefs],
     update_clusters(OldClusterDefs, NewClusterDefs);
 update_clusters([{ClusterName, OldAttrs} | OldClusterDefs],
                 [{ClusterName, NewAttrs} | NewClusterDefs]) ->
-    OldServers = lists:sort(proplists:get_value(servers, OldAttrs)),
+    OldServers =
+        lists:sort(
+            proplists:get_value(servers, OldAttrs)),
     ok =
-        case lists:sort(proplists:get_value(servers, NewAttrs)) of
+        case lists:sort(
+                 proplists:get_value(servers, NewAttrs))
+        of
             OldServers ->
                 ok; %% Nothing of relevance changed
             _ ->

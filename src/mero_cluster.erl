@@ -249,13 +249,12 @@ key_to_storage_key(KeyPos, Item, Key) ->
 group_by_shards_(_ClusterName, [], _, Acc) ->
     Acc;
 group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
-    Key =
-        case KeyPos of
-            undefined ->
-                Item;
-            N when is_integer(N), N > 0 ->
-                element(N, Item)
-        end,
+    Key = case KeyPos of
+              undefined ->
+                  Item;
+              N when is_integer(N), N > 0 ->
+                  element(N, Item)
+          end,
     Identifier = shard_identifier(ClusterName, Key),
     Item2 = key_to_storage_key(KeyPos, Item, Key),
     case lists:keyfind(Identifier, 1, Acc) of
@@ -269,9 +268,9 @@ group_by_shards_(ClusterName, [Item | Items], KeyPos, Acc) ->
     end.
 
 worker_defs(ClusterConfig) ->
-    lists:foldl(fun (Cluster, Acc) ->
-                        Def = get_server_defs(Cluster),
-                        Acc ++ Def
+    lists:foldl(fun(Cluster, Acc) ->
+                   Def = get_server_defs(Cluster),
+                   Acc ++ Def
                 end,
                 [],
                 ClusterConfig).
@@ -283,21 +282,18 @@ get_server_defs({ClusterName, ClusterConfig}) ->
     SortedServers = lists:sort(Servers),
 
     {Elements, _} =
-        lists:foldl(fun ({Host, Port}, {Acc, ShardSizeAcc}) ->
-                            Elements =
-                                [begin
-                                     WorkerName =
-                                         worker_name(ClusterName,
-                                                     Host,
-                                                     ReplicationNumber,
-                                                     ShardSizeAcc),
-                                     {ClusterName,
-                                      ShardSizeAcc,
-                                      ReplicationNumber,
-                                      {ClusterName, Host, Port, WorkerName, WorkerModule}}
-                                 end
-                                 || ReplicationNumber <- lists:seq(0, Workers - 1)],
-                            {Acc ++ Elements, ShardSizeAcc + 1}
+        lists:foldl(fun({Host, Port}, {Acc, ShardSizeAcc}) ->
+                       Elements =
+                           [begin
+                                WorkerName =
+                                    worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
+                                {ClusterName,
+                                 ShardSizeAcc,
+                                 ReplicationNumber,
+                                 {ClusterName, Host, Port, WorkerName, WorkerModule}}
+                            end
+                            || ReplicationNumber <- lists:seq(0, Workers - 1)],
+                       {Acc ++ Elements, ShardSizeAcc + 1}
                     end,
                     {[], 0},
                     SortedServers),

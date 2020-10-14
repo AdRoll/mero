@@ -54,26 +54,10 @@ all() ->
 
 init_per_testcase(_, Conf) ->
     meck:new(gen_tcp, [unstick]),
-    meck:expect(gen_tcp,
-                connect,
-                fun (_, _, _) ->
-                        {ok, socket}
-                end),
-    meck:expect(gen_tcp,
-                controlling_process,
-                fun (_, _) ->
-                        ok
-                end),
-    meck:expect(gen_tcp,
-                close,
-                fun (_) ->
-                        ok
-                end),
-    meck:expect(gen_tcp,
-                send,
-                fun (_, _) ->
-                        ok
-                end),
+    meck:expect(gen_tcp, connect, fun(_, _, _) -> {ok, socket} end),
+    meck:expect(gen_tcp, controlling_process, fun(_, _) -> ok end),
+    meck:expect(gen_tcp, close, fun(_) -> ok end),
+    meck:expect(gen_tcp, send, fun(_, _) -> ok end),
     Conf.
 
 end_per_testcase(_, _Conf) ->
@@ -123,22 +107,17 @@ stats(Metric) ->
 test_response_parsing(Buffer, ExpectedResult, {MemcachedOp, MemcachedOpArgs}) ->
     %% Reads from the buffer in different chunk sizes, to exercise the buffering done
     %% on mero_wrk_tcp_binary.  Check that the parsed result is the expected one.
-    lists:foreach(fun (ReadSize) ->
-                          FakeNetwork =
-                              spawn_link(fun () ->
-                                                 fake_network_recv(Buffer, ReadSize)
-                                         end),
-                          meck:expect(gen_tcp,
-                                      recv,
-                                      fun (_, 0, _Timeout) ->
-                                              network_read(FakeNetwork)
-                                      end),
-                          {ok, Client} =
-                              mero_wrk_tcp_txt:connect("localhost", 5000, {?MODULE, stats, []}),
-                          ?assertMatch({Client, ExpectedResult},
-                                       mero_wrk_tcp_txt:transaction(Client,
-                                                                    MemcachedOp,
-                                                                    MemcachedOpArgs))
+    lists:foreach(fun(ReadSize) ->
+                     FakeNetwork = spawn_link(fun() -> fake_network_recv(Buffer, ReadSize) end),
+                     meck:expect(gen_tcp,
+                                 recv,
+                                 fun(_, 0, _Timeout) -> network_read(FakeNetwork) end),
+                     {ok, Client} =
+                         mero_wrk_tcp_txt:connect("localhost", 5000, {?MODULE, stats, []}),
+                     ?assertMatch({Client, ExpectedResult},
+                                  mero_wrk_tcp_txt:transaction(Client,
+                                                               MemcachedOp,
+                                                               MemcachedOpArgs))
                   end,
                   [10, 2, 1024]).
 

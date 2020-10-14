@@ -92,10 +92,7 @@ get(ClusterName, Key) ->
 -spec mget(ClusterName :: atom(), Keys :: [mero_key()], Timeout :: integer()) ->
               [result()] | {error, [Reason :: term()], ProcessedKeyValues :: [result()]}.
 mget(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
-    Extract =
-        fun (Items) ->
-                [{Key, Value} || {Key, Value, _} <- Items]
-        end,
+    Extract = fun(Items) -> [{Key, Value} || {Key, Value, _} <- Items] end,
     case mgets(ClusterName, Keys, Timeout) of
         {error, Reason, ProcessedKeyValues} ->
             {error, Reason, Extract(ProcessedKeyValues)};
@@ -128,8 +125,8 @@ gets(ClusterName, Key) ->
                {error, [Reason :: term()], ProcessedKeyValues :: [extended_result()]}.
 mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     Extract =
-        fun (Items) ->
-                [{Key, Value, CAS} || #mero_item{key = Key, value = Value, cas = CAS} <- Items]
+        fun(Items) ->
+           [{Key, Value, CAS} || #mero_item{key = Key, value = Value, cas = CAS} <- Items]
         end,
     case mero_conn:get(ClusterName, Keys, Timeout) of
         {error, Reason, ProcessedKeyValues} ->
@@ -157,8 +154,7 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
            Timeout :: integer()) ->
               [ok | {error, Reason :: term()}].
 madd(ClusterName, KVEs, Timeout) when is_atom(ClusterName) ->
-    L =
-        [{Key, Value, list_to_binary(integer_to_list(ExpTime))}
+    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime))}
          || {Key, Value, ExpTime} <- KVEs, is_binary(Key), is_binary(Value), is_integer(ExpTime)],
     mero_conn:madd(ClusterName, L, Timeout).
 
@@ -206,8 +202,7 @@ cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
 
 mcas(ClusterName, KVECs, Timeout) when is_atom(ClusterName) ->
     %% note: if CAS is undefined, the corresponding set will be unconditional.
-    L =
-        [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
+    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
          || {Key, Value, ExpTime, CAS} <- KVECs,
             is_binary(Key),
             is_binary(Value),
@@ -341,9 +336,7 @@ state(ClusterName) ->
          {connecting, 0},
          {failed, 0},
          {message_queue_len, 0}],
-    lists:foldr(fun ({_, _, Pool, _}, Acc) ->
-                        inc_state(mero_pool:state(Pool), Acc)
-                end,
+    lists:foldr(fun({_, _, Pool, _}, Acc) -> inc_state(mero_pool:state(Pool), Acc) end,
                 ZeroState,
                 mero_cluster:child_definitions(ClusterName)).
 
@@ -366,10 +359,9 @@ inc_state(St, Acc) ->
               Acc).
 
 deep_state(ClusterName) ->
-    F =
-        fun ({_, _, Pool, _}, Acc) ->
-                St = mero_pool:state(Pool),
-                [[{pool, Pool} | St] | Acc]
+    F = fun({_, _, Pool, _}, Acc) ->
+           St = mero_pool:state(Pool),
+           [[{pool, Pool} | St] | Acc]
         end,
     lists:foldr(F, [], mero_cluster:child_definitions(ClusterName)).
 

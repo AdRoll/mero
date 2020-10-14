@@ -88,7 +88,7 @@ transaction(Client, increment_counter, [Key, Value, Initial, ExpTime, TimeLimit]
     case send_receive(Client,
                       {?MEMCACHE_INCREMENT, {Key, Value, Initial, ExpTime}},
                       TimeLimit)
-        of
+    of
         {error, Reason} ->
             {error, Reason};
         {ok, {error, Reason}} ->
@@ -371,11 +371,7 @@ async_mget(Client, Keys) ->
 async_delete(Client, Keys) ->
     try
         {ok,
-         lists:foldl(fun (K, ok) ->
-                             send(Client, pack({?MEMCACHE_DELETEQ, {K}}))
-                     end,
-                     ok,
-                     Keys)}
+         lists:foldl(fun(K, ok) -> send(Client, pack({?MEMCACHE_DELETEQ, {K}})) end, ok, Keys)}
     catch
         {failed, Reason} ->
             {error, Reason}
@@ -384,9 +380,8 @@ async_delete(Client, Keys) ->
 async_increment(Client, Keys) ->
     try
         {ok,
-         lists:foreach(fun ({K, Value, Initial, ExpTime}) ->
-                               send(Client,
-                                    pack({?MEMCACHE_INCREMENTQ, {K, Value, Initial, ExpTime}}))
+         lists:foreach(fun({K, Value, Initial, ExpTime}) ->
+                          send(Client, pack({?MEMCACHE_INCREMENTQ, {K, Value, Initial, ExpTime}}))
                        end,
                        Keys)}
     catch

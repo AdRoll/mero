@@ -304,15 +304,16 @@ multiget_defineds(_Conf) ->
          {<<"16">>, <<"3">>},
          {<<"17">>, undefined}],
     ?assertEqual(Expected,
-                 lists:sort(mero:mget(cluster,
-                                      [<<"11">>,
-                                       <<"12">>,
-                                       <<"13">>,
-                                       <<"14">>,
-                                       <<"15">>,
-                                       <<"16">>,
-                                       <<"17">>],
-                                      1000))).
+                 lists:sort(
+                     mero:mget(cluster,
+                               [<<"11">>,
+                                <<"12">>,
+                                <<"13">>,
+                                <<"14">>,
+                                <<"15">>,
+                                <<"16">>,
+                                <<"17">>],
+                               1000))).
 
 multiget_defineds_clustered_keys(_Conf) ->
     ?assertMatch({ok, 1}, mero:increment_counter(cluster, {<<"1">>, <<"11">>})),
@@ -330,13 +331,14 @@ multiget_defineds_clustered_keys(_Conf) ->
          {<<"16">>, <<"3">>},
          {<<"17">>, undefined}],
     ?assertEqual(Expected,
-                 lists:sort(mero:mget(cluster,
-                                      [{<<"1">>, <<"11">>},
-                                       {<<"2">>, <<"12">>},
-                                       {<<"3">>, <<"13">>},
-                                       {<<"3">>, <<"16">>},
-                                       {<<"3">>, <<"17">>}],
-                                      1000))).
+                 lists:sort(
+                     mero:mget(cluster,
+                               [{<<"1">>, <<"11">>},
+                                {<<"2">>, <<"12">>},
+                                {<<"3">>, <<"13">>},
+                                {<<"3">>, <<"16">>},
+                                {<<"3">>, <<"17">>}],
+                               1000))).
 
 increment(_Conf) ->
     ?assertMatch({<<"11">>, undefined}, mero:get(cluster, <<"11">>)),
@@ -398,31 +400,26 @@ madd(_) ->
     %% position of the existing key each time:
     ExistingKey = key(),
     MakeKeys =
-        fun (Start, Count) ->
-                [<<"key", (integer_to_binary(I))/binary>>
-                 || I <- lists:seq(Start, Start + Count - 1)]
+        fun(Start, Count) ->
+           [<<"key", (integer_to_binary(I))/binary>> || I <- lists:seq(Start, Start + Count - 1)]
         end,
     Total = 10,
-    lists:foreach(fun ({Start, N}) ->
-                          mero:flush_all(cluster),
-                          ok = mero:add(cluster, ExistingKey, ExistingKey, 10000, 1000),
-                          Keys =
-                              MakeKeys(Start, N) ++
-                                  [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
-                          Expected =
-                              [case Key of
-                                   ExistingKey ->
-                                       {error, already_exists};
-                                   _ ->
-                                       ok
-                               end
-                               || Key <- Keys],
-                          ?assertEqual(Expected,
-                                       mero:madd(cluster,
-                                                 [{Key, Key, 10000} || Key <- Keys],
-                                                 5000)),
-                          ?assertEqual(lists:keysort(1, [{Key, Key} || Key <- Keys]),
-                                       lists:keysort(1, mero:mget(cluster, Keys, 5000)))
+    lists:foreach(fun({Start, N}) ->
+                     mero:flush_all(cluster),
+                     ok = mero:add(cluster, ExistingKey, ExistingKey, 10000, 1000),
+                     Keys =
+                         MakeKeys(Start, N) ++
+                             [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
+                     Expected =
+                         [case Key of
+                              ExistingKey -> {error, already_exists};
+                              _ -> ok
+                          end
+                          || Key <- Keys],
+                     ?assertEqual(Expected,
+                                  mero:madd(cluster, [{Key, Key, 10000} || Key <- Keys], 5000)),
+                     ?assertEqual(lists:keysort(1, [{Key, Key} || Key <- Keys]),
+                                  lists:keysort(1, mero:mget(cluster, Keys, 5000)))
                   end,
                   [{1, N} || N <- lists:seq(1, Total - 1)]).
 
@@ -459,7 +456,8 @@ state_ok(_) ->
                   {links, 3},
                   {message_queue_len, 0},
                   {monitors, 0}],
-                 lists:sort(proplists:get_value(cluster2, State))),
+                 lists:sort(
+                     proplists:get_value(cluster2, State))),
     ?assertEqual([{connected, 2},
                   {connecting, 0},
                   {failed, 0},
@@ -467,7 +465,8 @@ state_ok(_) ->
                   {links, 6},
                   {message_queue_len, 0},
                   {monitors, 0}],
-                 lists:sort(proplists:get_value(cluster, State))).
+                 lists:sort(
+                     proplists:get_value(cluster, State))).
 
 state_error(_) ->
     meck:expect(mero_pool, state, 1, {error, down}),
@@ -479,7 +478,8 @@ state_error(_) ->
                   {links, 0},
                   {message_queue_len, 0},
                   {monitors, 0}],
-                 lists:sort(proplists:get_value(cluster2, State))),
+                 lists:sort(
+                     proplists:get_value(cluster2, State))),
     ?assertEqual([{connected, 0},
                   {connecting, 0},
                   {failed, 0},
@@ -487,7 +487,8 @@ state_error(_) ->
                   {links, 0},
                   {message_queue_len, 0},
                   {monitors, 0}],
-                 lists:sort(proplists:get_value(cluster, State))).
+                 lists:sort(
+                     proplists:get_value(cluster, State))).
 
 state_timeout(_) ->
     meck:expect(mero_pool, state, 1, {error, timeout}),
@@ -499,7 +500,8 @@ state_timeout(_) ->
                   {links, 0},
                   {message_queue_len, 0},
                   {monitors, 0}],
-                 lists:sort(proplists:get_value(cluster2, State))),
+                 lists:sort(
+                     proplists:get_value(cluster2, State))),
     ?assertEqual([{connected, 0},
                   {connecting, 0},
                   {failed, 0},
@@ -507,14 +509,16 @@ state_timeout(_) ->
                   {links, 0},
                   {message_queue_len, 0},
                   {monitors, 0}],
-                 lists:sort(proplists:get_value(cluster, State))).
+                 lists:sort(
+                     proplists:get_value(cluster, State))).
 
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
 
 key() ->
-    base64:encode(crypto:strong_rand_bytes(20)).
+    base64:encode(
+        crypto:strong_rand_bytes(20)).
 
 await_connected(Cluster) ->
     ct:log("waiting for free connections"),

@@ -69,7 +69,7 @@ mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
                                   op_error = async_increment_error,
                                   response = async_blank_response,
                                   response_error = async_increment_response_error})
-        of
+    of
         {error, [not_supportable], _} ->
             {error, not_supportable};
         _Other ->
@@ -149,7 +149,9 @@ flush_all(Name, Timeout) ->
 
 mset_(Name, KVECs, Timeout, Op) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    Requests = lists:zip(lists:seq(1, length(KVECs)), KVECs),
+    Requests =
+        lists:zip(
+            lists:seq(1, length(KVECs)), KVECs),
     %% we number each request according to its original position so we can return results
     %% in the same order:
     NKVECs = [{N, Key, Value, ExpTime, CAS} || {N, {Key, Value, ExpTime, CAS}} <- Requests],
@@ -162,15 +164,13 @@ mset_(Name, KVECs, Timeout, Op) ->
                                       op_error = async_mset_error,
                                       response = async_mset_response,
                                       response_error = async_mset_response_error})
-            of
+        of
             {error, _ErrorsOut, ProcessedOut} ->
                 ProcessedOut;
             ProcessedOut ->
                 ProcessedOut
         end,
-    tuple_to_list(lists:foldl(fun ({N, Result}, Acc) ->
-                                      setelement(N, Acc, Result)
-                              end,
+    tuple_to_list(lists:foldl(fun({N, Result}, Acc) -> setelement(N, Acc, Result) end,
                               list_to_tuple(lists:duplicate(length(KVECs), {error, failed})),
                               Processed)).
 
@@ -179,7 +179,7 @@ increment_counter_timelimit(Name, Key, Value, Initial, ExpTime, Retries, TimeLim
                       increment_counter,
                       [Key, Value, Initial, ExpTime, TimeLimit],
                       TimeLimit)
-        of
+    of
         {ok, ActualValue} ->
             {ok, ActualValue};
         {error, _Reason} when Retries >= 1 ->
@@ -196,43 +196,41 @@ async_by_shard(Name,
                          response = AsyncOpResponse,
                          response_error = AsyncOpResponseError}) ->
     {Processed, Errors} =
-        lists:foldl(fun ({ShardIdentifier, Items}, {Processed, Errors}) ->
-                            begin
-                                PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
-                                case mero_pool:checkout(PoolName, TimeLimit) of
-                                    {ok, Conn} ->
-                                        case mero_pool:transaction(Conn, AsyncOp, [Items]) of
-                                            {error, Reason} ->
-                                                mero_pool:close(Conn, AsyncOpError),
-                                                mero_pool:checkin_closed(Conn),
-                                                {Processed, [Reason | Errors]};
-                                            {NConn, {error, Reason}} ->
-                                                mero_pool:checkin(NConn),
-                                                {Processed, [Reason | Errors]};
-                                            {NConn, ok} ->
-                                                {[{NConn, Items} | Processed], Errors}
-                                        end;
-                                    {error, Reason} ->
-                                        {Processed, [Reason | Errors]}
-                                end
-                            end
+        lists:foldl(fun({ShardIdentifier, Items}, {Processed, Errors}) ->
+                       begin
+                           PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
+                           case mero_pool:checkout(PoolName, TimeLimit) of
+                               {ok, Conn} ->
+                                   case mero_pool:transaction(Conn, AsyncOp, [Items]) of
+                                       {error, Reason} ->
+                                           mero_pool:close(Conn, AsyncOpError),
+                                           mero_pool:checkin_closed(Conn),
+                                           {Processed, [Reason | Errors]};
+                                       {NConn, {error, Reason}} ->
+                                           mero_pool:checkin(NConn),
+                                           {Processed, [Reason | Errors]};
+                                       {NConn, ok} -> {[{NConn, Items} | Processed], Errors}
+                                   end;
+                               {error, Reason} -> {Processed, [Reason | Errors]}
+                           end
+                       end
                     end,
                     {[], []},
                     ItemsGroupedByShards),
     {ProcessedOut, ErrorsOut} =
-        lists:foldl(fun ({Conn, Items}, {ProcessedIn, ErrorsIn}) ->
-                            case mero_pool:transaction(Conn, AsyncOpResponse, [Items, TimeLimit]) of
-                                {error, Reason} ->
-                                    mero_pool:close(Conn, AsyncOpResponseError),
-                                    mero_pool:checkin_closed(Conn),
-                                    {ProcessedIn, [Reason | ErrorsIn]};
-                                {Client, {error, Reason}} ->
-                                    mero_pool:checkin(Client),
-                                    {ProcessedIn, [Reason | ErrorsIn]};
-                                {Client, Responses} when is_list(Responses) ->
-                                    mero_pool:checkin(Client),
-                                    {Responses ++ ProcessedIn, ErrorsIn}
-                            end
+        lists:foldl(fun({Conn, Items}, {ProcessedIn, ErrorsIn}) ->
+                       case mero_pool:transaction(Conn, AsyncOpResponse, [Items, TimeLimit]) of
+                           {error, Reason} ->
+                               mero_pool:close(Conn, AsyncOpResponseError),
+                               mero_pool:checkin_closed(Conn),
+                               {ProcessedIn, [Reason | ErrorsIn]};
+                           {Client, {error, Reason}} ->
+                               mero_pool:checkin(Client),
+                               {ProcessedIn, [Reason | ErrorsIn]};
+                           {Client, Responses} when is_list(Responses) ->
+                               mero_pool:checkin(Client),
+                               {Responses ++ ProcessedIn, ErrorsIn}
+                       end
                     end,
                     {[], Errors},
                     Processed),

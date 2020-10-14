@@ -63,22 +63,19 @@ init_per_testcase(_, Conf) ->
           "c3.com|10.102.00.102|11211 c4.com|10.102.00.102|11211\n">>,
     meck:expect(mero_elasticache,
                 request_response,
-                fun (Type, _, _, _) ->
-                        HostLines =
-                            case Type of
-                                a ->
-                                    HostLinea;
-                                b ->
-                                    HostLineb;
-                                c ->
-                                    HostLinec
-                            end,
-                        {ok,
-                         [{banner, <<"CONFIG cluster ...">>},
-                          {version, <<"version1">>},
-                          {hosts, HostLines},
-                          {crlf, <<"\r\n">>},
-                          {eom, <<"END\r\n">>}]}
+                fun(Type, _, _, _) ->
+                   HostLines =
+                       case Type of
+                           a -> HostLinea;
+                           b -> HostLineb;
+                           c -> HostLinec
+                       end,
+                   {ok,
+                    [{banner, <<"CONFIG cluster ...">>},
+                     {version, <<"version1">>},
+                     {hosts, HostLines},
+                     {crlf, <<"\r\n">>},
+                     {eom, <<"END\r\n">>}]}
                 end),
     Conf.
 

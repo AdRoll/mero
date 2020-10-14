@@ -89,30 +89,26 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
     ok = mero_conf:elasticache_load_config_delay(0),
 
     ServerPids =
-        lists:foldr(fun ({_, Config}, Acc) ->
-                            HostPortList = proplists:get_value(servers, Config),
-                            lists:foldr(fun ({_Host, Port}, Acc2) ->
-                                                ct:log("Starting server on Port ~p", [Port]),
-                                                ServerPid =
-                                                    case mero_dummy_server:start_link(Port) of
-                                                        {ok, Pid} ->
-                                                            Pid;
-                                                        {error, {already_started, Pid}} ->
-                                                            Pid
-                                                    end,
-                                                [ServerPid | Acc2]
-                                        end,
-                                        Acc,
-                                        HostPortList)
+        lists:foldr(fun({_, Config}, Acc) ->
+                       HostPortList = proplists:get_value(servers, Config),
+                       lists:foldr(fun({_Host, Port}, Acc2) ->
+                                      ct:log("Starting server on Port ~p", [Port]),
+                                      ServerPid =
+                                          case mero_dummy_server:start_link(Port) of
+                                              {ok, Pid} -> Pid;
+                                              {error, {already_started, Pid}} -> Pid
+                                          end,
+                                      [ServerPid | Acc2]
+                                   end,
+                                   Acc,
+                                   HostPortList)
                     end,
                     [],
                     process_server_specs(ClusterConfig)),
     {ok, _} = application:ensure_all_started(mero),
 
     %% Wait for the connections
-    lists:foreach(fun (Pool) ->
-                          wait_for_pool_state(Pool, MinConn, MinConn, 0, 0)
-                  end,
+    lists:foreach(fun(Pool) -> wait_for_pool_state(Pool, MinConn, MinConn, 0, 0) end,
                   [Pool
                    || {Cluster, _} <- ClusterConfig,
                       {_, _, Pool, _} <- mero_cluster:child_definitions(Cluster)]),

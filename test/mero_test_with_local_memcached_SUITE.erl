@@ -292,25 +292,25 @@ mincrement(Cluster = cluster_txt, _ClusterAlt, Keys) ->
     {error, not_supportable} = mero:mincrement_counter(Cluster, Keys);
 mincrement(Cluster = cluster_binary, _ClusterAlt, Keys) ->
     ok = mero:mincrement_counter(Cluster, Keys),
-    MGetRet = lists:sort(mero:mget(Cluster, Keys)),
+    MGetRet =
+        lists:sort(
+            mero:mget(Cluster, Keys)),
     Expected = lists:sort([{K, <<"1">>} || K <- Keys]),
     ?assertMatch(Expected, MGetRet).
 
 increment(Cluster, ClusterAlt, Keys) ->
     io:format("Increment +1 +1 +1 ~n"),
 
-    F =
-        fun (Key, Expected) ->
-                IncrementReturn = element(2, mero:increment_counter(Cluster, Key)),
-                io:format("Increment return Expected ~p Received ~p~n",
-                          [Expected, IncrementReturn]),
-                {Key, Value2} = mero:get(Cluster, Key),
-                io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
-                ?assertMatch(Expected, IncrementReturn),
-                ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
-                {Key, Value3} = mero:get(ClusterAlt, Key),
-                io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
-                ?assertMatch(IncrementReturn, binary_to_integer(Value3))
+    F = fun(Key, Expected) ->
+           IncrementReturn = element(2, mero:increment_counter(Cluster, Key)),
+           io:format("Increment return Expected ~p Received ~p~n", [Expected, IncrementReturn]),
+           {Key, Value2} = mero:get(Cluster, Key),
+           io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
+           ?assertMatch(Expected, IncrementReturn),
+           ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
+           {Key, Value3} = mero:get(ClusterAlt, Key),
+           io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
+           ?assertMatch(IncrementReturn, binary_to_integer(Value3))
         end,
     [F(Key, 1) || Key <- Keys],
     [F(Key, 2) || Key <- Keys],
@@ -319,20 +319,17 @@ increment(Cluster, ClusterAlt, Keys) ->
 increment_with_initial(Cluster, ClusterAlt, Keys, Initial, Steps) ->
     io:format("Increment +~p ~p ~n", [Initial, Steps]),
 
-    F =
-        fun (Key, Expected) ->
-                IncrementReturn =
-                    element(2,
-                            mero:increment_counter(Cluster, Key, Steps, Initial, 22222, 3, 1000)),
-                io:format("Increment return Expected ~p Received ~p~n",
-                          [Expected, IncrementReturn]),
-                {Key, Value2} = mero:get(Cluster, Key),
-                io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
-                {Key, Value3} = mero:get(ClusterAlt, Key),
-                io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
-                ?assertMatch(Expected, IncrementReturn),
-                ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
-                ?assertMatch(IncrementReturn, binary_to_integer(Value3))
+    F = fun(Key, Expected) ->
+           IncrementReturn =
+               element(2, mero:increment_counter(Cluster, Key, Steps, Initial, 22222, 3, 1000)),
+           io:format("Increment return Expected ~p Received ~p~n", [Expected, IncrementReturn]),
+           {Key, Value2} = mero:get(Cluster, Key),
+           io:format("Checking get ~p ~p ~n", [Cluster, Value2]),
+           {Key, Value3} = mero:get(ClusterAlt, Key),
+           io:format("Checking get ~p ~p ~n", [ClusterAlt, Value3]),
+           ?assertMatch(Expected, IncrementReturn),
+           ?assertMatch(IncrementReturn, binary_to_integer(Value2)),
+           ?assertMatch(IncrementReturn, binary_to_integer(Value3))
         end,
     [F(Key, Initial) || Key <- Keys],
     [F(Key, Initial + Steps) || Key <- Keys],
@@ -397,31 +394,26 @@ madd_moving(Cluster, _ClusterAlt, _Keys) ->
     %% position of the existing key each time:
     ExistingKey = key(),
     MakeKeys =
-        fun (Start, Count) ->
-                [<<"key", (integer_to_binary(I))/binary>>
-                 || I <- lists:seq(Start, Start + Count - 1)]
+        fun(Start, Count) ->
+           [<<"key", (integer_to_binary(I))/binary>> || I <- lists:seq(Start, Start + Count - 1)]
         end,
     Total = 100,
-    lists:foreach(fun ({Start, N}) ->
-                          mero:flush_all(Cluster),
-                          ok = mero:add(Cluster, ExistingKey, ExistingKey, 1000, 1000),
-                          CurKeys =
-                              MakeKeys(Start, N) ++
-                                  [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
-                          ExpectedResult =
-                              [case Key of
-                                   ExistingKey ->
-                                       {error, already_exists};
-                                   _ ->
-                                       ok
-                               end
-                               || Key <- CurKeys],
-                          ?assertEqual(ExpectedResult,
-                                       mero:madd(Cluster,
-                                                 [{Key, Key, 1000} || Key <- CurKeys],
-                                                 1000)),
-                          ?assertEqual(lists:keysort(1, [{Key, Key} || Key <- CurKeys]),
-                                       lists:keysort(1, mero:mget(Cluster, CurKeys, 1000)))
+    lists:foreach(fun({Start, N}) ->
+                     mero:flush_all(Cluster),
+                     ok = mero:add(Cluster, ExistingKey, ExistingKey, 1000, 1000),
+                     CurKeys =
+                         MakeKeys(Start, N) ++
+                             [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
+                     ExpectedResult =
+                         [case Key of
+                              ExistingKey -> {error, already_exists};
+                              _ -> ok
+                          end
+                          || Key <- CurKeys],
+                     ?assertEqual(ExpectedResult,
+                                  mero:madd(Cluster, [{Key, Key, 1000} || Key <- CurKeys], 1000)),
+                     ?assertEqual(lists:keysort(1, [{Key, Key} || Key <- CurKeys]),
+                                  lists:keysort(1, mero:mget(Cluster, CurKeys, 1000)))
                   end,
                   [{1, N} || N <- lists:seq(1, Total - 1)]).
 
@@ -457,7 +449,8 @@ mcas(Cluster, _ClusterAlt, Keys) ->
 %%%=============================================================================
 
 key() ->
-    base64:encode(crypto:strong_rand_bytes(20)).
+    base64:encode(
+        crypto:strong_rand_bytes(20)).
 
 await_connected(Cluster) ->
     ct:log("waiting for free connections"),
