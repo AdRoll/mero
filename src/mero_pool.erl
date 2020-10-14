@@ -105,9 +105,9 @@ checkout(PoolName, TimeLimit) ->
             erlang:demonitor(MRef),
             {ok, Connection}
         after Timeout ->
-                  erlang:demonitor(MRef),
-                  safe_send(PoolName, {checkout_cancel, self()}),
-                  {error, pool_timeout}
+            erlang:demonitor(MRef),
+            safe_send(PoolName, {checkout_cancel, self()}),
+            {error, pool_timeout}
     end.
 
 %% @doc Return a  connection to specfied pool updating its timestamp
@@ -205,8 +205,8 @@ state(PoolName) ->
         {'DOWN', MRef, _, _, _} ->
             {error, down}
         after ?DEFAULT_TIMEOUT ->
-                  erlang:demonitor(MRef),
-                  {error, timeout}
+            erlang:demonitor(MRef),
+            {error, timeout}
     end.
 
 %%%=============================================================================
@@ -391,15 +391,15 @@ spawn_connect(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo) ->
     do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, MaxConnectionDelayTime).
 
 do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
-    spawn_link(fun () ->
-                       case SleepTime > 0 of
-                           true ->
-                               %% Wait before reconnect
-                               timer:sleep(rand:uniform(SleepTime));
-                           false ->
-                               ignore
-                       end,
-                       try_connect(Pool, WrkModule, Host, Port, CallbackInfo)
+    spawn_link(fun() ->
+                  case SleepTime > 0 of
+                      true ->
+                          %% Wait before reconnect
+                          timer:sleep(
+                              rand:uniform(SleepTime));
+                      false -> ignore
+                  end,
+                  try_connect(Pool, WrkModule, Host, Port, CallbackInfo)
                end).
 
 spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, 1) ->
@@ -444,7 +444,8 @@ conn_time_to_live(ClusterName) ->
     end.
 
 schedule_expiration(State = #pool_st{cluster = ClusterName}) ->
-    erlang:send_after(mero_conf:pool_expiration_interval(ClusterName), self(), expire),
+    erlang:send_after(
+        mero_conf:pool_expiration_interval(ClusterName), self(), expire),
     State.
 
 expire_connections(#pool_st{cluster = ClusterName, free = Conns, num_connected = Num} =
@@ -456,9 +457,7 @@ expire_connections(#pool_st{cluster = ClusterName, free = Conns, num_connected =
                 {_, _, [], _} ->
                     State;
                 {_, _, ExpConns, ActConns} ->
-                    spawn_link(fun () ->
-                                       close_connections(ExpConns)
-                               end),
+                    spawn_link(fun() -> close_connections(ExpConns) end),
                     maybe_spawn_connect(State#pool_st{free = ActConns,
                                                       num_connected = Num - length(ExpConns)})
             end

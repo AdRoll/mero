@@ -49,7 +49,8 @@
 %%% START/STOP EXPORTS
 %%%-----------------------------------------------------------------------------
 name(Port) ->
-    list_to_atom(lists:flatten(io_lib:format("~p_~p", [?MODULE, Port]))).
+    list_to_atom(lists:flatten(
+                     io_lib:format("~p_~p", [?MODULE, Port]))).
 
 start_link(Port) ->
     gen_server:start_link({local, name(Port)}, ?MODULE, [Port, []], []).
@@ -462,10 +463,7 @@ binary_response_get_keys(Parent, Port, [{Op, Key} | Keys], Acc, WithCas) ->
 
 response(Parent, Port, Request) ->
     {Kind, {DeleteKeys, Cmd}, Unparsed} = parse(Request),
-    lists:foreach(fun (K) ->
-                          put_key(Parent, Port, K, undefined)
-                  end,
-                  DeleteKeys),
+    lists:foreach(fun(K) -> put_key(Parent, Port, K, undefined) end, DeleteKeys),
     Response =
         case {Kind, Cmd} of
             {Kind, flush_all} ->
@@ -494,13 +492,12 @@ response(Parent, Port, Request) ->
                 put_key(Parent, Port, Key, Bytes),
                 canned_responses(Kind, Index, Key, ?MEMCACHE_SET, stored);
             {Kind, {cas, Key, Bytes, CAS, Index, Quiet}} ->
-                Op =
-                    case Quiet of
-                        true ->
-                            ?MEMCACHE_SETQ;
-                        false ->
-                            ?MEMCACHE_SET
-                    end,
+                Op = case Quiet of
+                         true ->
+                             ?MEMCACHE_SETQ;
+                         false ->
+                             ?MEMCACHE_SET
+                     end,
                 case get_key(Parent, Port, Key) of
                     undefined ->
                         ct:log("cas of non-existent key ~p", [Key]),
@@ -531,13 +528,12 @@ response(Parent, Port, Request) ->
                         canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, deleted)
                 end;
             {Kind, {add, Key, Bytes, Index, Quiet}} ->
-                Op =
-                    case Quiet of
-                        true ->
-                            ?MEMCACHE_ADDQ;
-                        false ->
-                            ?MEMCACHE_ADD
-                    end,
+                Op = case Quiet of
+                         true ->
+                             ?MEMCACHE_ADDQ;
+                         false ->
+                             ?MEMCACHE_ADD
+                     end,
                 case get_key(Parent, Port, Key) of
                     undefined ->
                         put_key(Parent, Port, Key, Bytes, undefined),

@@ -55,13 +55,14 @@
 get_cluster_config(ConfigHost, ConfigPort) ->
     %% We wait for a bit before loading elasticache configuration to prevent runaway elasticache
     %% spam during error loops (which used to occur on occasion).
-    timer:sleep(mero_conf:elasticache_load_config_delay()),
+    timer:sleep(
+        mero_conf:elasticache_load_config_delay()),
     LineDefinitions = [banner, version, hosts, crlf, eom],
     case mero_elasticache:request_response(ConfigHost,
                                            ConfigPort,
                                            ?GET_CLUSTER,
                                            LineDefinitions)
-        of
+    of
         {ok, Result} ->
             case parse_cluster_config(proplists:get_value(hosts, Result)) of
                 {error, Reason} ->

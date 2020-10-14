@@ -62,8 +62,8 @@ init_per_testcase(_, Conf) ->
 
     meck:expect(mero_wrk_tcp_binary,
                 connect,
-                fun (_Host, Port, CallbackInfo) ->
-                        meck:passthrough(["localhost", Port, CallbackInfo])
+                fun(_Host, Port, CallbackInfo) ->
+                   meck:passthrough(["localhost", Port, CallbackInfo])
                 end),
     application:load(mero),
     Conf.
@@ -85,17 +85,23 @@ cluster_is_restarted_when_new_nodes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
     start_server(),
 
-    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
-    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    Cluster1Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
     ?assertEqual(3, length(Cluster1Children)),
     ?assertEqual(2, length(Cluster2Children)),
 
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     %% Cluster1 stays, Cluster2 adds a node
     Lines =
         #{a =>
@@ -110,13 +116,13 @@ cluster_is_restarted_when_new_nodes(_) ->
     %% Cluster1 remains the same, Cluster2 is rebuilt
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     NewCluster2Children =
-        supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
     ?assertEqual(3, length(NewCluster2Children)),
-    lists:foreach(fun (Child) ->
-                          ?assertNot(lists:member(Child, Cluster2Children))
-                  end,
+    lists:foreach(fun(Child) -> ?assertNot(lists:member(Child, Cluster2Children)) end,
                   NewCluster2Children),
     ok.
 
@@ -124,17 +130,23 @@ cluster_is_restarted_when_lost_nodes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
     start_server(),
 
-    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
-    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    Cluster1Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
     ?assertEqual(3, length(Cluster1Children)),
     ?assertEqual(2, length(Cluster2Children)),
 
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     %% Cluster2 stays, Cluster1 lost a node
     Lines =
         #{a => <<"a1.com|10.100.100.100|11112 ", "a2.com|10.101.101.00|11112\n">>,
@@ -144,31 +156,37 @@ cluster_is_restarted_when_lost_nodes(_) ->
     %% Cluster1 remains the same, Cluster2 is rebuilt
     send_heartbeat(),
     NewCluster1Children =
-        supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
     ?assertEqual(2, length(NewCluster1Children)),
-    lists:foreach(fun (Child) ->
-                          ?assertNot(lists:member(Child, Cluster1Children))
-                  end,
+    lists:foreach(fun(Child) -> ?assertNot(lists:member(Child, Cluster1Children)) end,
                   NewCluster1Children),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     ok.
 
 cluster_is_not_restarted_when_other_changes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
     start_server(),
 
-    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
-    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    Cluster1Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
     ?assertEqual(3, length(Cluster1Children)),
     ?assertEqual(2, length(Cluster2Children)),
 
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     %% servers are reordered in both clusters, but that's irrelevant for us
     Lines =
         #{a =>
@@ -181,26 +199,34 @@ cluster_is_not_restarted_when_other_changes(_) ->
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     ok.
 
 cluster_is_not_restarted_with_bad_info(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
     start_server(),
 
-    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
-    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    Cluster1Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
     ?assertEqual(3, length(Cluster1Children)),
     ?assertEqual(2, length(Cluster2Children)),
 
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     %% bad info is received
     Lines = #{a => <<"this is wrong\n">>},
     mock_elasticache(Lines),
@@ -208,9 +234,11 @@ cluster_is_not_restarted_with_bad_info(_) ->
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
     ok.
 
@@ -218,26 +246,34 @@ cluster_is_not_restarted_on_socket_error(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
     start_server(),
 
-    Cluster1Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1)),
-    Cluster2Children = supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2)),
+    Cluster1Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
     ?assertEqual(3, length(Cluster1Children)),
     ?assertEqual(2, length(Cluster2Children)),
 
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     %% socket times out when connecting to elasticache
     mock_elasticache_timeout(),
 
     %% Nothing Changed...
     send_heartbeat(),
     ?assertEqual(Cluster1Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster1))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
     ?assertEqual(Cluster2Children,
-                 supervisor:which_children(mero_cluster:sup_by_cluster_name(cluster2))),
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
     ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
     ok.
 
@@ -275,14 +311,14 @@ send_heartbeat() ->
 mock_elasticache(Lines) ->
     meck:expect(mero_elasticache,
                 request_response,
-                fun (Type, _, _, _) ->
-                        HostLines = maps:get(Type, Lines),
-                        {ok,
-                         [{banner, <<"CONFIG cluster ...">>},
-                          {version, <<"version1">>},
-                          {hosts, HostLines},
-                          {crlf, <<"\r\n">>},
-                          {eom, <<"END\r\n">>}]}
+                fun(Type, _, _, _) ->
+                   HostLines = maps:get(Type, Lines),
+                   {ok,
+                    [{banner, <<"CONFIG cluster ...">>},
+                     {version, <<"version1">>},
+                     {hosts, HostLines},
+                     {crlf, <<"\r\n">>},
+                     {eom, <<"END\r\n">>}]}
                 end).
 
 mock_elasticache_timeout() ->

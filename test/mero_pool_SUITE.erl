@@ -176,18 +176,22 @@ checkout_checkin(_) ->
 
     ct:log("You are rejected simply because the limit has been reached"),
     ?assertMatch({error, reject},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
     ?assertMatch({error, reject},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
     ?assertMatch({error, reject},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
     ct:log("checkin connection"),
     ok = mero_pool:checkin(Conn1),
     mero_test_util:wait_for_pool_state(?POOL, 1, 1, 0, 0),
 
     ct:log("Another process is allowed to checkout a new connection"),
     ?assertMatch({ok, _},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})).
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})).
 
 %% A little more complex than the previous. Tests that new connections are created
 %% as the ones we have are in use
@@ -202,12 +206,14 @@ checkout_checkin_limits(_) ->
 
     ct:log("A 2nd process is allowed to checkout a new connection"),
     ?assertMatch({ok, _},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
     mero_test_util:wait_for_pool_state(?POOL, 2, 4, 0, 0),
 
     ct:log("A 3rd process is allowed to checkout a new connection"),
     ?assertMatch({ok, _},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
     mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0),
 
     ct:log("The first one is on use so the second one should be established "
@@ -217,7 +223,8 @@ checkout_checkin_limits(_) ->
 
     ct:log("A 3rd process is allowed to checkout a new connection"),
     ?assertMatch({ok, _},
-                 proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+                 proc:exec(
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
     mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0).
 
 %% Tests that if a socket is checkined closed a new one will be created
@@ -230,7 +237,9 @@ checkout_checkin_closed(_) ->
     mero_test_util:wait_for_pool_state(?POOL, 1, 2, 0, 0),
 
     ct:log("A 2nd process is allowed to checkout a new connection"),
-    {ok, _Conn2} = proc:exec(proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]}),
+    {ok, _Conn2} =
+        proc:exec(
+            proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]}),
     mero_test_util:wait_for_pool_state(?POOL, 0, 2, 0, 0),
 
     ct:log("First connection is checkined closed. It will open a new one"),
@@ -254,10 +263,10 @@ checkout_and_die(_) ->
     ct:log("A process is allowed to checkout a new connection"),
     Parent = self(),
 
-    spawn_link(fun () ->
-                       mero_pool:checkout(?POOL, ?TIMELIMIT(1000)),
-                       mero_test_util:wait_for_pool_state(?POOL, 0, 1, 0, 0),
-                       Parent ! done
+    spawn_link(fun() ->
+                  mero_pool:checkout(?POOL, ?TIMELIMIT(1000)),
+                  mero_test_util:wait_for_pool_state(?POOL, 0, 1, 0, 0),
+                  Parent ! done
                end),
     receive
         done ->

@@ -104,15 +104,12 @@ transaction(Client, delete, [Key, TimeLimit]) ->
     end;
 transaction(Client, mdelete, [Keys, TimeLimit]) ->
     Resp =
-        mero_util:foreach(fun (Key) ->
-                                  case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
-                                      {ok, deleted} ->
-                                          continue;
-                                      {error, not_found} ->
-                                          continue;
-                                      {error, Reason} ->
-                                          {break, {error, Reason}}
-                                  end
+        mero_util:foreach(fun(Key) ->
+                             case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
+                                 {ok, deleted} -> continue;
+                                 {error, not_found} -> continue;
+                                 {error, Reason} -> {break, {error, Reason}}
+                             end
                           end,
                           Keys),
     {Client, Resp};
@@ -257,12 +254,7 @@ pack({?MEMCACHE_INCREMENT, {Key, Value}}) ->
 pack({?MEMCACHE_FLUSH_ALL, {}}) ->
     [<<"flush_all\r\n">>];
 pack({?MEMCACHE_GET, {Keys}}) when is_list(Keys) ->
-    Query =
-        lists:foldr(fun (Key, Acc) ->
-                            [Key, <<" ">> | Acc]
-                    end,
-                    [],
-                    Keys),
+    Query = lists:foldr(fun(Key, Acc) -> [Key, <<" ">> | Acc] end, [], Keys),
     [<<"gets ">>, Query, <<"\r\n">>].
 
 send(Client, Data) ->
@@ -408,11 +400,7 @@ async_mget(Client, Keys) ->
 
 async_delete(Client, Keys) ->
     try
-        {ok,
-         lists:foreach(fun (K) ->
-                               send(Client, pack({?MEMCACHE_DELETEQ, {K}}))
-                       end,
-                       Keys)}
+        {ok, lists:foreach(fun(K) -> send(Client, pack({?MEMCACHE_DELETEQ, {K}})) end, Keys)}
     catch
         {failed, Reason} ->
             {error, Reason}
