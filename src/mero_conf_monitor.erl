@@ -86,7 +86,7 @@ handle_info(_, State) ->
 %%% Boilerplate Callbacks
 %%%-----------------------------------------------------------------------------
 -spec handle_call(Msg, _From, State) -> {reply, {unknown_call, Msg}, State}
-     when State :: state().
+    when State :: state().
 handle_call(Msg, _From, State) ->
     {reply, {unknown_call, Msg}, State}.
 

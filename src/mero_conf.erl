@@ -51,9 +51,8 @@
 
 -include_lib("mero/include/mero.hrl").
 
--type per_pool_config_value(Type) :: {by_pool,
-                                      Default :: Type,
-                                      [{Pool :: atom(), Value :: Type}]}.
+-type per_pool_config_value(Type) ::
+    {by_pool, Default :: Type, [{Pool :: atom(), Value :: Type}]}.
 -type mero_conf_value(Type) :: Type | per_pool_config_value(Type).
 
 %%%=============================================================================

@@ -104,10 +104,10 @@ checkout(PoolName, TimeLimit) ->
         {MRef, Connection} ->
             erlang:demonitor(MRef),
             {ok, Connection}
-        after Timeout ->
-            erlang:demonitor(MRef),
-            safe_send(PoolName, {checkout_cancel, self()}),
-            {error, pool_timeout}
+    after Timeout ->
+        erlang:demonitor(MRef),
+        safe_send(PoolName, {checkout_cancel, self()}),
+        {error, pool_timeout}
     end.
 
 %% @doc Return a  connection to specfied pool updating its timestamp
@@ -204,9 +204,9 @@ state(PoolName) ->
              {num_failed_connecting, State#pool_st.num_failed_connecting}];
         {'DOWN', MRef, _, _, _} ->
             {error, down}
-        after ?DEFAULT_TIMEOUT ->
-            erlang:demonitor(MRef),
-            {error, timeout}
+    after ?DEFAULT_TIMEOUT ->
+        erlang:demonitor(MRef),
+        {error, timeout}
     end.
 
 %%%=============================================================================

@@ -43,9 +43,8 @@
 
 -type cas_token() :: undefined | integer().
 -type result() :: {Key :: binary(), Value :: undefined | binary()}.
--type extended_result() :: {Key :: binary(),
-                            Value :: undefined | binary(),
-                            CAS :: cas_token()}.
+-type extended_result() ::
+    {Key :: binary(), Value :: undefined | binary(), CAS :: cas_token()}.
 %% {ClusteringKey, Key}. ClusteringKey is used to select the memcached node
 %% where to store the data, and Key is used to store the data in that
 %% node.  If a single binary Key is used,  then ClusteringKey = Key.
@@ -231,10 +230,7 @@ increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
                         Timeout :: integer()) ->
                            {ok, integer()} | {error, Reason :: term()}.
 increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
-    when is_integer(Value),
-         is_integer(ExpTime),
-         is_atom(ClusterName),
-         Initial >= 0,
+    when is_integer(Value), is_integer(ExpTime), is_atom(ClusterName), Initial >= 0,
          Value >= 0 ->
     BValue = list_to_binary(integer_to_list(Value)),
     BInitial = list_to_binary(integer_to_list(Initial)),
@@ -267,12 +263,8 @@ mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) -
                          Timeout :: integer()) ->
                             ok | {error, Reason :: term()}.
 mincrement_counter(ClusterName, Keys, Value, Initial, ExpTime, Retries, Timeout)
-    when is_list(Keys),
-         is_integer(Value),
-         is_integer(ExpTime),
-         is_atom(ClusterName),
-         Initial >= 0,
-         Value >= 0 ->
+    when is_list(Keys), is_integer(Value), is_integer(ExpTime), is_atom(ClusterName),
+         Initial >= 0, Value >= 0 ->
     BValue = list_to_binary(integer_to_list(Value)),
     BInitial = list_to_binary(integer_to_list(Initial)),
     BExpTime = list_to_binary(integer_to_list(ExpTime)),
