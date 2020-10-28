@@ -121,10 +121,11 @@
               {mero_cluster_util, worker_by_index, 3},
               {mero_cluster_util, module_info, 1}]).
 
--type child_definitions() :: [{Host :: string(),
-                               Port :: pos_integer(),
-                               WorkerName :: atom(),
-                               WorkerModule :: module()}].
+-type child_definitions() ::
+    [{Host :: string(),
+      Port :: pos_integer(),
+      WorkerName :: atom(),
+      WorkerModule :: module()}].
 
 -export_type([child_definitions/0]).
 

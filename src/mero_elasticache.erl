@@ -40,9 +40,8 @@
 
 -define(GET_CLUSTER, <<"config get cluster\n">>).
 
--type cluster_entry() :: {Host :: string(),
-                          Addr :: inet:ip_address(),
-                          Port :: pos_integer()}.
+-type cluster_entry() ::
+    {Host :: string(), Addr :: inet:ip_address(), Port :: pos_integer()}.
 
 -export_type([cluster_entry/0]).
 
