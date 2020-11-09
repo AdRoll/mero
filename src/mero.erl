@@ -125,7 +125,11 @@ gets(ClusterName, Key) ->
 mgets(ClusterName, Keys, Timeout) when is_list(Keys), is_atom(ClusterName) ->
     Extract =
         fun(Items) ->
-           [{Key, Value, CAS} || #mero_item{key = Key, value = Value, cas = CAS} <- Items]
+           [{Key, Value, CAS}
+            || #mero_item{key = Key,
+                          value = Value,
+                          cas = CAS}
+                   <- Items]
         end,
     case mero_conn:get(ClusterName, Keys, Timeout) of
         {error, Reason, ProcessedKeyValues} ->

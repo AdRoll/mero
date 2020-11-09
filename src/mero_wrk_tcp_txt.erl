@@ -324,7 +324,11 @@ parse_reply(Client, Cmd, Buffer, TimeLimit, AccResult) ->
 parse_value(Client, Key, Bytes, CAS, TimeLimit, Buffer) ->
     case Buffer of
         <<Value:Bytes/binary, "\r\n", RestAfterValue/binary>> ->
-            {ok, #mero_item{key = Key, value = Value, cas = CAS}, RestAfterValue};
+            {ok,
+             #mero_item{key = Key,
+                        value = Value,
+                        cas = CAS},
+             RestAfterValue};
         _ when size(Buffer) < Bytes + size(<<"\r\n">>) ->
             case gen_tcp_recv(Client, 0, TimeLimit) of
                 {ok, Data} ->

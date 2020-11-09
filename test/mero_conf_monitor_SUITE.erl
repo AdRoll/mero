@@ -57,7 +57,10 @@ init_per_testcase(_, Conf) ->
         <<"c1.com|10.100.100.100|11112 ",
           "c2.com|10.101.101.00|11112 ",
           "c3.com|10.102.00.102|11112 c4.com|10.102.00.102|11112\n">>,
-    Lines = #{a => HostLinea, b => HostLineb, c => HostLinec},
+    Lines =
+        #{a => HostLinea,
+          b => HostLineb,
+          c => HostLinec},
     mock_elasticache(Lines),
 
     meck:expect(mero_wrk_tcp_binary,
