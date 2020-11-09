@@ -304,7 +304,9 @@ receive_response(Client, Op, Buffer, TimeLimit) ->
                 {<<_Extras:ExtrasSize/binary, Key:KeySize/binary, Value/binary>>, <<>>} ->
                     case response_status(StatusCode) of
                         ok ->
-                            #mero_item{key = Key, value = Value, cas = cas_value(CAS)};
+                            #mero_item{key = Key,
+                                       value = Value,
+                                       cas = cas_value(CAS)};
                         {error, not_found} ->
                             #mero_item{key = Key, cas = cas_value(CAS)};
                         Error ->
@@ -434,7 +436,11 @@ receive_mget_response(Client, TimeLimit, Keys, Buffer, Acc) ->
                 {<<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>>,
                  BufferRest2} ->
                     {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
-                    Responses = [#mero_item{key = Key, value = Value, cas = cas_value(CAS)} | Acc],
+                    Responses =
+                        [#mero_item{key = Key,
+                                    value = Value,
+                                    cas = cas_value(CAS)}
+                         | Acc],
                     NKeys = lists:delete(Key, Keys),
                     case Op of
                         %% On silent we expect more values

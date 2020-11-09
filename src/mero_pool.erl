@@ -369,7 +369,10 @@ checkin_closed_pid(#pool_st{busy = Busy, num_connected = Num} = State, Pid) ->
             State
     end.
 
-down(#pool_st{busy = Busy, num_connected = Num, callback_info = CallbackInfo} = State,
+down(#pool_st{busy = Busy,
+              num_connected = Num,
+              callback_info = CallbackInfo} =
+         State,
      Pid) ->
     case dict:find(Pid, Busy) of
         {ok, {_, Conn}} ->
@@ -448,7 +451,9 @@ schedule_expiration(State = #pool_st{cluster = ClusterName}) ->
         mero_conf:pool_expiration_interval(ClusterName), self(), expire),
     State.
 
-expire_connections(#pool_st{cluster = ClusterName, free = Conns, num_connected = Num} =
+expire_connections(#pool_st{cluster = ClusterName,
+                            free = Conns,
+                            num_connected = Num} =
                        State) ->
     Now = os:timestamp(),
     try conn_time_to_live(ClusterName) of
