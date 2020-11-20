@@ -402,8 +402,9 @@ madd_moving(Cluster, _ClusterAlt, _Keys) ->
                      mero:flush_all(Cluster),
                      ok = mero:add(Cluster, ExistingKey, ExistingKey, 1000, 1000),
                      CurKeys =
-                         MakeKeys(Start, N) ++
-                             [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
+                         MakeKeys(Start, N)
+                         ++ [ExistingKey]
+                         ++ MakeKeys(Start + N + 1, Total - N - 1),
                      ExpectedResult =
                          [case Key of
                               ExistingKey -> {error, already_exists};
@@ -431,10 +432,10 @@ mcas(Cluster, _ClusterAlt, Keys) ->
     Updates =
         [FailedUpdate | [{Key, <<Key/binary, Key/binary>>, 1000, CAS}
                          || {Key, _, CAS} <- tl(Stored)]]
-            ++ [FailedUpdate],
+        ++ [FailedUpdate],
     Expected =
-        [{error, already_exists} | lists:duplicate(length(Stored) - 1, ok)] ++
-            [{error, already_exists}],
+        [{error, already_exists} | lists:duplicate(length(Stored) - 1, ok)]
+        ++ [{error, already_exists}],
     ?assertEqual(Expected, mero:mcas(Cluster, Updates, 1000)),
     ?assertEqual(lists:keysort(1,
                                [{element(1, hd(Stored)), element(1, hd(Stored))} | [{Key,

@@ -362,14 +362,14 @@ child_definitions_function(WorkerDefs) ->
     [io_lib:format("child_definitions(~p) ->\n ~p;\n\n",
                    [Cluster, [{H, P, N, M} || {C, H, P, N, M} <- AllDefs, C == Cluster]])
      || Cluster <- Clusters]
-        ++ "child_definitions(_) ->\n [].\n\n".
+    ++ "child_definitions(_) ->\n [].\n\n".
 
 sup_by_cluster_name_function(WorkerDefs) ->
     AllDefs = [Args || {_Name, _, _, Args} <- WorkerDefs],
     Clusters = lists:usort([Cluster || {Cluster, _Host, _Port, _Name, _Module} <- AllDefs]),
     [io_lib:format("sup_by_cluster_name(~p) ->\n mero_~p_sup;\n\n", [Cluster, Cluster])
      || Cluster <- Clusters]
-        ++ "sup_by_cluster_name(_) ->\n undefined.\n\n".
+    ++ "sup_by_cluster_name(_) ->\n undefined.\n\n".
 
 worker_by_index_function(WorkerDefs) ->
     lists:foldr(fun (WorkerDef, []) ->
@@ -398,10 +398,11 @@ get_config(Type, ClusterConfig) ->
 
 %% PoolName :: mero_pool_127.0.0.1_0
 worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc) ->
-    list_to_atom("mero_" ++
-                     atom_to_list(ClusterName) ++
-                         "_" ++
-                             Host ++
-                                 "_" ++
-                                     integer_to_list(ShardSizeAcc) ++
-                                         "_" ++ integer_to_list(ReplicationNumber)).
+    list_to_atom("mero_"
+                 ++ atom_to_list(ClusterName)
+                 ++ "_"
+                 ++ Host
+                 ++ "_"
+                 ++ integer_to_list(ShardSizeAcc)
+                 ++ "_"
+                 ++ integer_to_list(ReplicationNumber)).
