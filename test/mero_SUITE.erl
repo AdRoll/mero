@@ -408,8 +408,9 @@ madd(_) ->
                      mero:flush_all(cluster),
                      ok = mero:add(cluster, ExistingKey, ExistingKey, 10000, 1000),
                      Keys =
-                         MakeKeys(Start, N) ++
-                             [ExistingKey] ++ MakeKeys(Start + N + 1, Total - N - 1),
+                         MakeKeys(Start, N)
+                         ++ [ExistingKey]
+                         ++ MakeKeys(Start + N + 1, Total - N - 1),
                      Expected =
                          [case Key of
                               ExistingKey -> {error, already_exists};
