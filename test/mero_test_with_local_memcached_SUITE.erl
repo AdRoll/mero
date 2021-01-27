@@ -437,13 +437,14 @@ mcas(Cluster, _ClusterAlt, Keys) ->
         [{error, already_exists} | lists:duplicate(length(Stored) - 1, ok)]
         ++ [{error, already_exists}],
     ?assertEqual(Expected, mero:mcas(Cluster, Updates, 1000)),
-    ?assertEqual(lists:keysort(1,
-                               [{element(1, hd(Stored)), element(1, hd(Stored))} | [{Key,
-                                                                                     <<Key/binary,
-                                                                                       Key/binary>>}
-                                                                                    || {Key, _, _}
-                                                                                           <- tl(Stored)]]),
-                 lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
+    Expected2 =
+        lists:keysort(1,
+                      [{element(1, hd(Stored)), element(1, hd(Stored))} | [{Key,
+                                                                            <<Key/binary,
+                                                                              Key/binary>>}
+                                                                           || {Key, _, _}
+                                                                                  <- tl(Stored)]]),
+    ?assertEqual(Expected2, lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
 
 %%%=============================================================================
 %%% Internal functions

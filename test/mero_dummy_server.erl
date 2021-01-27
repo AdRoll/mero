@@ -37,13 +37,15 @@
 
 %%% Macros
 -export([start_link/1, stop/1, reset/1, init/1, handle_call/3, handle_cast/2,
-         handle_info/2, code_change/3, terminate/2]).
+         handle_info/2, terminate/2]).
 -export([accept/4]).
 
 -define(TCP_SEND_TIMEOUT, 15000).
 -define(FULLSWEEP_AFTER_OPT, {fullsweep_after, 10}).
 
 -record(state, {listen_socket, num_acceptors, opts, keys = []}).
+
+-type state() :: #state{}.
 
 %%%-----------------------------------------------------------------------------
 %%% START/STOP EXPORTS
@@ -53,7 +55,7 @@ name(Port) ->
                      io_lib:format("~p_~p", [?MODULE, Port]))).
 
 start_link(Port) ->
-    gen_server:start_link({local, name(Port)}, ?MODULE, [Port, []], []).
+    gen_server:start_link({local, name(Port)}, ?MODULE, {Port, []}, []).
 
 stop(Pid) when is_pid(Pid) ->
     MRef = erlang:monitor(process, Pid),
@@ -71,6 +73,13 @@ stop(Port) when is_integer(Port) ->
 reset(Port) ->
     gen_server:call(name(Port), reset).
 
+-spec handle_call(stop |
+                  flush_all |
+                  {get_key, pos_integer(), term()} |
+                  {put_key, pos_integer(), term(), undefined | term(), string() | integer()},
+                  _From,
+                  state()) ->
+                     {reply, ok | {ok, term()}, state()} | {stop, normal, ok, state()}.
 handle_call({put_key, Port, Key, undefined, _}, _From, #state{keys = Keys} = State) ->
     ct:log("~p deleting key ~p", [Port, Key]),
     NKeys = lists:keydelete({Port, Key}, 1, Keys),
@@ -105,23 +114,23 @@ handle_call({flush_all, Port}, _From, #state{keys = Keys} = State) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
+-spec handle_cast(term(), state()) -> {noreply, state()}.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+-spec handle_info(term(), state()) -> {noreply, state()}.
 handle_info(_Info, State) ->
     {noreply, State}.
 
+-spec terminate(term(), state()) -> _.
 terminate(_Reason, State) ->
     gen_tcp:close(State#state.listen_socket).
-
-code_change(_, _, State) ->
-    {ok, State}.
 
 %%%-----------------------------------------------------------------------------
 %%% INTERNAL EXPORTS
 %%%-----------------------------------------------------------------------------
-
-init([Port, Opts]) ->
+-spec init({pos_integer(), []}) -> {ok, state()} | {stop, term()}.
+init({Port, Opts}) ->
     process_flag(trap_exit, true),
     case listen(Port, Opts) of
         {ok, ListenSocket} ->
