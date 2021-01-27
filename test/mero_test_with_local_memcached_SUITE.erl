@@ -41,9 +41,6 @@
          increment_txt_with_initial/1, mincrement_binary/1, mincrement_txt/1, cas_binary/1,
          cas_txt/1, mgets_binary/1, madd_binary/1, mset_binary/1, mcas_binary/1]).
 
--define(HOST, "127.0.0.1").
--define(PORT, 11911).
-
 %%%=============================================================================
 %%% common_test callbacks
 %%%=============================================================================
@@ -437,13 +434,14 @@ mcas(Cluster, _ClusterAlt, Keys) ->
         [{error, already_exists} | lists:duplicate(length(Stored) - 1, ok)]
         ++ [{error, already_exists}],
     ?assertEqual(Expected, mero:mcas(Cluster, Updates, 1000)),
-    ?assertEqual(lists:keysort(1,
-                               [{element(1, hd(Stored)), element(1, hd(Stored))} | [{Key,
-                                                                                     <<Key/binary,
-                                                                                       Key/binary>>}
-                                                                                    || {Key, _, _}
-                                                                                           <- tl(Stored)]]),
-                 lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
+    Expected2 =
+        lists:keysort(1,
+                      [{element(1, hd(Stored)), element(1, hd(Stored))} | [{Key,
+                                                                            <<Key/binary,
+                                                                              Key/binary>>}
+                                                                           || {Key, _, _}
+                                                                                  <- tl(Stored)]]),
+    ?assertEqual(Expected2, lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
 
 %%%=============================================================================
 %%% Internal functions

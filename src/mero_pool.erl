@@ -30,6 +30,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% many functions are "callbacks" for proc_lib
+-hank([unused_ignored_function_params]).
+
 -export([start_link/5, checkout/2, checkin/1, checkin_closed/1, transaction/3, close/2,
          pool_loop/3, system_continue/3, system_terminate/4]).
 %%% Internal & introspection functions
@@ -159,7 +162,8 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
             process_flag(trap_exit, true),
             Deb = sys:debug_options([]),
             {Module, Function} = mero_conf:stat_callback(),
-            CallBackInfo = ?CALLBACK_CONTEXT(Module, Function, ClusterName, Host, Port),
+            CallBackInfo =
+                {Module, Function, [{cluster_name, ClusterName}, {host, Host}, {port, Port}]},
             Initial = mero_conf:pool_initial_connections(ClusterName),
             spawn_connections(ClusterName, PoolName, WrkModule, Host, Port, CallBackInfo, Initial),
             proc_lib:init_ack(Parent, {ok, self()}),
@@ -169,13 +173,14 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                          host = Host,
                          port = Port,
                          busy = dict:new(),
-                         max_connections =
-                             0, %%make dialyzer happy. These are populated from config
+                         %% make dialyzer happy. These are populated from config
+                         max_connections = 0,
                          min_connections = 0,
                          num_connected = 0,
                          num_connecting = Initial,
                          num_failed_connecting = 0,
-                         reconnect_wait_time = ?RECONNECT_WAIT_TIME,
+                         %% If a connection attempt fails, or a connection is broken
+                         reconnect_wait_time = 200,
                          pool = PoolName,
                          callback_info = CallBackInfo,
                          worker_module = WrkModule,

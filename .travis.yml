@@ -4,7 +4,6 @@ os:
   - linux
 
 otp_release:
-   - 21.3
    - 22.3
 
 notifications:

@@ -37,7 +37,7 @@
 %%% Start/stop functions
 -export([connect/3, controlling_process/2, transaction/3, close/2]).
 
--record(client, {socket, pool, event_callback}).
+-record(client, {socket, event_callback}).
 
 -define(SOCKET_OPTIONS,
         [binary, {packet, raw}, {active, false}, {reuseaddr, true}, {nodelay, true}]).
