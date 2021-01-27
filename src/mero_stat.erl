@@ -1,10 +1,9 @@
 -module(mero_stat).
 
--export([noop/1, incr/1]).
+%% noop/1 intentionally discards its argument.
+-hank([unused_ignored_function_params]).
 
-%%%===================================================================
-%%% API
-%%%===================================================================
+-export([noop/1, incr/1]).
 
 incr(Key) ->
     {StatMod, StatFun} = mero_conf:stat_callback(),
@@ -12,7 +11,3 @@ incr(Key) ->
 
 noop(_Key) ->
     ok.
-
-%%%===================================================================
-%%% Internal Functions
-%%%===================================================================

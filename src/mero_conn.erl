@@ -30,7 +30,7 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([increment_counter/7, mincrement_counter/7, get/3, set/6, mset/3, delete/3,
+-export([increment_counter/7, mincrement_counter/6, get/3, set/6, mset/3, delete/3,
          mdelete/3, add/5, madd/3, flush_all/2]).
 
 -include_lib("mero/include/mero.hrl").
@@ -56,7 +56,7 @@ increment_counter(Name, Key, Value, Initial, ExpTime, Retries, Timeout) ->
                                 Retries,
                                 TimeLimit).
 
-mincrement_counter(Name, Keys, Value, Initial, ExpTime, _Retries, Timeout) ->
+mincrement_counter(Name, Keys, Value, Initial, ExpTime, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
     KeysGroupedByShards = mero_cluster:group_by_shards(Name, Keys),
     Payload =

@@ -30,12 +30,18 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% many functions are "callbacks" for proc_lib
+-hank([unused_ignored_function_params]).
+
 -export([start_link/5, checkout/2, checkin/1, checkin_closed/1, transaction/3, close/2,
          pool_loop/3, system_continue/3, system_terminate/4]).
 %%% Internal & introspection functions
 -export([init/6, state/1]).
 
 -include_lib("mero/include/mero.hrl").
+
+%%% If a connection attempt fails, or a connection is broken
+-define(RECONNECT_WAIT_TIME, 200).
 
 -type mfargs() :: {module(), Function :: atom(), Args :: [term()]}.
 -type client() :: term().
@@ -159,7 +165,8 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
             process_flag(trap_exit, true),
             Deb = sys:debug_options([]),
             {Module, Function} = mero_conf:stat_callback(),
-            CallBackInfo = ?CALLBACK_CONTEXT(Module, Function, ClusterName, Host, Port),
+            CallBackInfo =
+                {Module, Function, [{cluster_name, ClusterName}, {host, Host}, {port, Port}]},
             Initial = mero_conf:pool_initial_connections(ClusterName),
             spawn_connections(ClusterName, PoolName, WrkModule, Host, Port, CallBackInfo, Initial),
             proc_lib:init_ack(Parent, {ok, self()}),

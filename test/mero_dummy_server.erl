@@ -35,15 +35,14 @@
 
 -behaviour(gen_server).
 
-%%% Macros
 -export([start_link/1, stop/1, reset/1, init/1, handle_call/3, handle_cast/2,
          handle_info/2, terminate/2]).
--export([accept/4]).
+-export([accept/3]).
 
 -define(TCP_SEND_TIMEOUT, 15000).
 -define(FULLSWEEP_AFTER_OPT, {fullsweep_after, 10}).
 
--record(state, {listen_socket, num_acceptors, opts, keys = []}).
+-record(state, {listen_socket, keys = []}).
 
 -type state() :: #state{}.
 
@@ -55,7 +54,7 @@ name(Port) ->
                      io_lib:format("~p_~p", [?MODULE, Port]))).
 
 start_link(Port) ->
-    gen_server:start_link({local, name(Port)}, ?MODULE, {Port, []}, []).
+    gen_server:start_link({local, name(Port)}, ?MODULE, Port, []).
 
 stop(Pid) when is_pid(Pid) ->
     MRef = erlang:monitor(process, Pid),
@@ -129,23 +128,23 @@ terminate(_Reason, State) ->
 %%%-----------------------------------------------------------------------------
 %%% INTERNAL EXPORTS
 %%%-----------------------------------------------------------------------------
--spec init({pos_integer(), []}) -> {ok, state()} | {stop, term()}.
-init({Port, Opts}) ->
+-spec init(pos_integer()) -> {ok, state()} | {stop, term()}.
+init(Port) ->
     process_flag(trap_exit, true),
-    case listen(Port, Opts) of
+    case listen(Port) of
         {ok, ListenSocket} ->
             ct:pal("memcached mocked server started on port ~p", [Port]),
-            start_acceptor([self(), Port, ListenSocket, Opts]),
-            {ok, #state{listen_socket = ListenSocket, opts = Opts}};
+            start_acceptor(self(), Port, ListenSocket),
+            {ok, #state{listen_socket = ListenSocket}};
         {error, Reason} ->
             ct:pal("memcached dummy server error: ~p", [Reason]),
             {stop, Reason}
     end.
 
-start_acceptor(Args) ->
-    proc_lib:spawn_opt(?MODULE, accept, Args, [?FULLSWEEP_AFTER_OPT]).
+start_acceptor(Parent, Port, ListenSocket) ->
+    proc_lib:spawn_opt(?MODULE, accept, [Parent, Port, ListenSocket], [?FULLSWEEP_AFTER_OPT]).
 
-listen(Port, SockOpts) ->
+listen(Port) ->
     gen_tcp:listen(Port,
                    [binary,
                     {packet, 0},
@@ -154,10 +153,9 @@ listen(Port, SockOpts) ->
                     {nodelay, true},
                     {send_timeout, ?TCP_SEND_TIMEOUT},
                     {send_timeout_close, true},
-                    {keepalive, true}
-                    | SockOpts]).
+                    {keepalive, true}]).
 
-accept(Parent, Port, ListenSocket, Opts) ->
+accept(Parent, Port, ListenSocket) ->
     try
         link(Parent)
     catch
@@ -165,29 +163,29 @@ accept(Parent, Port, ListenSocket, Opts) ->
             exit(normal)
     end,
     put('$ancestors', tl(get('$ancestors'))),
-    start_accept(Parent, Port, ListenSocket, Opts).
+    start_accept(Parent, Port, ListenSocket).
 
-start_accept(Parent, Port, ListenSocket, Opts) ->
+start_accept(Parent, Port, ListenSocket) ->
     case gen_tcp:accept(ListenSocket) of
         {ok, Socket} ->
             unlink(Parent),
-            start_acceptor([Parent, Port, ListenSocket, Opts]),
-            loop(Parent, Socket, Port, Opts);
+            start_acceptor(Parent, Port, ListenSocket),
+            loop(Parent, Socket, Port);
         {error, closed} ->
             unlink(Parent),
             exit(normal);
         {error, _Reason} ->
-            start_accept(Parent, Port, ListenSocket, Opts)
+            start_accept(Parent, Port, ListenSocket)
     end.
 
-loop(Parent, Sock, Port, Opts) ->
-    loop(Parent, Sock, Port, Opts, <<>>).
+loop(Parent, Sock, Port) ->
+    loop(Parent, Sock, Port, <<>>).
 
-loop(Parent, Sock, Port, Opts, Buf) ->
+loop(Parent, Sock, Port, Buf) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, Data} ->
             handle_data(Parent, Sock, Port, <<Buf/binary, Data/binary>>),
-            loop(Parent, Sock, Port, Opts, Buf);
+            loop(Parent, Sock, Port, Buf);
         {error, _Reason} = Error ->
             Error
     end.

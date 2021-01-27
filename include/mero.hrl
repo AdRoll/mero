@@ -26,9 +26,11 @@
 %% OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 %% OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
--ifndef(MEMCACHERL_HRL).
 
--define(MEMCACHERL_HRL, true).
+%% Some of these macros are only used for binary protocol, but the fit nicely
+%% all together here...
+-hank([single_use_hrl_attrs]).
+
 -define(MEMCACHE_INCREMENT, 16#05).
 -define(MEMCACHE_INCREMENTQ, 16#15).
 -define(MEMCACHE_GET, 16#00).
@@ -51,8 +53,6 @@
 -define(NON_NUMERIC_INCR, 16#0006).
 -define(UNKNOWN_COMMAND, 16#0081).
 -define(OOM, 16#0082).
-%%% If a connection attempt fails, or a connection is broken
--define(RECONNECT_WAIT_TIME, 200).
 %%% Default timeout for instrospection functions
 -define(DEFAULT_TIMEOUT, 5000).
 -define(LOG_EVENT(MFA, KeyAndTags),
@@ -60,9 +60,5 @@
             {StatModule, StatFunction, GlobalTags} = MFA,
             apply(StatModule, StatFunction, [KeyAndTags ++ GlobalTags])
         end).
--define(CALLBACK_CONTEXT(StatModule, StatFunction, ClusterName, Host, Port),
-        {StatModule, StatFunction, [{cluster_name, ClusterName}, {host, Host}, {port, Port}]}).
 
 -record(mero_item, {key, value, cas}).
-
--endif.

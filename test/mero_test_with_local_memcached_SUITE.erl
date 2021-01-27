@@ -41,9 +41,6 @@
          increment_txt_with_initial/1, mincrement_binary/1, mincrement_txt/1, cas_binary/1,
          cas_txt/1, mgets_binary/1, madd_binary/1, mset_binary/1, mcas_binary/1]).
 
--define(HOST, "127.0.0.1").
--define(PORT, 11911).
-
 %%%=============================================================================
 %%% common_test callbacks
 %%%=============================================================================
