@@ -74,8 +74,8 @@ reset(Port) ->
 
 -spec handle_call(stop |
                   flush_all |
-                  {get_key, pos_integer(), term()} |
-                  {put_key, pos_integer(), term(), undefined | term(), string() | integer()},
+                  {get_key, pos_integer(), mero:mero_key()} |
+                  {put_key, pos_integer(), mero:mero_key(), undefined | term(), string() | integer()},
                   _From,
                   state()) ->
                      {reply, ok | {ok, term()}, state()} | {stop, normal, ok, state()}.

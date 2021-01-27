@@ -40,9 +40,6 @@
 
 -include_lib("mero/include/mero.hrl").
 
-%%% If a connection attempt fails, or a connection is broken
--define(RECONNECT_WAIT_TIME, 200).
-
 -type mfargs() :: {module(), Function :: atom(), Args :: [term()]}.
 -type client() :: term().
 -type host() :: inet:socket_address() | inet:hostname().
@@ -176,13 +173,14 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                          host = Host,
                          port = Port,
                          busy = dict:new(),
-                         max_connections =
-                             0, %%make dialyzer happy. These are populated from config
+                         %% make dialyzer happy. These are populated from config
+                         max_connections = 0,
                          min_connections = 0,
                          num_connected = 0,
                          num_connecting = Initial,
                          num_failed_connecting = 0,
-                         reconnect_wait_time = ?RECONNECT_WAIT_TIME,
+                         %% If a connection attempt fails, or a connection is broken
+                         reconnect_wait_time = 200,
                          pool = PoolName,
                          callback_info = CallBackInfo,
                          worker_module = WrkModule,
