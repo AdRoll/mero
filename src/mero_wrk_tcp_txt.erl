@@ -106,9 +106,12 @@ transaction(Client, mdelete, [Keys, TimeLimit]) ->
     Resp =
         mero_util:foreach(fun(Key) ->
                              case send_receive(Client, {?MEMCACHE_DELETE, {Key}}, TimeLimit) of
-                                 {ok, deleted} -> continue;
-                                 {error, not_found} -> continue;
-                                 {error, Reason} -> {break, {error, Reason}}
+                                 {ok, deleted} ->
+                                     continue;
+                                 {error, not_found} ->
+                                     continue;
+                                 {error, Reason} ->
+                                     {break, {error, Reason}}
                              end
                           end,
                           Keys),

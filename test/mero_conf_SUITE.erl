@@ -66,9 +66,12 @@ init_per_testcase(_, Conf) ->
                 fun(Type, _, _, _) ->
                    HostLines =
                        case Type of
-                           a -> HostLinea;
-                           b -> HostLineb;
-                           c -> HostLinec
+                           a ->
+                               HostLinea;
+                           b ->
+                               HostLineb;
+                           c ->
+                               HostLinec
                        end,
                    {ok,
                     [{banner, <<"CONFIG cluster ...">>},

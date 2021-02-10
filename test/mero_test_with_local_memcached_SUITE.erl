@@ -404,8 +404,10 @@ madd_moving(Cluster, _ClusterAlt, _Keys) ->
                          ++ MakeKeys(Start + N + 1, Total - N - 1),
                      ExpectedResult =
                          [case Key of
-                              ExistingKey -> {error, already_exists};
-                              _ -> ok
+                              ExistingKey ->
+                                  {error, already_exists};
+                              _ ->
+                                  ok
                           end
                           || Key <- CurKeys],
                      ?assertEqual(ExpectedResult,
