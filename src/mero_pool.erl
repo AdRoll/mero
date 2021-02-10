@@ -405,7 +405,8 @@ do_spawn_connect(Pool, WrkModule, Host, Port, CallbackInfo, SleepTime) ->
                           %% Wait before reconnect
                           timer:sleep(
                               rand:uniform(SleepTime));
-                      false -> ignore
+                      false ->
+                          ignore
                   end,
                   try_connect(Pool, WrkModule, Host, Port, CallbackInfo)
                end).

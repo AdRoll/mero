@@ -95,8 +95,10 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
                                       ct:log("Starting server on Port ~p", [Port]),
                                       ServerPid =
                                           case mero_dummy_server:start_link(Port) of
-                                              {ok, Pid} -> Pid;
-                                              {error, {already_started, Pid}} -> Pid
+                                              {ok, Pid} ->
+                                                  Pid;
+                                              {error, {already_started, Pid}} ->
+                                                  Pid
                                           end,
                                       [ServerPid | Acc2]
                                    end,

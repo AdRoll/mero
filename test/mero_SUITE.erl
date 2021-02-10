@@ -410,8 +410,10 @@ madd(_) ->
                          ++ MakeKeys(Start + N + 1, Total - N - 1),
                      Expected =
                          [case Key of
-                              ExistingKey -> {error, already_exists};
-                              _ -> ok
+                              ExistingKey ->
+                                  {error, already_exists};
+                              _ ->
+                                  ok
                           end
                           || Key <- Keys],
                      ?assertEqual(Expected,

@@ -209,9 +209,11 @@ async_by_shard(Name,
                                        {NConn, {error, Reason}} ->
                                            mero_pool:checkin(NConn),
                                            {Processed, [Reason | Errors]};
-                                       {NConn, ok} -> {[{NConn, Items} | Processed], Errors}
+                                       {NConn, ok} ->
+                                           {[{NConn, Items} | Processed], Errors}
                                    end;
-                               {error, Reason} -> {Processed, [Reason | Errors]}
+                               {error, Reason} ->
+                                   {Processed, [Reason | Errors]}
                            end
                        end
                     end,
