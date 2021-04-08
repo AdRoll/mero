@@ -31,7 +31,7 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 %% many functions are "callbacks" for proc_lib
--hank([unused_ignored_function_params]).
+-hank([{unnecessary_function_arguments, [system_terminate]}]).
 
 -export([start_link/5, checkout/2, checkin/1, checkin_closed/1, transaction/3, close/2,
          pool_loop/3, system_continue/3, system_terminate/4]).
