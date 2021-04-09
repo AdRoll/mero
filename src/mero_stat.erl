@@ -1,7 +1,7 @@
 -module(mero_stat).
 
 %% noop/1 intentionally discards its argument.
--hank([unused_ignored_function_params]).
+-hank([{unnecessary_function_arguments, [{noop, 1, 1}]}]).
 
 -export([noop/1, incr/1]).
 
