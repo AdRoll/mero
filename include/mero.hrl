@@ -27,9 +27,16 @@
 %% OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %%
 
-%% Some of these macros are only used for binary protocol, but the fit nicely
+%% Some of these macros are only used for binary protocol, but they fit nicely
 %% all together here...
--hank([single_use_hrl_attrs]).
+-hank([{single_use_hrl_attrs,
+        [{"MEMCACHE_INCREMENTQ", none},
+         {"MEMCACHE_GETQ", none},
+         {"VALUE_TOO_LARGE", none},
+         {"INVALID_ARGUMENTS", none},
+         {"NON_NUMERIC_INCR", none},
+         {"UNKNOWN_COMMAND", none},
+         {"OOM", none}]}]).
 
 -define(MEMCACHE_INCREMENT, 16#05).
 -define(MEMCACHE_INCREMENTQ, 16#15).
