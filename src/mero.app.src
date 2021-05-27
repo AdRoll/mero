@@ -2,7 +2,7 @@
 {application,
  mero,
  [{description, "Scalable and lightweight OTP Erlang client for memcached"},
-  {vsn, "1.2.6"},
+  {vsn, "git"},
   {modules, []},
   {registered, []},
   {applications, [kernel, stdlib, inets, crypto, dynamic_compile]},
