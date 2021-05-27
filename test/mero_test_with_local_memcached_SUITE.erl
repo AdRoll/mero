@@ -30,8 +30,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+-behaviour(ct_suite).
+
 -include_lib("eunit/include/eunit.hrl").
--include_lib("common_test/include/ct.hrl").
 
 -export([all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2,
          end_per_testcase/2, get_undefined_binary/1, get_undefined_txt/1, get_set_binary/1,

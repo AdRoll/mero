@@ -28,8 +28,9 @@
 %%
 -module(mero_wrk_tcp_txt_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("mero/include/mero.hrl").
--include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2, mero_get_not_found/1,

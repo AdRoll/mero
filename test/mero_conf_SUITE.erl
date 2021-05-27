@@ -30,7 +30,8 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--include_lib("common_test/include/ct.hrl").
+-behaviour(ct_suite).
+
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2, helper_mfa_config_function/0,

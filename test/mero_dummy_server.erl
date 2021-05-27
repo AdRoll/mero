@@ -29,7 +29,6 @@
 -module(mero_dummy_server).
 
 -include_lib("mero/include/mero.hrl").
--include_lib("eunit/include/eunit.hrl").
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
@@ -248,23 +247,23 @@ parse(Request) ->
 
 %%%% Response
 
-canned_responses(text, _Index, _Key, _Op, not_found) ->
+canned_responses(text, _Index, _Op, not_found) ->
     ["NOT_FOUND", <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, not_stored) ->
+canned_responses(text, _Index, _Op, not_stored) ->
     ["NOT_STORED", <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, stored) ->
+canned_responses(text, _Index, _Op, stored) ->
     [<<"STORED">>, <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, already_exists) ->
+canned_responses(text, _Index, _Op, already_exists) ->
     [<<"EXISTS">>, <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, deleted) ->
+canned_responses(text, _Index, _Op, deleted) ->
     [<<"DELETED">>, <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, flushed) ->
+canned_responses(text, _Index, _Op, flushed) ->
     [<<"FLUSHED">>, <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, {incr, I}) ->
+canned_responses(text, _Index, _Op, {incr, I}) ->
     [mero_util:to_bin(I), <<"\r\n">>];
-canned_responses(text, _Index, _Key, _Op, noop) ->
+canned_responses(text, _Index, _Op, noop) ->
     [];
-canned_responses(binary, Index, _Key, Op, not_found) ->
+canned_responses(binary, Index, Op, not_found) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NOT_FOUND,
@@ -281,7 +280,7 @@ canned_responses(binary, Index, _Key, Op, not_found) ->
       (opaque(Index)):32,
       0:64,
       BodyOut/binary>>;
-canned_responses(binary, Index, _Key, Op, not_stored) ->
+canned_responses(binary, Index, Op, not_stored) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NOT_STORED,
@@ -299,7 +298,7 @@ canned_responses(binary, Index, _Key, Op, not_stored) ->
       (opaque(Index)):32,
       0:64,
       BodyOut/binary>>;
-canned_responses(binary, Index, _Key, Op, stored) ->
+canned_responses(binary, Index, Op, stored) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NO_ERROR,
@@ -319,7 +318,6 @@ canned_responses(binary, Index, _Key, Op, stored) ->
       BodyOut/binary>>;
 canned_responses(binary,
                  Index,
-                 _Key,
                  Op,
                  deleted) -> %% same as stored, intentionally
     ExtrasOut = <<>>,
@@ -339,7 +337,7 @@ canned_responses(binary,
       (opaque(Index)):32,
       0:64,
       BodyOut/binary>>;
-canned_responses(binary, Index, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
+canned_responses(binary, Index, ?MEMCACHE_INCREMENT, {incr, I}) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NO_ERROR,
@@ -357,7 +355,7 @@ canned_responses(binary, Index, _Key, ?MEMCACHE_INCREMENT, {incr, I}) ->
       (opaque(Index)):32,
       0:64,
       BodyOut/binary>>;
-canned_responses(binary, Index, _Key, Op, already_exists) ->
+canned_responses(binary, Index, Op, already_exists) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?KEY_EXISTS,
@@ -375,7 +373,7 @@ canned_responses(binary, Index, _Key, Op, already_exists) ->
       (opaque(Index)):32,
       0:64,
       BodyOut/binary>>;
-canned_responses(binary, _Index, _Key, Op, flushed) ->
+canned_responses(binary, _Index, Op, flushed) ->
     ExtrasOut = <<>>,
     ExtrasSizeOut = size(ExtrasOut),
     Status = ?NO_ERROR,
@@ -393,7 +391,7 @@ canned_responses(binary, _Index, _Key, Op, flushed) ->
       16#00:32,
       0:64,
       BodyOut/binary>>;
-canned_responses(binary, _Index, _Key, _Op, noop) ->
+canned_responses(binary, _Index, _Op, noop) ->
     [].
 
 opaque(undefined) ->
@@ -479,7 +477,7 @@ response(Parent, Port, Request) ->
         case {Kind, Cmd} of
             {Kind, flush_all} ->
                 flush_all(Parent, Port),
-                canned_responses(Kind, undefined, undefined, ?MEMCACHE_FLUSH_ALL, flushed);
+                canned_responses(Kind, undefined, ?MEMCACHE_FLUSH_ALL, flushed);
             {Kind, {get, Keys}} ->
                 case Kind of
                     text ->
@@ -501,7 +499,7 @@ response(Parent, Port, Request) ->
                 <<>>;
             {Kind, {set, Key, Bytes, Index, false}} ->
                 put_key(Parent, Port, Key, Bytes),
-                canned_responses(Kind, Index, Key, ?MEMCACHE_SET, stored);
+                canned_responses(Kind, Index, ?MEMCACHE_SET, stored);
             {Kind, {cas, Key, Bytes, CAS, Index, Quiet}} ->
                 Op = case Quiet of
                          true ->
@@ -512,7 +510,7 @@ response(Parent, Port, Request) ->
                 case get_key(Parent, Port, Key) of
                     undefined ->
                         ct:log("cas of non-existent key ~p", [Key]),
-                        canned_responses(Kind, Index, Key, Op, not_found);
+                        canned_responses(Kind, Index, Op, not_found);
                     {_, CAS} ->
                         ct:log("cas of existing key ~p with correct token ~p", [Key, CAS]),
                         put_key(Parent, Port, Key, Bytes, CAS + 1),
@@ -520,23 +518,23 @@ response(Parent, Port, Request) ->
                             true ->
                                 <<>>;
                             false ->
-                                canned_responses(Kind, Index, Key, Op, stored)
+                                canned_responses(Kind, Index, Op, stored)
                         end;
                     {_, ExpectedCAS} ->
                         ct:log("cas of existing key ~p with incorrect token ~p (wanted ~p)",
                                [Key, CAS, ExpectedCAS]),
-                        canned_responses(Kind, Index, Key, Op, already_exists)
+                        canned_responses(Kind, Index, Op, already_exists)
                 end;
             {Kind, {delete, Key}} ->
                 ct:log("deleting ~p", [Key]),
                 case get_key(Parent, Port, Key) of
                     undefined ->
                         ct:log("was not present"),
-                        canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, not_found);
+                        canned_responses(Kind, undefined, ?MEMCACHE_DELETE, not_found);
                     {_Value, _} ->
                         ct:log("key was present"),
                         put_key(Parent, Port, Key, undefined, undefined),
-                        canned_responses(Kind, undefined, Key, ?MEMCACHE_DELETE, deleted)
+                        canned_responses(Kind, undefined, ?MEMCACHE_DELETE, deleted)
                 end;
             {Kind, {add, Key, Bytes, Index, Quiet}} ->
                 Op = case Quiet of
@@ -552,10 +550,10 @@ response(Parent, Port, Request) ->
                             true ->
                                 <<>>;
                             false ->
-                                canned_responses(Kind, Index, Key, Op, stored)
+                                canned_responses(Kind, Index, Op, stored)
                         end;
                     {_Value, _} ->
-                        canned_responses(Kind, Index, Key, Op, already_exists)
+                        canned_responses(Kind, Index, Op, already_exists)
                 end;
             {Kind, {incr, Key, ExpTime, Initial, Bytes}} ->
                 case get_key(Parent, Port, Key) of
@@ -563,23 +561,18 @@ response(Parent, Port, Request) ->
                         %% Return error
                         case ExpTime of
                             4294967295 -> %% 32 bits, all 1
-                                canned_responses(Kind,
-                                                 undefined,
-                                                 Key,
-                                                 ?MEMCACHE_INCREMENT,
-                                                 not_found);
+                                canned_responses(Kind, undefined, ?MEMCACHE_INCREMENT, not_found);
                             _ ->
                                 put_key(Parent, Port, Key, Initial),
                                 canned_responses(Kind,
                                                  undefined,
-                                                 Key,
                                                  ?MEMCACHE_INCREMENT,
                                                  {incr, Initial})
                         end;
                     {Value, _} ->
                         Result = mero_util:to_int(Value) + mero_util:to_int(Bytes),
                         put_key(Parent, Port, Key, Result),
-                        canned_responses(Kind, undefined, Key, ?MEMCACHE_INCREMENT, {incr, Result})
+                        canned_responses(Kind, undefined, ?MEMCACHE_INCREMENT, {incr, Result})
                 end
         end,
     {Response, Unparsed}.
