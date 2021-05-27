@@ -30,6 +30,8 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+-behaviour(ct_suite).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 

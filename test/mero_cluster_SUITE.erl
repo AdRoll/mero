@@ -30,7 +30,8 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--include_lib("common_test/include/ct.hrl").
+-behaviour(ct_suite).
+
 -include_lib("eunit/include/eunit.hrl").
 
 -export([all/0, load_cluster/1, shard_phash2/1, shard_crc32/1, select_pool/1,
