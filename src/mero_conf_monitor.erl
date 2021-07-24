@@ -30,7 +30,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/2, init/1, handle_call/3, handle_cast/2, handle_info/2]).
+-export([start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -record(state,
         {orig_config :: cluster_config(),
@@ -39,28 +39,28 @@
 
 -type state() :: #state{}.
 -type cluster_config() :: mero:cluster_config().
--type init_args() :: #{orig_config | processed_config := cluster_config()}.
+-type init_args() :: #{orig_config := cluster_config()}.
 
 %%%-----------------------------------------------------------------------------
 %%% API
 %%%-----------------------------------------------------------------------------
--spec start_link(cluster_config(), cluster_config()) -> {ok, pid()} | {error, term()}.
-start_link(OrigConfig, ProcessedConfig) ->
+-spec start_link(cluster_config()) -> {ok, pid()} | {error, term()}.
+start_link(OrigConfig) ->
     gen_server:start_link({local, ?MODULE},
                           ?MODULE,
-                          #{orig_config => OrigConfig, processed_config => ProcessedConfig},
+                          #{orig_config => OrigConfig},
                           []).
 
 %%%-----------------------------------------------------------------------------
 %%% Interesting Callbacks
 %%%-----------------------------------------------------------------------------
 -spec init(init_args()) -> {ok, state()}.
-init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
+init(#{orig_config := OrigConfig}) ->
     program_heartbeat(),
     {ok,
      #state{orig_config = OrigConfig,
-            processed_config = ProcessedConfig,
-            cluster_version = mero_cluster:version()}}.
+            processed_config = empty_config(OrigConfig),
+            cluster_version = undefined}}.
 
 -spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
 handle_info(heartbeat, State) ->
@@ -97,6 +97,9 @@ handle_cast(_Msg, State) ->
 %%%-----------------------------------------------------------------------------
 %%% Private Functions
 %%%-----------------------------------------------------------------------------
+empty_config(OrigConfig) ->
+    [{C, [{servers, []}]} || {C, _} <- OrigConfig].
+
 program_heartbeat() ->
     erlang:send_after(
         mero_conf:monitor_heartbeat_delay(), self(), heartbeat).

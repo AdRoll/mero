@@ -47,16 +47,14 @@
 %% mero_cluster
 -spec start_link(mero:cluster_config()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
 start_link(OrigConfig) ->
-    ProcessedConfig = mero_conf:process_server_specs(OrigConfig),
-    ok = mero_cluster:load_clusters(ProcessedConfig),
     supervisor:start_link({local, ?MODULE},
                           ?MODULE,
-                          #{orig_config => OrigConfig, processed_config => ProcessedConfig}).
+                          #{orig_config => OrigConfig}).
 
 -spec restart_child(ClusterName :: atom()) -> ok.
 restart_child(ClusterName) ->
-    ok = supervisor:terminate_child(?MODULE, ClusterName),
-    ok = supervisor:delete_child(?MODULE, ClusterName),
+    _ = supervisor:terminate_child(?MODULE, ClusterName),
+    _ = supervisor:delete_child(?MODULE, ClusterName),
     {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
     ok.
 
@@ -64,10 +62,9 @@ restart_child(ClusterName) ->
 %%% Supervisor callbacks
 %%%===================================================================
 
-init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
-    ClusterSupSpecs = [cluster_sup_spec(ClusterName) || {ClusterName, _} <- ProcessedConfig],
-    MonitorSpec = monitor_spec(OrigConfig, ProcessedConfig),
-    {ok, {{one_for_one, 10, 10}, [MonitorSpec | ClusterSupSpecs]}}.
+init(#{orig_config := OrigConfig}) ->
+    MonitorSpec = monitor_spec(OrigConfig),
+    {ok, {{one_for_one, 10, 10}, [MonitorSpec]}}.
 
 cluster_sup_spec(ClusterName) ->
     {ClusterName,
@@ -77,9 +74,9 @@ cluster_sup_spec(ClusterName) ->
      supervisor,
      [mero_cluster_sup]}.
 
-monitor_spec(OrigConfig, ProcessedConfig) ->
+monitor_spec(OrigConfig) ->
     {mero_conf_monitor,
-     {mero_conf_monitor, start_link, [OrigConfig, ProcessedConfig]},
+     {mero_conf_monitor, start_link, [OrigConfig]},
      permanent,
      5000,
      worker,
