@@ -78,17 +78,16 @@ end_per_testcase(_, _Conf) ->
 
 conf_is_periodically_fetched(_) ->
     mero_conf:monitor_heartbeat_delay(10, 11),
-    {ok, Pids} = start_server(),
+    start_server(),
     timer:sleep(20),
     ?assert(meck:called(mero_elasticache, get_cluster_config, 2)),
     meck:reset(mero_elasticache),
     timer:sleep(20),
-    ?assert(meck:called(mero_elasticache, get_cluster_config, 2)),
-    mero_test_util:stop_servers(Pids).
+    ?assert(meck:called(mero_elasticache, get_cluster_config, 2)).
 
 cluster_is_restarted_when_new_nodes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
-    {ok, Pids} = start_server(),
+    start_server(),
 
     Cluster1Children =
         supervisor:which_children(
@@ -129,12 +128,11 @@ cluster_is_restarted_when_new_nodes(_) ->
     ?assertEqual(3, length(NewCluster2Children)),
     lists:foreach(fun(Child) -> ?assertNot(lists:member(Child, Cluster2Children)) end,
                   NewCluster2Children),
-    mero_test_util:stop_servers(Pids),
     ok.
 
 cluster_is_restarted_when_lost_nodes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
-    {ok, Pids} = start_server(),
+    start_server(),
 
     Cluster1Children =
         supervisor:which_children(
@@ -170,12 +168,11 @@ cluster_is_restarted_when_lost_nodes(_) ->
     ?assertEqual(Cluster2Children,
                  supervisor:which_children(
                      mero_cluster:sup_by_cluster_name(cluster2))),
-    mero_test_util:stop_servers(Pids),
     ok.
 
 cluster_is_not_restarted_when_other_changes(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
-    {ok, Pids} = start_server(),
+    start_server(),
 
     Cluster1Children =
         supervisor:which_children(
@@ -211,12 +208,11 @@ cluster_is_not_restarted_when_other_changes(_) ->
     ?assertEqual(Cluster2Children,
                  supervisor:which_children(
                      mero_cluster:sup_by_cluster_name(cluster2))),
-    mero_test_util:stop_servers(Pids),
     ok.
 
 cluster_is_not_restarted_with_bad_info(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
-    {ok, Pids} = start_server(),
+    start_server(),
 
     Cluster1Children =
         supervisor:which_children(
@@ -248,12 +244,11 @@ cluster_is_not_restarted_with_bad_info(_) ->
                  supervisor:which_children(
                      mero_cluster:sup_by_cluster_name(cluster2))),
     ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
-    mero_test_util:stop_servers(Pids),
     ok.
 
 cluster_is_not_restarted_on_socket_error(_) ->
     mero_conf:monitor_heartbeat_delay(10000, 10001),
-    {ok, Pids} = start_server(),
+    start_server(),
 
     Cluster1Children =
         supervisor:which_children(
@@ -284,11 +279,10 @@ cluster_is_not_restarted_on_socket_error(_) ->
                  supervisor:which_children(
                      mero_cluster:sup_by_cluster_name(cluster2))),
     ?assertNotEqual(undefined, whereis(mero_conf_monitor)),
-    mero_test_util:stop_servers(Pids),
     ok.
 
 non_heartbeat_messages_are_ignored(_) ->
-    {ok, Pids} = start_server(),
+    start_server(),
 
     MeroConfMonitor = whereis(mero_conf_monitor),
 
@@ -297,7 +291,6 @@ non_heartbeat_messages_are_ignored(_) ->
     send_heartbeat(),
 
     ?assertEqual(MeroConfMonitor, whereis(mero_conf_monitor)),
-    mero_test_util:stop_servers(Pids),
     ok.
 
 start_server() ->
