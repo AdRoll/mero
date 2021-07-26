@@ -74,7 +74,7 @@ end_per_testcase(_, _Conf) ->
 %% Just tests if the application can be started and when it does that
 %% the mero_cluster module is generated correctly.
 start_stop(_Conf) ->
-    mero_test_util:start_server(?CLUSTER_CONFIG, 5, 30, 1000, 5000),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 5, 30, 1000, 5000),
     ct:log("~p~n", [mero_cluster:child_definitions(cluster)]),
     ?assertMatch([{cluster,
                    [{links, 7}, % we get +1 for timer:send_interval()
@@ -85,6 +85,7 @@ start_stop(_Conf) ->
                     {failed, 0},
                     {message_queue_len, 0}]}],
                  mero:state()),
+    mero_test_util:stop_servers(Pids),
     ok = application:stop(mero),
     ok = application:unload(mero).
 

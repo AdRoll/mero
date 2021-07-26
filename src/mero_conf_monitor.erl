@@ -57,6 +57,7 @@ start_link(OrigConfig) ->
 -spec init(init_args()) -> {ok, state()}.
 init(#{orig_config := OrigConfig}) ->
     program_heartbeat(),
+    self() ! heartbeat, % For the initial load
     {ok,
      #state{orig_config = OrigConfig,
             processed_config = empty_config(OrigConfig),
