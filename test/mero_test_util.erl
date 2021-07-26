@@ -48,10 +48,10 @@ wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retr
          {num_connecting, Connecting},
          {num_failed_connecting, NumFailedConnecting}] =
             State ->
-            io:format("Pool ~p State is ~p ~p... GOT IT! ~n", [Pool, os:timestamp(), State]),
+            io:format("Pool State is ~p ~p... GOT IT! ~n", [os:timestamp(), State]),
             ok;
         State ->
-            io:format("Pool ~p State is ~p ~p... retry ~n", [Pool, os:timestamp(), State]),
+            io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
             timer:sleep(100),
             wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries - 1)
     end.
