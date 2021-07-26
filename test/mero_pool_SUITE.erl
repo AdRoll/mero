@@ -101,7 +101,8 @@ start_stop_many(_Conf) ->
     ok = mero_conf:connection_unused_max_time(2000),
     ok = mero_conf:max_connection_delay_time(100),
 
-    ok = application:start(mero),
+    {ok, _} = application:ensure_all_started(mero),
+    mero_test_util:wait_for_cluster_mod(),
 
     PoolModule = mero_cluster:server(cluster, <<"222">>),
 
@@ -109,11 +110,12 @@ start_stop_many(_Conf) ->
 
     mero_test_util:wait_for_min_connections_failed(PoolModule, 0, 0, MinConn),
     ct:log("starting server on ?PORT ~p", [?PORT]),
-    {ok, _ServerPid} = mero_dummy_server:start_link(?PORT),
+    {ok, ServerPid} = mero_dummy_server:start_link(?PORT),
 
     ct:log("checking that the connections are performed"),
     mero_test_util:wait_for_pool_state(PoolModule, MinConn, MinConn, 0, 0),
 
+    mero_test_util:stop_servers([ServerPid]),
     ok = application:stop(mero),
     ok = application:unload(mero).
 
@@ -121,7 +123,7 @@ start_stop_many(_Conf) ->
 %% available after expiration
 expire_connections(_) ->
     ct:log("Creating a server configured to renew unused sockets."),
-    {ok, _Pid} = mero_test_util:start_server(?CLUSTER_CONFIG, 2, 4, 300, 900),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 2, 4, 300, 900),
     mero_test_util:wait_for_pool_state(?POOL, 2, 2, 0, 0),
 
     ct:log("Let's take two of the connections, no new ones will be created"),
@@ -166,12 +168,13 @@ expire_connections(_) ->
 
     ct:log("Finally start server again and expect recover"),
     {ok, _ServerPid} = mero_dummy_server:start_link(?PORT),
-    mero_test_util:wait_for_pool_state(?POOL, 2, 3, 0, 0).
+    mero_test_util:wait_for_pool_state(?POOL, 2, 3, 0, 0),
+    mero_test_util:stop_servers(Pids).
 
 %% @doc Basic test for checkout and checkin to pool.
 %% Test that connections are re-used.
 checkout_checkin(_) ->
-    mero_test_util:start_server(?CLUSTER_CONFIG, 1, 1, 1000, 1000),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 1, 1, 1000, 1000),
 
     ct:log("A process is allowed to checkout a new connection"),
     {ok, Conn1} = mero_pool:checkout(?POOL, ?TIMELIMIT(1000)),
@@ -193,12 +196,13 @@ checkout_checkin(_) ->
     ct:log("Another process is allowed to checkout a new connection"),
     ?assertMatch({ok, _},
                  proc:exec(
-                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})).
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
+    mero_test_util:stop_servers(Pids).
 
 %% A little more complex than the previous. Tests that new connections are created
 %% as the ones we have are in use
 checkout_checkin_limits(_) ->
-    mero_test_util:start_server(?CLUSTER_CONFIG, 2, 4, 1000, 1000),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 2, 4, 1000, 1000),
 
     mero_test_util:wait_for_pool_state(?POOL, 2, 2, 0, 0),
 
@@ -227,11 +231,12 @@ checkout_checkin_limits(_) ->
     ?assertMatch({ok, _},
                  proc:exec(
                      proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
-    mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0).
+    mero_test_util:wait_for_pool_state(?POOL, 1, 4, 0, 0),
+    mero_test_util:stop_servers(Pids).
 
 %% Tests that if a socket is checkined closed a new one will be created
 checkout_checkin_closed(_) ->
-    mero_test_util:start_server(?CLUSTER_CONFIG, 2, 2, 1000, 1000),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 2, 2, 1000, 1000),
     mero_test_util:wait_for_pool_state(?POOL, 2, 2, 0, 0),
 
     ct:log("A process is allowed to checkout a new connection"),
@@ -246,7 +251,8 @@ checkout_checkin_closed(_) ->
 
     ct:log("First connection is checkined closed. It will open a new one"),
     ok = mero_pool:checkin_closed(Conn1),
-    mero_test_util:wait_for_pool_state(?POOL, 1, 2, 0, 0).
+    mero_test_util:wait_for_pool_state(?POOL, 1, 2, 0, 0),
+    mero_test_util:stop_servers(Pids).
 
 %% @doc Test that connection failure results in a error
 %% checkoutting a connection from the pool.
@@ -260,7 +266,7 @@ conn_failed_checkout_error(_) ->
 %% @doc Test that the pool recovers a connection when
 %% a using process dies without checkin the connection.
 checkout_and_die(_) ->
-    mero_test_util:start_server(?CLUSTER_CONFIG, 1, 1, 1000, 1000),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 1, 1, 1000, 1000),
 
     ct:log("A process is allowed to checkout a new connection"),
     Parent = self(),
@@ -275,11 +281,12 @@ checkout_and_die(_) ->
             mero_test_util:wait_for_pool_state(?POOL, 1, 1, 0, 0),
             ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
             mero_test_util:wait_for_pool_state(?POOL, 0, 1, 0, 0)
-    end.
+    end,
+    mero_test_util:stop_servers(Pids).
 
 %% @doc Test that checkout the conn timeout, and the process dies.
 checkout_timeout(_) ->
-    mero_test_util:start_server(?CLUSTER_CONFIG, 2, 2, 1000, 1000),
+    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 2, 2, 1000, 1000),
     P1 = proc:new(),
     ct:log("A process timesout"),
     {error, pool_timeout} = proc:exec(P1, {mero_pool, checkout, [?POOL, ?TIMELIMIT(0)]}),
@@ -287,7 +294,8 @@ checkout_timeout(_) ->
     ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(3))),
     mero_test_util:wait_for_pool_state(?POOL, 1, 2, 0, 0),
     ?assertMatch({ok, _}, mero_pool:checkout(?POOL, ?TIMELIMIT(1000))),
-    mero_test_util:wait_for_pool_state(?POOL, 0, 2, 0, 0).
+    mero_test_util:wait_for_pool_state(?POOL, 0, 2, 0, 0),
+    mero_test_util:stop_servers(Pids).
 
 %%%=============================================================================
 %%% Helper functions

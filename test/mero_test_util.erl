@@ -31,7 +31,7 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -export([start_server/5, stop_servers/1, wait_for_pool_state/5,
-         wait_for_min_connections_failed/4]).
+         wait_for_min_connections_failed/4, wait_for_cluster_mod/0]).
 
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
     wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, 100).
@@ -89,7 +89,6 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
     ok = mero_conf:elasticache_load_config_delay(0),
     {ok, _} = application:ensure_all_started(mero),
 
-    ct:pal("GGG: ~p~n", [{ClusterConfig}]),
     ServerPids =
         lists:foldr(fun({_, Config}, Acc) ->
                        HostPortList = proplists:get_value(servers, Config),
@@ -111,6 +110,8 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
                     process_server_specs(ClusterConfig)),
 
     %% Wait for the connections
+    mero_conf_monitor ! heartbeat, %% Reload cluster config
+    timer:sleep(100),
     lists:foreach(fun(Pool) -> wait_for_pool_state(Pool, MinConn, MinConn, 0, 0) end,
                   [Pool
                    || {Cluster, _} <- ClusterConfig,
