@@ -57,7 +57,7 @@ start_link(Port) ->
 
 stop(Pid) when is_pid(Pid) ->
     MRef = erlang:monitor(process, Pid),
-    catch gen_server:call(Pid, stop),
+    gen_server:call(Pid, stop),
     receive
         {'DOWN', MRef, _, Object, Info} ->
             ct:pal("server ~p stopped ~p: ~p", [Object, whereis(?MODULE), Info]),
