@@ -110,7 +110,8 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
                     process_server_specs(ClusterConfig)),
 
     %% Wait for the connections
-    mero_conf_monitor ! heartbeat, %% Reload cluster config
+    %% Reload cluster config to make sure no old config stays around.
+    mero_conf_monitor ! heartbeat,
     timer:sleep(100),
     lists:foreach(fun(Pool) -> wait_for_pool_state(Pool, MinConn, MinConn, 0, 0) end,
                   [Pool
@@ -122,14 +123,17 @@ stop_servers(Pids) ->
     [mero_dummy_server:stop(Pid) || Pid <- Pids].
 
 wait_for_cluster_mod() ->
-  wait_for_cluster_mod(0).
+    wait_for_cluster_mod(0).
 
 wait_for_cluster_mod(3000) ->
-  timeout;
+    timeout;
 wait_for_cluster_mod(X) ->
     case erlang:function_exported(mero_cluster_util, child_definitions, 1) of
-      false -> timer:sleep(100), wait_for_cluster_mod(X + 100);
-      _ -> ok
+        false ->
+            timer:sleep(100),
+            wait_for_cluster_mod(X + 100);
+        _ ->
+            ok
     end.
 
 process_server_specs(ClusterConfig) ->

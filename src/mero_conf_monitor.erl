@@ -46,10 +46,7 @@
 %%%-----------------------------------------------------------------------------
 -spec start_link(cluster_config()) -> {ok, pid()} | {error, term()}.
 start_link(OrigConfig) ->
-    gen_server:start_link({local, ?MODULE},
-                          ?MODULE,
-                          #{orig_config => OrigConfig},
-                          []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}, []).
 
 %%%-----------------------------------------------------------------------------
 %%% Interesting Callbacks

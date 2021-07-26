@@ -47,9 +47,7 @@
 %% mero_cluster
 -spec start_link(mero:cluster_config()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
 start_link(OrigConfig) ->
-    supervisor:start_link({local, ?MODULE},
-                          ?MODULE,
-                          #{orig_config => OrigConfig}).
+    supervisor:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}).
 
 -spec restart_child(ClusterName :: atom()) -> ok.
 restart_child(ClusterName) ->

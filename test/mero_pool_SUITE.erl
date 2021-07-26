@@ -170,7 +170,7 @@ expire_connections(_) ->
 %% @doc Basic test for checkout and checkin to pool.
 %% Test that connections are re-used.
 checkout_checkin(_) ->
-    {ok, Pids} = mero_test_util:start_server(?CLUSTER_CONFIG, 1, 1, 1000, 1000),
+    mero_test_util:start_server(?CLUSTER_CONFIG, 1, 1, 1000, 1000),
 
     ct:log("A process is allowed to checkout a new connection"),
     {ok, Conn1} = mero_pool:checkout(?POOL, ?TIMELIMIT(1000)),
@@ -192,8 +192,7 @@ checkout_checkin(_) ->
     ct:log("Another process is allowed to checkout a new connection"),
     ?assertMatch({ok, _},
                  proc:exec(
-                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})),
-    mero_test_util:stop_servers(Pids).
+                     proc:new(), {mero_pool, checkout, [?POOL, ?TIMELIMIT(1000)]})).
 
 %% A little more complex than the previous. Tests that new connections are created
 %% as the ones we have are in use
