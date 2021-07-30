@@ -35,7 +35,7 @@
 -record(state,
         {orig_config :: cluster_config(),
          processed_config :: cluster_config(),
-         cluster_version :: pos_integer()}).
+         cluster_version :: undefined | pos_integer()}).
 
 -type state() :: #state{}.
 -type cluster_config() :: mero:cluster_config().
