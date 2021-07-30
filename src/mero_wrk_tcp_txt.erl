@@ -169,11 +169,10 @@ transaction(Client, async_delete, [Keys]) ->
         {ok, ok} ->
             {Client, ok}
     end;
-transaction(Client, async_increment, [Keys]) ->
-    async_increment(Client, Keys);
-transaction(Client, async_blank_response, [Keys, Timeout]) ->
-    {ok, Results} = async_blank_response(Client, Keys, Timeout),
-    {Client, Results};
+transaction(_Client, async_increment, [_Keys]) ->
+    {error, not_supportable}; %% txt incr doesn't support initail etc
+transaction(Client, async_blank_response, [_Keys, _Timeout]) ->
+    {Client, [ok]};
 transaction(Client, async_mget_response, [Keys, Timeout]) ->
     case async_mget_response(Client, Keys, Timeout) of
         {error, Reason} ->
@@ -412,12 +411,6 @@ async_delete(Client, Keys) ->
         {failed, Reason} ->
             {error, Reason}
     end.
-
-async_increment(_Client, _Keys) ->
-    {error, not_supportable}. %% txt incr doesn't support initail etc
-
-async_blank_response(_Client, _Keys, _TimeLimit) ->
-    {ok, [ok]}.
 
 async_mget_response(Client, Keys, TimeLimit) ->
     try

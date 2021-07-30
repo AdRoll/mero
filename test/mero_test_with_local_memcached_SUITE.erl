@@ -175,11 +175,11 @@ increment_binary(Conf) ->
 
 mincrement_binary(Conf) ->
     Keys = keys(Conf),
-    mincrement(cluster_binary, cluster_txt, Keys).
+    mincrement(cluster_binary, Keys).
 
 mincrement_txt(Conf) ->
     Keys = keys(Conf),
-    mincrement(cluster_txt, cluster_binary, Keys).
+    mincrement(cluster_txt, Keys).
 
 increment_txt(Conf) ->
     Keys = keys(Conf),
@@ -207,20 +207,20 @@ cas_binary(Conf) ->
 
 mgets_binary(Conf) ->
     Keys = keys(Conf),
-    mgets(cluster_binary, cluster_txt, Keys).
+    mgets(cluster_binary, Keys).
 
 madd_binary(Conf) ->
     Keys = keys(Conf),
-    madd(cluster_binary, cluster_txt, Keys),
-    madd_moving(cluster_binary, cluster_txt, Keys).
+    madd(cluster_binary, Keys),
+    madd_moving(cluster_binary).
 
 mset_binary(Conf) ->
     Keys = keys(Conf),
-    mset(cluster_binary, cluster_txt, Keys).
+    mset(cluster_binary, Keys).
 
 mcas_binary(Conf) ->
     Keys = keys(Conf),
-    mcas(cluster_binary, cluster_txt, Keys).
+    mcas(cluster_binary, Keys).
 
 %%%=============================================================================
 %%% Internal functions
@@ -286,9 +286,9 @@ mget(Cluster, ClusterAlt, Keys) ->
      end
      || Key <- Keys].
 
-mincrement(Cluster = cluster_txt, _ClusterAlt, Keys) ->
+mincrement(Cluster = cluster_txt, Keys) ->
     {error, not_supportable} = mero:mincrement_counter(Cluster, Keys);
-mincrement(Cluster = cluster_binary, _ClusterAlt, Keys) ->
+mincrement(Cluster = cluster_binary, Keys) ->
     ok = mero:mincrement_counter(Cluster, Keys),
     MGetRet =
         lists:sort(
@@ -377,17 +377,17 @@ cas(Cluster, ClusterAlt, Keys) ->
 
 %% this is needed b/c our test server doesn't emulate a real memcached server with 100%
 %% accuracy.
-mgets(Cluster, _ClusterAlt, Keys) ->
+mgets(Cluster, Keys) ->
     Expected = lists:keysort(1, [{Key, undefined, undefined} || Key <- Keys]),
     ?assertEqual(Expected, lists:keysort(1, mero:mgets(Cluster, Keys, 1000))).
 
-madd(Cluster, _ClusterAlt, Keys) ->
+madd(Cluster, Keys) ->
     Expected = lists:duplicate(length(Keys), ok) ++ [{error, already_exists}],
     KVs = [{Key, <<"xyzzy">>, 1000} || Key <- Keys] ++ [{hd(Keys), <<"flub">>, 1000}],
     ?assertEqual(Expected, mero:madd(Cluster, KVs, 1000)),
     ?assertEqual({hd(Keys), <<"xyzzy">>}, mero:get(Cluster, hd(Keys), 1000)).
 
-madd_moving(Cluster, _ClusterAlt, _Keys) ->
+madd_moving(Cluster) ->
     %% with one existing key, add new keys repeatedly, moving the
     %% position of the existing key each time:
     ExistingKey = key(),
@@ -418,14 +418,14 @@ madd_moving(Cluster, _ClusterAlt, _Keys) ->
                   end,
                   [{1, N} || N <- lists:seq(1, Total - 1)]).
 
-mset(Cluster, _ClusterAlt, Keys) ->
+mset(Cluster, Keys) ->
     KVs = [{Key, Key, 1000} || Key <- Keys],
     Expected = lists:duplicate(length(Keys), ok),
     ?assertEqual(Expected, mero:mset(Cluster, KVs, 1000)),
     ?assertEqual(lists:keysort(1, [{Key, Key} || Key <- Keys]),
                  lists:keysort(1, mero:mget(Cluster, Keys, 1000))).
 
-mcas(Cluster, _ClusterAlt, Keys) ->
+mcas(Cluster, Keys) ->
     mero:mset(Cluster, [{Key, Key, 1000} || Key <- Keys], 1000),
     Stored = mero:mgets(Cluster, Keys, 1000),
     FailedUpdate = {element(1, hd(Stored)), <<"xyzzy">>, 1000, 12345},

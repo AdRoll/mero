@@ -179,9 +179,8 @@ transaction(Client, async_mget_response, [Keys, Timeout]) ->
         {ok, Results} ->
             {Client, Results}
     end;
-transaction(Client, async_blank_response, [Keys, Timeout]) ->
-    {ok, Results} = async_blank_response(Client, Keys, Timeout),
-    {Client, Results};
+transaction(Client, async_blank_response, [_Keys, _Timeout]) ->
+    {Client, [ok]};
 transaction(Client, async_mset_response, [Items, Timeout]) ->
     case async_mset_response(Client, Items, Timeout) of
         {error, Reason} ->
@@ -408,9 +407,6 @@ send_madd(Client, Items) ->
 send_gets(Client, Keys) ->
     send_quietly_butlast(Client, Keys, ?MEMCACHE_GETKQ, ?MEMCACHE_GETK).
 
-async_blank_response(_Client, _Keys, _TimeLimit) ->
-    {ok, [ok]}.
-
 async_mget_response(Client, Keys, TimeLimit) ->
     try
         {ok, receive_mget_response(Client, TimeLimit, Keys, <<>>, [])}
@@ -435,7 +431,7 @@ receive_mget_response(Client, TimeLimit, Keys, Buffer, Acc) ->
             case recv_bytes(Client, BodySize, BufferRest, TimeLimit) of
                 {<<_Extras:ExtrasSize/binary, Key:KeySize/binary, ValueReceived/binary>>,
                  BufferRest2} ->
-                    {Key, Value} = filter_by_status(Status, Op, Key, ValueReceived),
+                    {Key, Value} = filter_by_status(Status, Key, ValueReceived),
                     Responses =
                         [#mero_item{key = Key,
                                     value = Value,
@@ -457,11 +453,11 @@ receive_mget_response(Client, TimeLimit, Keys, Buffer, Acc) ->
             throw({failed, {unexpected_header, Data}})
     end.
 
-filter_by_status(?NO_ERROR, _Op, Key, ValueReceived) ->
+filter_by_status(?NO_ERROR, Key, ValueReceived) ->
     {Key, ValueReceived};
-filter_by_status(?NOT_FOUND, _Op, Key, _ValueReceived) ->
+filter_by_status(?NOT_FOUND, Key, _ValueReceived) ->
     {Key, undefined};
-filter_by_status(Status, _Op, _Key, _ValueReceived) ->
+filter_by_status(Status, _Key, _ValueReceived) ->
     throw({failed, {response_status, Status}}).
 
 async_mset_response(Client, NKVECs, TimeLimit) ->
