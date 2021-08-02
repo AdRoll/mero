@@ -31,7 +31,7 @@
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
 -export([start_server/5, stop_servers/1, wait_for_pool_state/5,
-         wait_for_min_connections_failed/4, wait_for_cluster_mod/0]).
+         wait_for_min_connections_failed/4]).
 
 wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting) ->
     wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, 100).
