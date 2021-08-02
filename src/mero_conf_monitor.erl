@@ -30,7 +30,8 @@
 
 -behaviour(gen_server).
 
--export([start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2]).
+-export([start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2,
+         handle_continue/2]).
 
 -record(state,
         {orig_config :: cluster_config(),
@@ -53,16 +54,17 @@ start_link(OrigConfig) ->
 %%%-----------------------------------------------------------------------------
 -spec init(init_args()) -> {ok, state()}.
 init(#{orig_config := OrigConfig}) ->
-    program_heartbeat(),
-    self() ! heartbeat, % For the initial load
     {ok,
      #state{orig_config = OrigConfig,
             processed_config = empty_config(OrigConfig),
-            cluster_version = undefined}}.
+            cluster_version = undefined},
+     {continue, reload}}.
 
--spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
-handle_info(heartbeat, State) ->
-    program_heartbeat(),
+-spec handle_continue(reload | program_heartbeat, state()) ->
+                         {noreply, state(), {continue, program_heartbeat}} |
+                         {noreply, state(), {continue, idle}} |
+                         {noreply, state()}.
+handle_continue(reload, State) ->
     NewState =
         try
             update_cluster_defs(State)
@@ -76,7 +78,16 @@ handle_info(heartbeat, State) ->
                                            {processed_config, State#state.processed_config}]),
                 State
         end,
-    {noreply, NewState};
+    {noreply, NewState, {continue, program_heartbeat}};
+handle_continue(program_heartbeat, State) ->
+    program_heartbeat(),
+    {noreply, State, {continue, idle}};
+handle_continue(idle, State) ->
+    {noreply, State}.
+
+-spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
+handle_info(heartbeat, State) ->
+    {noreply, State, {continue, reload}};
 handle_info(_, State) ->
     {noreply, State}.
 
