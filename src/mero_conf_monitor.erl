@@ -52,7 +52,7 @@ start_link(OrigConfig) ->
 %%%-----------------------------------------------------------------------------
 %%% Interesting Callbacks
 %%%-----------------------------------------------------------------------------
--spec init(init_args()) -> {ok, state()}.
+-spec init(init_args()) -> {ok, state(), {continue, reload}}.
 init(#{orig_config := OrigConfig}) ->
     {ok,
      #state{orig_config = OrigConfig,
