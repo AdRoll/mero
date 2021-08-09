@@ -61,9 +61,7 @@ init(#{orig_config := OrigConfig}) ->
      {continue, reload}}.
 
 -spec handle_continue(reload | program_heartbeat, state()) ->
-                         {noreply, state(), {continue, program_heartbeat}} |
-                         {noreply, state(), {continue, idle}} |
-                         {noreply, state()}.
+                         {noreply, state(), {continue, program_heartbeat}} | {noreply, state()}.
 handle_continue(reload, State) ->
     NewState =
         try
@@ -81,8 +79,6 @@ handle_continue(reload, State) ->
     {noreply, NewState, {continue, program_heartbeat}};
 handle_continue(program_heartbeat, State) ->
     program_heartbeat(),
-    {noreply, State, {continue, idle}};
-handle_continue(idle, State) ->
     {noreply, State}.
 
 -spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
