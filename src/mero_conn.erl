@@ -111,8 +111,8 @@ get(Name, [Key], Timeout) ->
                 Value ->
                     [Value]
             end;
-        Error ->
-            Error
+        {error, Error} ->
+            {error, [Error], []}
     end;
 get(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
