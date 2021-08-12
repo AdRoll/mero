@@ -102,7 +102,7 @@ start_stop_many(_Conf) ->
 
     ok = application:start(mero),
 
-    PoolModule = mero_cluster:server(cluster, <<"222">>),
+    {ok, PoolModule} = mero_cluster:server(cluster, <<"222">>),
 
     ct:log("all memcached servers are down.. ~p", [{PoolModule}]),
 

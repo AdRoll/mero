@@ -198,10 +198,16 @@ sharding_algorithm(Name) ->
     mero_cluster_util:sharding_algorithm(Name).
 
 %% Selects a worker based on the cluster identifier and the key.
--spec server(Name :: atom(), Key :: mero:mero_key()) -> Server :: atom().
+-spec server(Name :: atom(), Key :: mero:mero_key()) ->
+                {ok, Server :: atom()} | {error, term()}.
 server(Name, Key) ->
-    ShardIdentifier = shard_identifier(Name, Key),
-    random_pool_of_shard(Name, ShardIdentifier).
+    try
+        ShardIdentifier = shard_identifier(Name, Key),
+        {ok, random_pool_of_shard(Name, ShardIdentifier)}
+    catch
+        Exception:Reason ->
+            {error, {Exception, Reason}}
+    end.
 
 -spec group_by_shards(ClusterName :: atom(), Keys :: [mero:mero_key()]) ->
                          [{PoolName :: atom(), Keys :: [binary()]}].

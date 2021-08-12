@@ -47,14 +47,18 @@
 
 increment_counter(Name, Key, Value, Initial, ExpTime, Retries, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    PoolName = mero_cluster:server(Name, Key),
-    increment_counter_timelimit(PoolName,
-                                mero:storage_key(Key),
-                                Value,
-                                Initial,
-                                ExpTime,
-                                Retries,
-                                TimeLimit).
+    case mero_cluster:server(Name, Key) of
+        {ok, PoolName} ->
+            increment_counter_timelimit(PoolName,
+                                        mero:storage_key(Key),
+                                        Value,
+                                        Initial,
+                                        ExpTime,
+                                        Retries,
+                                        TimeLimit);
+        Error ->
+            Error
+    end.
 
 mincrement_counter(Name, Keys, Value, Initial, ExpTime, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
@@ -78,11 +82,15 @@ mincrement_counter(Name, Keys, Value, Initial, ExpTime, Timeout) ->
 
 set(Name, Key, Value, ExpTime, Timeout, CAS) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName,
-                 set,
-                 [mero:storage_key(Key), Value, ExpTime, TimeLimit, CAS],
-                 TimeLimit).
+    case mero_cluster:server(Name, Key) of
+        {ok, PoolName} ->
+            pool_execute(PoolName,
+                         set,
+                         [mero:storage_key(Key), Value, ExpTime, TimeLimit, CAS],
+                         TimeLimit);
+        Error ->
+            Error
+    end.
 
 mset(Name, KVECs, Timeout) ->
     mset_(Name, KVECs, Timeout, async_mset).
@@ -95,12 +103,16 @@ madd(Name, KVEs, Timeout) ->
 
 get(Name, [Key], Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    PoolName = mero_cluster:server(Name, Key),
-    case pool_execute(PoolName, get, [mero:storage_key(Key), TimeLimit], TimeLimit) of
-        {error, Reason} ->
-            {error, [Reason], []};
-        Value ->
-            [Value]
+    case mero_cluster:server(Name, Key) of
+        {ok, PoolName} ->
+            case pool_execute(PoolName, get, [mero:storage_key(Key), TimeLimit], TimeLimit) of
+                {error, Reason} ->
+                    {error, [Reason], []};
+                Value ->
+                    [Value]
+            end;
+        Error ->
+            Error
     end;
 get(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
@@ -115,8 +127,12 @@ get(Name, Keys, Timeout) ->
 
 delete(Name, Key, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName, delete, [mero:storage_key(Key), TimeLimit], TimeLimit).
+    case mero_cluster:server(Name, Key) of
+        {ok, PoolName} ->
+            pool_execute(PoolName, delete, [mero:storage_key(Key), TimeLimit], TimeLimit);
+        Error ->
+            Error
+    end.
 
 mdelete(Name, Keys, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
@@ -132,11 +148,15 @@ mdelete(Name, Keys, Timeout) ->
 
 add(Name, Key, Value, ExpTime, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    PoolName = mero_cluster:server(Name, Key),
-    pool_execute(PoolName,
-                 add,
-                 [mero:storage_key(Key), Value, ExpTime, TimeLimit],
-                 TimeLimit).
+    case mero_cluster:server(Name, Key) of
+        {ok, PoolName} ->
+            pool_execute(PoolName,
+                         add,
+                         [mero:storage_key(Key), Value, ExpTime, TimeLimit],
+                         TimeLimit);
+        Error ->
+            Error
+    end.
 
 flush_all(Name, Timeout) ->
     TimeLimit = mero_conf:add_now(Timeout),

@@ -138,10 +138,14 @@ select_pool(_Conf) ->
     ?assertEqual([{"localhost", 11995, mero_cluster2_localhost_0_0, mero_wrk_tcp_txt},
                   {"localhost", 11998, mero_cluster2_localhost_1_0, mero_wrk_tcp_txt}],
                  mero_cluster:child_definitions(cluster2)),
-    ?assertMatch(mero_cluster_localhost_0_0, mero_cluster:server(cluster, <<"Adroll">>)),
-    ?assertMatch(mero_cluster2_localhost_0_0, mero_cluster:server(cluster2, <<"Adroll">>)),
-    ?assertMatch(mero_cluster_localhost_1_0, mero_cluster:server(cluster, <<"Adroll2">>)),
-    ?assertMatch(mero_cluster2_localhost_1_0, mero_cluster:server(cluster2, <<"Adroll2">>)),
+    ?assertMatch({ok, mero_cluster_localhost_0_0},
+                 mero_cluster:server(cluster, <<"Adroll">>)),
+    ?assertMatch({ok, mero_cluster2_localhost_0_0},
+                 mero_cluster:server(cluster2, <<"Adroll">>)),
+    ?assertMatch({ok, mero_cluster_localhost_1_0},
+                 mero_cluster:server(cluster, <<"Adroll2">>)),
+    ?assertMatch({ok, mero_cluster2_localhost_1_0},
+                 mero_cluster:server(cluster2, <<"Adroll2">>)),
     ok.
 
 group_by_shards(_Conf) ->
