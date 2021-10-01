@@ -33,17 +33,45 @@
 -behaviour(ct_suite).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([all/0, load_cluster/1, shard_phash2/1, shard_crc32/1, select_pool/1,
-         group_by_shards/1, group_by_shards_clustered_key/1]).
+-export([all/0, cluster_use_without_discovery/1, load_cluster/1, shard_phash2/1,
+         shard_crc32/1, select_pool/1, group_by_shards/1, group_by_shards_clustered_key/1]).
 
 all() ->
-    [load_cluster,
+    [cluster_use_without_discovery,
+     load_cluster,
      shard_phash2,
      shard_crc32,
      select_pool,
      group_by_shards,
      group_by_shards_clustered_key].
+
+cluster_use_without_discovery(_Conf) ->
+    application:load(mero),
+
+    % Discovery didn't happen yet because the server is down, requests
+    % should return errors.
+    {error, _} = mero:set(cluster, <<"k">>, <<"v">>, 1000, 1000),
+    {error, _, []} = mero:mgets(cluster, [<<"k">>]),
+
+    % Start a server now.
+    Conf =
+        [{cluster,
+          [{servers, [{"localhost", 11298}, {"localhost", 11299}]},
+           {sharding_algorithm, {mero, shard_phash2}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_txt}]}],
+    {ok, Pids} = mero_test_util:start_server(Conf, 1, 1, 30000, 90000),
+
+    % The operations that failed before can now proceed normally.
+    ok = mero:set(cluster, <<"k">>, <<"v">>, 1000, 1000),
+    [{<<"k">>, <<"v">>, _}] = mero:mgets(cluster, [<<"k">>]),
+
+    mero_test_util:stop_servers(Pids),
+    application:stop(mero),
+    application:unload(mero),
+    ok.
 
 %% Just tests if the application can be started and when it does that
 %% the mero_cluster module is generated correctly.
@@ -138,10 +166,14 @@ select_pool(_Conf) ->
     ?assertEqual([{"localhost", 11995, mero_cluster2_localhost_0_0, mero_wrk_tcp_txt},
                   {"localhost", 11998, mero_cluster2_localhost_1_0, mero_wrk_tcp_txt}],
                  mero_cluster:child_definitions(cluster2)),
-    ?assertMatch(mero_cluster_localhost_0_0, mero_cluster:server(cluster, <<"Adroll">>)),
-    ?assertMatch(mero_cluster2_localhost_0_0, mero_cluster:server(cluster2, <<"Adroll">>)),
-    ?assertMatch(mero_cluster_localhost_1_0, mero_cluster:server(cluster, <<"Adroll2">>)),
-    ?assertMatch(mero_cluster2_localhost_1_0, mero_cluster:server(cluster2, <<"Adroll2">>)),
+    ?assertMatch({ok, mero_cluster_localhost_0_0},
+                 mero_cluster:server(cluster, <<"Adroll">>)),
+    ?assertMatch({ok, mero_cluster2_localhost_0_0},
+                 mero_cluster:server(cluster2, <<"Adroll">>)),
+    ?assertMatch({ok, mero_cluster_localhost_1_0},
+                 mero_cluster:server(cluster, <<"Adroll2">>)),
+    ?assertMatch({ok, mero_cluster2_localhost_1_0},
+                 mero_cluster:server(cluster2, <<"Adroll2">>)),
     ok.
 
 group_by_shards(_Conf) ->

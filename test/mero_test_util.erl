@@ -52,7 +52,7 @@ wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retr
             ok;
         State ->
             io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
-            timer:sleep(30),
+            timer:sleep(100),
             wait_for_pool_state(Pool, Free, Connected, Connecting, NumFailedConnecting, Retries - 1)
     end.
 
@@ -71,7 +71,7 @@ wait_for_min_connections_failed(Pool, Free, Connected, MinFailed) ->
             ok;
         State ->
             io:format("Pool State is ~p ~p... retry ~n", [os:timestamp(), State]),
-            timer:sleep(30),
+            timer:sleep(100),
             wait_for_min_connections_failed(Pool, Free, Connected, MinFailed)
     end.
 
@@ -87,6 +87,7 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
     ok = mero_conf:timeout_read(100),
     ok = mero_conf:timeout_write(1000),
     ok = mero_conf:elasticache_load_config_delay(0),
+    {ok, _} = application:ensure_all_started(mero),
 
     ServerPids =
         lists:foldr(fun({_, Config}, Acc) ->
@@ -107,9 +108,11 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
                     end,
                     [],
                     process_server_specs(ClusterConfig)),
-    {ok, _} = application:ensure_all_started(mero),
 
     %% Wait for the connections
+    %% Reload cluster config to make sure no old config stays around.
+    mero_conf_monitor ! heartbeat,
+    timer:sleep(100),
     lists:foreach(fun(Pool) -> wait_for_pool_state(Pool, MinConn, MinConn, 0, 0) end,
                   [Pool
                    || {Cluster, _} <- ClusterConfig,
@@ -119,8 +122,23 @@ start_server(ClusterConfig, MinConn, MaxConn, Expiration, MaxTime) ->
 stop_servers(Pids) ->
     [mero_dummy_server:stop(Pid) || Pid <- Pids].
 
+wait_for_cluster_mod() ->
+    wait_for_cluster_mod(0).
+
+wait_for_cluster_mod(3000) ->
+    timeout;
+wait_for_cluster_mod(X) ->
+    case erlang:function_exported(mero_cluster_util, child_definitions, 1) of
+        false ->
+            timer:sleep(100),
+            wait_for_cluster_mod(X + 100);
+        _ ->
+            ok
+    end.
+
 process_server_specs(ClusterConfig) ->
     try
+        wait_for_cluster_mod(),
         mero_conf:process_server_specs(ClusterConfig)
     catch
         K:E:S ->

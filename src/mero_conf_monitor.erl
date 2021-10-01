@@ -30,41 +30,39 @@
 
 -behaviour(gen_server).
 
--export([start_link/2, init/1, handle_call/3, handle_cast/2, handle_info/2]).
+-export([start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2,
+         handle_continue/2]).
 
 -record(state,
         {orig_config :: cluster_config(),
          processed_config :: cluster_config(),
-         cluster_version :: pos_integer()}).
+         cluster_version :: undefined | pos_integer()}).
 
 -type state() :: #state{}.
 -type cluster_config() :: mero:cluster_config().
--type init_args() :: #{orig_config | processed_config := cluster_config()}.
+-type init_args() :: #{orig_config := cluster_config()}.
 
 %%%-----------------------------------------------------------------------------
 %%% API
 %%%-----------------------------------------------------------------------------
--spec start_link(cluster_config(), cluster_config()) -> {ok, pid()} | {error, term()}.
-start_link(OrigConfig, ProcessedConfig) ->
-    gen_server:start_link({local, ?MODULE},
-                          ?MODULE,
-                          #{orig_config => OrigConfig, processed_config => ProcessedConfig},
-                          []).
+-spec start_link(cluster_config()) -> {ok, pid()} | {error, term()}.
+start_link(OrigConfig) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}, []).
 
 %%%-----------------------------------------------------------------------------
 %%% Interesting Callbacks
 %%%-----------------------------------------------------------------------------
--spec init(init_args()) -> {ok, state()}.
-init(#{orig_config := OrigConfig, processed_config := ProcessedConfig}) ->
-    program_heartbeat(),
+-spec init(init_args()) -> {ok, state(), {continue, reload}}.
+init(#{orig_config := OrigConfig}) ->
     {ok,
      #state{orig_config = OrigConfig,
-            processed_config = ProcessedConfig,
-            cluster_version = mero_cluster:version()}}.
+            processed_config = empty_config(OrigConfig),
+            cluster_version = undefined},
+     {continue, reload}}.
 
--spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
-handle_info(heartbeat, State) ->
-    program_heartbeat(),
+-spec handle_continue(reload | program_heartbeat, state()) ->
+                         {noreply, state(), {continue, program_heartbeat}} | {noreply, state()}.
+handle_continue(reload, State) ->
     NewState =
         try
             update_cluster_defs(State)
@@ -78,7 +76,14 @@ handle_info(heartbeat, State) ->
                                            {processed_config, State#state.processed_config}]),
                 State
         end,
-    {noreply, NewState};
+    {noreply, NewState, {continue, program_heartbeat}};
+handle_continue(program_heartbeat, State) ->
+    program_heartbeat(),
+    {noreply, State}.
+
+-spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
+handle_info(heartbeat, State) ->
+    {noreply, State, {continue, reload}};
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -97,6 +102,9 @@ handle_cast(_Msg, State) ->
 %%%-----------------------------------------------------------------------------
 %%% Private Functions
 %%%-----------------------------------------------------------------------------
+empty_config(OrigConfig) ->
+    [{C, [{servers, []}]} || {C, _} <- OrigConfig].
+
 program_heartbeat() ->
     erlang:send_after(
         mero_conf:monitor_heartbeat_delay(), self(), heartbeat).
