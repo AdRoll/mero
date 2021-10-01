@@ -52,6 +52,7 @@ all() ->
 init_per_testcase(diff, Conf) ->
     Conf;
 init_per_testcase(_, Conf) ->
+    ok = mero_conf:elasticache_load_config_delay(0),
     meck:new(mero_elasticache, [passthrough]),
     HostLinea =
         <<"a1.com|10.100.100.100|11211 ",

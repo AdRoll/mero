@@ -69,6 +69,8 @@ cluster_use_without_discovery(_Conf) ->
     [{<<"k">>, <<"v">>, _}] = mero:mgets(cluster, [<<"k">>]),
 
     mero_test_util:stop_servers(Pids),
+    application:stop(mero),
+    application:unload(mero),
     ok.
 
 %% Just tests if the application can be started and when it does that
