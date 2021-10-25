@@ -32,7 +32,7 @@
 
 -include_lib("mero/include/mero.hrl").
 
--behavior(mero_pool).
+-behaviour(mero_pool).
 
 %%% Start/stop functions
 -export([connect/3, controlling_process/2, transaction/3, close/2]).
