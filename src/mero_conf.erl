@@ -47,7 +47,7 @@
          max_connection_delay_time/1, stat_callback/0, stat_callback/1, add_now/1, add_now/2,
          millis_to/1, millis_to/2, process_server_specs/1, elasticache_load_config_delay/0,
          elasticache_load_config_delay/1, monitor_heartbeat_delay/0, monitor_heartbeat_delay/2,
-         get_elasticache_cluster_configs/1]).
+         get_elasticache_cluster_configs/1, is_valid/1]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -221,12 +221,29 @@ millis_to(TimeLimit, Then) ->
 
 -spec process_server_specs(mero:cluster_config()) -> mero:cluster_config().
 process_server_specs(Clusters) ->
-    [{ClusterName, [process_value(Attr) || Attr <- Attrs]}
-     || {ClusterName, Attrs} <- Clusters].
+    [process_server_spec(Cluster) || Cluster <- Clusters].
+
+-spec is_valid(mero:cluster_config()) -> boolean().
+is_valid({_Name, [{servers, {error, _}}]}) ->
+    false;
+is_valid(_) ->
+    true.
 
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+process_server_spec({ClusterName, Attrs}) ->
+    try
+        {ClusterName, [process_value(Attr) || Attr <- Attrs]}
+    catch
+        Kind:Desc:Stack ->
+            error_logger:error_report([{error, mero_config_failed},
+                                       {kind, Kind},
+                                       {desc, Desc},
+                                       {stack, Stack}]),
+            {ClusterName, [{servers, {error, Desc}}]}
+    end.
 
 get_env(Key) ->
     case application:get_env(mero, Key) of

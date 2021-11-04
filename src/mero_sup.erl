@@ -30,7 +30,7 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([start_link/1, restart_child/1, init/1]).
+-export([start_link/1, restart_child/1, terminate_child/1, init/1]).
 
 -behaviour(supervisor).
 
@@ -54,6 +54,12 @@ restart_child(ClusterName) ->
     _ = supervisor:terminate_child(?MODULE, ClusterName),
     _ = supervisor:delete_child(?MODULE, ClusterName),
     {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
+    ok.
+
+-spec terminate_child(ClusterName :: atom()) -> ok.
+terminate_child(ClusterName) ->
+    _ = supervisor:terminate_child(?MODULE, ClusterName),
+    _ = supervisor:delete_child(?MODULE, ClusterName),
     ok.
 
 %%%===================================================================

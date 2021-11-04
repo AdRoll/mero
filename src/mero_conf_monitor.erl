@@ -118,7 +118,7 @@ update_cluster_defs(ProcessedConfig,
 update_cluster_defs(NewProcessedConfig, State) ->
     #state{processed_config = OldProcessedConfig, cluster_version = OldClusterVersion} =
         State,
-    ok = mero_cluster:load_clusters(NewProcessedConfig),
+    ok = mero_cluster:load_clusters(valid_clusters(NewProcessedConfig)),
     NewClusterVersion = mero_cluster:version(),
 
     ok = update_clusters(OldProcessedConfig, NewProcessedConfig),
@@ -142,16 +142,25 @@ update_clusters([ClusterDef | OldClusterDefs],
     update_clusters(OldClusterDefs, NewClusterDefs);
 update_clusters([{ClusterName, OldAttrs} | OldClusterDefs],
                 [{ClusterName, NewAttrs} | NewClusterDefs]) ->
-    OldServers =
-        lists:sort(
-            proplists:get_value(servers, OldAttrs)),
+    OldServers = get_servers(OldAttrs),
     ok =
-        case lists:sort(
-                 proplists:get_value(servers, NewAttrs))
-        of
+        case get_servers(NewAttrs) of
             OldServers ->
                 ok; %% Nothing of relevance changed
+            {error, _} ->
+                mero_sup:terminate_child(ClusterName);
             _ ->
                 mero_sup:restart_child(ClusterName)
         end,
     update_clusters(OldClusterDefs, NewClusterDefs).
+
+valid_clusters(Clusters) ->
+    [Cluster || Cluster <- Clusters, mero_conf:is_valid(Cluster)].
+
+get_servers(Attrs) ->
+    case proplists:get_value(servers, Attrs) of
+        Error when is_tuple(Error) ->
+            Error;
+        Servers when is_list(Servers) ->
+            lists:sort(Servers)
+    end.
