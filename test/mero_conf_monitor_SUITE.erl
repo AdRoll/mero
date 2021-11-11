@@ -36,7 +36,7 @@
 -export([conf_is_periodically_fetched/1, cluster_is_restarted_when_new_nodes/1,
          cluster_is_restarted_when_lost_nodes/1, cluster_is_not_restarted_when_other_changes/1,
          cluster_is_not_restarted_with_bad_info/1, cluster_is_not_restarted_on_socket_error/1,
-         non_heartbeat_messages_are_ignored/1, cluster_fails/1]).
+         non_heartbeat_messages_are_ignored/1, cluster_fails/1, cluster_fails_and_recovers/1]).
 
 all() ->
     [conf_is_periodically_fetched,
@@ -46,7 +46,7 @@ all() ->
      cluster_is_not_restarted_with_bad_info,
      cluster_is_not_restarted_on_socket_error,
      non_heartbeat_messages_are_ignored,
-     cluster_fails].
+     cluster_fails, cluster_fails_and_recovers].
 
 init_per_testcase(_, Conf) ->
     meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, no_link]),
@@ -199,12 +199,63 @@ cluster_fails(_) ->
           b => <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>},
     mock_elasticache_fail(Lines),
 
-    %% Cluster1 removed, Cluster2 is rebuilt
+    %% Cluster1 removed, Cluster2 stays
     send_heartbeat(),
+
+    %% Cluster1 no longer available
+    ?assertEqual(undefined, mero_cluster:sup_by_cluster_name(cluster1)),
+    %% Cluster2 still there, with no changes
+    ?assertEqual(Cluster2Children,
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
+    ok.
+
+cluster_fails_and_recovers(_) ->
+    mero_conf:monitor_heartbeat_delay(10000, 10001),
+    start_server(),
+
+    Cluster1Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster1)),
+    Cluster2Children =
+        supervisor:which_children(
+            mero_cluster:sup_by_cluster_name(cluster2)),
+    ?assertEqual(3, length(Cluster1Children)),
+    ?assertEqual(2, length(Cluster2Children)),
+
+    %% Nothing Changed...
+    send_heartbeat(),
+    ?assertEqual(Cluster1Children,
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster1))),
+    ?assertEqual(Cluster2Children,
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% Cluster2 stays, Cluster1 refuses connection
+    Lines =
+        #{a => <<"a1.com|10.100.100.100|11112 ", "a2.com|10.101.101.00|11112 ", "a3.com|10.102.00.102|11112\n">>,
+          b => <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>},
+    mock_elasticache_fail(Lines),
+
+    %% Cluster1 removed, Cluster2 stays
+    send_heartbeat(),
+
+    %% Cluster1 no longer available
+    ?assertEqual(undefined, mero_cluster:sup_by_cluster_name(cluster1)),
+    %% Cluster2 still there, with no changes
+    ?assertEqual(Cluster2Children,
+                 supervisor:which_children(
+                     mero_cluster:sup_by_cluster_name(cluster2))),
+
+    %% Cluster1 recovers, Cluster2 is rebuilt
+    mock_elasticache_recovered(Lines),
+    send_heartbeat(),
+
     NewCluster1Children =
         supervisor:which_children(
             mero_cluster:sup_by_cluster_name(cluster1)),
-    %?assertEqual(2, length(NewCluster1Children)),
+    ?assertEqual(3, length(NewCluster1Children)),
     lists:foreach(fun(Child) -> ?assertNot(lists:member(Child, Cluster1Children)) end,
                   NewCluster1Children),
     ?assertEqual(Cluster2Children,
@@ -376,6 +427,19 @@ mock_elasticache_fail(Lines) ->
                 fun (a, _, _, _) ->
                         {error, econnrefused};
                     (Type, _, _, _) ->
+                        HostLines = maps:get(Type, Lines),
+                        {ok,
+                         [{banner, <<"CONFIG cluster ...">>},
+                          {version, <<"version1">>},
+                          {hosts, HostLines},
+                          {crlf, <<"\r\n">>},
+                          {eom, <<"END\r\n">>}]}
+                end).
+
+mock_elasticache_recovered(Lines) ->
+    meck:expect(mero_elasticache,
+                request_response,
+                fun (Type, _, _, _) ->
                         HostLines = maps:get(Type, Lines),
                         {ok,
                          [{banner, <<"CONFIG cluster ...">>},
