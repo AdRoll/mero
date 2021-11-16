@@ -287,16 +287,17 @@ process_value({servers, {mfa, {Module, Function, Args}}}) ->
 process_value(V) ->
     V.
 
-get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}, Retries) ->
-    lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port, Retries));
-get_elasticache_cluster_configs({Host, Port}, Retries) ->
-    [get_elasticache_cluster_config(Host, Port, Retries)].
+get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}, MaxRetries) ->
+    lists:duplicate(ClusterSpeedFactor,
+                    get_elasticache_cluster_config(Host, Port, MaxRetries));
+get_elasticache_cluster_configs({Host, Port}, MaxRetries) ->
+    [get_elasticache_cluster_config(Host, Port, MaxRetries)].
 
-get_elasticache_cluster_config(Host, Port, Retries) ->
+get_elasticache_cluster_config(Host, Port, MaxRetries) ->
     get_elasticache_cluster_config(Host,
                                    Port,
                                    0,
-                                   Retries,
+                                   MaxRetries,
                                    mero_elasticache:get_cluster_config(Host, Port)).
 
 get_elasticache_cluster_config(_Host, _Port, _CurrentRetry, _MaxRetries, {ok, Entries}) ->
