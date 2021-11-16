@@ -46,7 +46,8 @@ all() ->
      cluster_is_not_restarted_with_bad_info,
      cluster_is_not_restarted_on_socket_error,
      non_heartbeat_messages_are_ignored,
-     cluster_fails, cluster_fails_and_recovers].
+     cluster_fails,
+     cluster_fails_and_recovers].
 
 init_per_testcase(_, Conf) ->
     meck:new([mero_elasticache, mero_wrk_tcp_binary], [passthrough, no_link]),
@@ -195,7 +196,10 @@ cluster_fails(_) ->
 
     %% Cluster2 stays, Cluster1 refuses connection
     Lines =
-        #{a => <<"a1.com|10.100.100.100|11112 ", "a2.com|10.101.101.00|11112 ", "a3.com|10.102.00.102|11112\n">>,
+        #{a =>
+              <<"a1.com|10.100.100.100|11112 ",
+                "a2.com|10.101.101.00|11112 ",
+                "a3.com|10.102.00.102|11112\n">>,
           b => <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>},
     mock_elasticache_fail(Lines),
 
@@ -234,7 +238,10 @@ cluster_fails_and_recovers(_) ->
 
     %% Cluster2 stays, Cluster1 refuses connection
     Lines =
-        #{a => <<"a1.com|10.100.100.100|11112 ", "a2.com|10.101.101.00|11112 ", "a3.com|10.102.00.102|11112\n">>,
+        #{a =>
+              <<"a1.com|10.100.100.100|11112 ",
+                "a2.com|10.101.101.00|11112 ",
+                "a3.com|10.102.00.102|11112\n">>,
           b => <<"b1.com|10.100.100.100|11212 ", "b2.com|10.101.101.00|11212\n">>},
     mock_elasticache_fail(Lines),
 
@@ -439,12 +446,12 @@ mock_elasticache_fail(Lines) ->
 mock_elasticache_recovered(Lines) ->
     meck:expect(mero_elasticache,
                 request_response,
-                fun (Type, _, _, _) ->
-                        HostLines = maps:get(Type, Lines),
-                        {ok,
-                         [{banner, <<"CONFIG cluster ...">>},
-                          {version, <<"version1">>},
-                          {hosts, HostLines},
-                          {crlf, <<"\r\n">>},
-                          {eom, <<"END\r\n">>}]}
+                fun(Type, _, _, _) ->
+                   HostLines = maps:get(Type, Lines),
+                   {ok,
+                    [{banner, <<"CONFIG cluster ...">>},
+                     {version, <<"version1">>},
+                     {hosts, HostLines},
+                     {crlf, <<"\r\n">>},
+                     {eom, <<"END\r\n">>}]}
                 end).

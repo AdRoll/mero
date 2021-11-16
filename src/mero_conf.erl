@@ -270,8 +270,8 @@ process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
         catch
             _:badrpc ->
                 % Fallback to sequential execution, mostly to get proper error descriptions
-                lists:map(fun (Config) ->
-                            get_elasticache_cluster_configs(Config, 0) % Avoid unnecesary retries
+                lists:map(fun(Config) ->
+                             get_elasticache_cluster_configs(Config, 0) % Avoid unnecesary retries
                           end,
                           ConfigList)
         end,
@@ -299,14 +299,14 @@ get_elasticache_cluster_config(Host, Port, Retries) ->
                                    Retries,
                                    mero_elasticache:get_cluster_config(Host, Port)).
 
-get_elasticache_cluster_config(_Host, _Port, _Retry, _Retries, {ok, Entries}) ->
+get_elasticache_cluster_config(_Host, _Port, _CurrentRetry, _MaxRetries, {ok, Entries}) ->
     Entries;
-get_elasticache_cluster_config(Host, Port, Retry, Retry, {error, Reason}) ->
+get_elasticache_cluster_config(Host, Port, MaxRetries, MaxRetries, {error, Reason}) ->
     error({Reason, Host, Port});
-get_elasticache_cluster_config(Host, Port, Retry, Retries, {error, _Reason}) ->
-    timer:sleep(trunc(math:pow(2, Retry)) * 100),
+get_elasticache_cluster_config(Host, Port, CurrentRetry, MaxRetries, {error, _Reason}) ->
+    timer:sleep(trunc(math:pow(2, CurrentRetry)) * 100),
     get_elasticache_cluster_config(Host,
                                    Port,
-                                   Retry + 1,
-                                   Retries,
+                                   CurrentRetry + 1,
+                                   MaxRetries,
                                    mero_elasticache:get_cluster_config(Host, Port)).
