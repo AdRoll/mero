@@ -258,7 +258,7 @@ process_server_specs_with_failure(_Conf) ->
            {sharding_algorithm, {mero, shard_crc32}},
            {workers_per_shard, 1},
            {pool_worker_module, mero_wrk_tcp_binary}]}],
-    [{cluster_a, ServerSpecsA}, {cluster_b, ServerSpecsB}, {cluster_c, ServerSpecsC}] =
+    [{cluster_a, ServerSpecsA}, {cluster_c, ServerSpecsC}] =
         mero_conf:process_server_specs(Spec),
     ?assertEqual([{"a1.com", 11211},
                   {"a2.com", 11211},
@@ -278,8 +278,6 @@ process_server_specs_with_failure(_Conf) ->
                                   {kind, error},
                                   {desc, {econnrefused, failing_cluster, 11211}},
                                   {stack, '_'}]])),
-    ?assertEqual({error, {econnrefused, failing_cluster, 11211}},
-                 proplists:get_value(servers, ServerSpecsB)),
 
     ?assertEqual([{"c1.com", 11211}, {"c2.com", 11211}, {"c3.com", 11211}, {"c4.com", 11211}],
                  proplists:get_value(servers, ServerSpecsC)),

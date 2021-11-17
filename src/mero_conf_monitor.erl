@@ -118,10 +118,10 @@ update_cluster_defs(ProcessedConfig,
 update_cluster_defs(NewProcessedConfig, State) ->
     #state{processed_config = OldProcessedConfig, cluster_version = OldClusterVersion} =
         State,
-    ok = mero_cluster:load_clusters(valid_clusters(NewProcessedConfig)),
+    ok = mero_cluster:load_clusters(NewProcessedConfig),
     NewClusterVersion = mero_cluster:version(),
 
-    ok = update_clusters(OldProcessedConfig, NewProcessedConfig),
+    ok = update_clusters(lists:sort(OldProcessedConfig), lists:sort(NewProcessedConfig)),
 
     ok = purge_if_version_changed(OldClusterVersion, NewClusterVersion),
 
@@ -132,30 +132,42 @@ purge_if_version_changed(ClusterVersion, ClusterVersion) ->
 purge_if_version_changed(_OldVersion, _NewClusterVersion) ->
     mero_cluster:purge().
 
-%% NOTE: since both cluster definitions are generated through mero_conf:process_server_specs/1
-%%       with the same input, we can be sure that the resulting lists will contain the same number
-%%       of elements, with the same keys in the same order.
+%% NOTE: Old ClusterDefs and New ones are sorted by ClusterName, so it is possible to detect
+%%       when some Def is present or missing in either list
 update_clusters([], []) ->
     ok;
+update_clusters([],
+                [{ClusterName, _} | NewClusterDefs]) -> %% NewCluster is new, start it
+    mero_sup:start_child(ClusterName),
+    update_clusters([], NewClusterDefs);
+update_clusters([{ClusterName, _} | OldClusterDefs],
+                []) -> %% OldCluster not present, terminate it
+    mero_sup:terminate_child(ClusterName),
+    update_clusters(OldClusterDefs, []);
 update_clusters([ClusterDef | OldClusterDefs],
                 [ClusterDef | NewClusterDefs]) -> %% nothing changed
     update_clusters(OldClusterDefs, NewClusterDefs);
 update_clusters([{ClusterName, OldAttrs} | OldClusterDefs],
-                [{ClusterName, NewAttrs} | NewClusterDefs]) ->
+                [{ClusterName, NewAttrs} | NewClusterDefs]) -> %% config changed, check it
     OldServers = get_servers(OldAttrs),
     ok =
         case get_servers(NewAttrs) of
-            OldServers ->
-                ok; %% Nothing of relevance changed
-            {error, _} ->
-                mero_sup:terminate_child(ClusterName);
-            _ ->
+            OldServers -> %% Nothing of relevance changed
+                ok;
+            _ -> %% Different servers, restart the cluster
                 mero_sup:restart_child(ClusterName)
         end,
+    update_clusters(OldClusterDefs, NewClusterDefs);
+update_clusters([{OldClusterName, _} | OldClusterDefs],
+                [{NewClusterName, _} | _] = NewClusterDefs)
+    when OldClusterName < NewClusterName -> %% OldCluster not present, terminate it
+    mero_sup:terminate_child(OldClusterName),
+    update_clusters(OldClusterDefs, NewClusterDefs);
+update_clusters([{OldClusterName, _} | _] = OldClusterDefs,
+                [{NewClusterName, _} | NewClusterDefs])
+    when OldClusterName > NewClusterName -> %% NewCluster is new, start it
+    mero_sup:start_child(NewClusterName),
     update_clusters(OldClusterDefs, NewClusterDefs).
-
-valid_clusters(Clusters) ->
-    [Cluster || Cluster <- Clusters, mero_conf:is_valid(Cluster)].
 
 get_servers(Attrs) ->
     case proplists:get_value(servers, Attrs) of

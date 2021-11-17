@@ -36,7 +36,8 @@
 -export([conf_is_periodically_fetched/1, cluster_is_restarted_when_new_nodes/1,
          cluster_is_restarted_when_lost_nodes/1, cluster_is_not_restarted_when_other_changes/1,
          cluster_is_not_restarted_with_bad_info/1, cluster_is_not_restarted_on_socket_error/1,
-         non_heartbeat_messages_are_ignored/1, cluster_fails/1, cluster_fails_and_recovers/1]).
+         non_heartbeat_messages_are_ignored/1, cluster_fails/1, cluster_fails_and_recovers/1,
+         cluster_config_added/1, cluster_config_removed/1]).
 
 all() ->
     [conf_is_periodically_fetched,

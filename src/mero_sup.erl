@@ -30,7 +30,7 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
--export([start_link/1, restart_child/1, terminate_child/1, init/1]).
+-export([start_link/1, start_child/1, restart_child/1, terminate_child/1, init/1]).
 
 -behaviour(supervisor).
 
@@ -49,11 +49,15 @@
 start_link(OrigConfig) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}).
 
+-spec start_child(ClusterName :: atom()) -> ok.
+start_child(ClusterName) ->
+    {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
+    ok.
+
 -spec restart_child(ClusterName :: atom()) -> ok.
 restart_child(ClusterName) ->
-    _ = supervisor:terminate_child(?MODULE, ClusterName),
-    _ = supervisor:delete_child(?MODULE, ClusterName),
-    {ok, _} = supervisor:start_child(?MODULE, cluster_sup_spec(ClusterName)),
+    terminate_child(ClusterName),
+    start_child(ClusterName),
     ok.
 
 -spec terminate_child(ClusterName :: atom()) -> ok.
