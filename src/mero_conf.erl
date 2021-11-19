@@ -31,9 +31,6 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
-%% # of times we'll retry to get the configuration from elasticache before raising an error
--define(MAX_RETRIES, 4).
-
 %% It's dynamically invoked using rpc:pmap/3
 -ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
 
@@ -46,8 +43,7 @@
          pool_max_connection_delay_time/1, pool_min_connection_interval/1,
          max_connection_delay_time/1, stat_callback/0, stat_callback/1, add_now/1, add_now/2,
          millis_to/1, millis_to/2, process_server_specs/1, elasticache_load_config_delay/0,
-         elasticache_load_config_delay/1, monitor_heartbeat_delay/0, monitor_heartbeat_delay/2,
-         get_elasticache_cluster_configs/2]).
+         elasticache_load_config_delay/1, monitor_heartbeat_delay/0, monitor_heartbeat_delay/2]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -267,14 +263,11 @@ process_value({servers, {elasticache, ConfigEndpoint, ConfigPort}}) ->
 process_value({servers, {elasticache, ConfigList}}) when is_list(ConfigList) ->
     HostsPorts =
         try
-            rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [?MAX_RETRIES], ConfigList)
+            rpc:pmap({?MODULE, get_elasticache_cluster_configs}, [], ConfigList)
         catch
             _:badrpc ->
                 % Fallback to sequential execution, mostly to get proper error descriptions
-                lists:map(fun(Config) ->
-                             get_elasticache_cluster_configs(Config, 0) % Avoid unnecesary retries
-                          end,
-                          ConfigList)
+                lists:map(fun(Config) -> get_elasticache_cluster_configs(Config) end, ConfigList)
         end,
     {servers, lists:flatten(HostsPorts)};
 process_value({servers, {mfa, {Module, Function, Args}}}) ->
@@ -288,27 +281,15 @@ process_value({servers, {mfa, {Module, Function, Args}}}) ->
 process_value(V) ->
     V.
 
-get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}, MaxRetries) ->
-    lists:duplicate(ClusterSpeedFactor,
-                    get_elasticache_cluster_config(Host, Port, MaxRetries));
-get_elasticache_cluster_configs({Host, Port}, MaxRetries) ->
-    [get_elasticache_cluster_config(Host, Port, MaxRetries)].
+get_elasticache_cluster_configs({Host, Port, ClusterSpeedFactor}) ->
+    lists:duplicate(ClusterSpeedFactor, get_elasticache_cluster_config(Host, Port));
+get_elasticache_cluster_configs({Host, Port}) ->
+    [get_elasticache_cluster_config(Host, Port)].
 
-get_elasticache_cluster_config(Host, Port, MaxRetries) ->
-    get_elasticache_cluster_config(Host,
-                                   Port,
-                                   0,
-                                   MaxRetries,
-                                   mero_elasticache:get_cluster_config(Host, Port)).
-
-get_elasticache_cluster_config(_Host, _Port, _CurrentRetry, _MaxRetries, {ok, Entries}) ->
-    Entries;
-get_elasticache_cluster_config(Host, Port, MaxRetries, MaxRetries, {error, Reason}) ->
-    error({Reason, Host, Port});
-get_elasticache_cluster_config(Host, Port, CurrentRetry, MaxRetries, {error, _Reason}) ->
-    timer:sleep(trunc(math:pow(2, CurrentRetry)) * 100),
-    get_elasticache_cluster_config(Host,
-                                   Port,
-                                   CurrentRetry + 1,
-                                   MaxRetries,
-                                   mero_elasticache:get_cluster_config(Host, Port)).
+get_elasticache_cluster_config(Host, Port) ->
+    case mero_elasticache:get_cluster_config(Host, Port) of
+        {ok, Entries} ->
+            Entries;
+        {error, Reason} ->
+            error({Reason, Host, Port})
+    end.
