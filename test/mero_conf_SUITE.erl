@@ -37,7 +37,8 @@
 -export([all/0, init_per_testcase/2, end_per_testcase/2, helper_mfa_config_function/0,
          diff/1, process_server_specs_a_compatible/1, process_server_specs_a/1,
          process_server_specs_a_alternate/1, process_server_specs_a_b/1,
-         process_server_specs_a_b_c/1, process_server_specs_mfa/1, per_pool_config/1]).
+         process_server_specs_a_b_c/1, process_server_specs_mfa/1, per_pool_config/1,
+         process_server_specs_with_failure/1]).
 
 all() ->
     [diff,
@@ -47,7 +48,8 @@ all() ->
      process_server_specs_a_b,
      process_server_specs_a_b_c,
      process_server_specs_mfa,
-     per_pool_config].
+     per_pool_config,
+     process_server_specs_with_failure].
 
 init_per_testcase(diff, Conf) ->
     Conf;
@@ -65,22 +67,24 @@ init_per_testcase(_, Conf) ->
           "c3.com|10.102.00.102|11211 c4.com|10.102.00.102|11211\n">>,
     meck:expect(mero_elasticache,
                 request_response,
-                fun(Type, _, _, _) ->
-                   HostLines =
-                       case Type of
-                           a ->
-                               HostLinea;
-                           b ->
-                               HostLineb;
-                           c ->
-                               HostLinec
-                       end,
-                   {ok,
-                    [{banner, <<"CONFIG cluster ...">>},
-                     {version, <<"version1">>},
-                     {hosts, HostLines},
-                     {crlf, <<"\r\n">>},
-                     {eom, <<"END\r\n">>}]}
+                fun (failing_cluster, _, _, _) ->
+                        {error, econnrefused};
+                    (Type, _, _, _) ->
+                        HostLines =
+                            case Type of
+                                a ->
+                                    HostLinea;
+                                b ->
+                                    HostLineb;
+                                c ->
+                                    HostLinec
+                            end,
+                        {ok,
+                         [{banner, <<"CONFIG cluster ...">>},
+                          {version, <<"version1">>},
+                          {hosts, HostLines},
+                          {crlf, <<"\r\n">>},
+                          {eom, <<"END\r\n">>}]}
                 end),
     Conf.
 
@@ -234,4 +238,48 @@ per_pool_config(_Conf) ->
     ?assertEqual(20, mero_conf:pool_initial_connections(pool_3)),
     ?assertEqual(30, mero_conf:pool_initial_connections(pool_1)),
     ?assertEqual(50, mero_conf:pool_initial_connections(pool_2)),
+    ok.
+
+process_server_specs_with_failure(_Conf) ->
+    meck:new(error_logger, [unstick, passthrough]),
+    Spec =
+        [{cluster_a,
+          [{servers, {elasticache, [{a, 11211, 2}]}},
+           {sharding_algorithm, {mero, shard_crc32}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_binary}]},
+         {cluster_b,
+          [{servers, {elasticache, [{failing_cluster, 11211, 3}]}},
+           {sharding_algorithm, {mero, shard_crc32}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_binary}]},
+         {cluster_c,
+          [{servers, {elasticache, [{c, 11211, 1}]}},
+           {sharding_algorithm, {mero, shard_crc32}},
+           {workers_per_shard, 1},
+           {pool_worker_module, mero_wrk_tcp_binary}]}],
+    [{cluster_a, ServerSpecsA}, {cluster_c, ServerSpecsC}] =
+        mero_conf:process_server_specs(Spec),
+    ?assertEqual([{"a1.com", 11211},
+                  {"a2.com", 11211},
+                  {"a3.com", 11211},
+                  {"a1.com", 11211},
+                  {"a2.com", 11211},
+                  {"a3.com", 11211}],
+                 proplists:get_value(servers, ServerSpecsA)),
+    ?assertEqual(mero_wrk_tcp_binary, proplists:get_value(pool_worker_module, ServerSpecsA)),
+    ?assertEqual(1, proplists:get_value(workers_per_shard, ServerSpecsA)),
+    ?assertEqual({mero, shard_crc32}, proplists:get_value(sharding_algorithm, ServerSpecsA)),
+
+    ?assertEqual(1,
+                 meck:num_calls(error_logger,
+                                error_report,
+                                [[{error, mero_config_failed},
+                                  {kind, error},
+                                  {desc, {econnrefused, failing_cluster, 11211}},
+                                  {stack, '_'}]])),
+
+    ?assertEqual([{"c1.com", 11211}, {"c2.com", 11211}, {"c3.com", 11211}, {"c4.com", 11211}],
+                 proplists:get_value(servers, ServerSpecsC)),
+    meck:unload([error_logger]),
     ok.

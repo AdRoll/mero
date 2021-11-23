@@ -31,9 +31,6 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
-%% # of times we'll retry to get the configuration from elasticache before raising an error
--define(MAX_RETRIES, 4).
-
 %% It's dynamically invoked using rpc:pmap/3
 -ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
 
@@ -46,8 +43,7 @@
          pool_max_connection_delay_time/1, pool_min_connection_interval/1,
          max_connection_delay_time/1, stat_callback/0, stat_callback/1, add_now/1, add_now/2,
          millis_to/1, millis_to/2, process_server_specs/1, elasticache_load_config_delay/0,
-         elasticache_load_config_delay/1, monitor_heartbeat_delay/0, monitor_heartbeat_delay/2,
-         get_elasticache_cluster_configs/1]).
+         elasticache_load_config_delay/1, monitor_heartbeat_delay/0, monitor_heartbeat_delay/2]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -220,13 +216,31 @@ millis_to(TimeLimit, Then) ->
     end.
 
 -spec process_server_specs(mero:cluster_config()) -> mero:cluster_config().
-process_server_specs(Clusters) ->
-    [{ClusterName, [process_value(Attr) || Attr <- Attrs]}
-     || {ClusterName, Attrs} <- Clusters].
+process_server_specs([]) ->
+    [];
+process_server_specs([Cluster | Clusters]) ->
+    case process_server_spec(Cluster) of
+        {error, _} ->
+            process_server_specs(Clusters);
+        Config ->
+            [Config | process_server_specs(Clusters)]
+    end.
 
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+process_server_spec({ClusterName, Attrs}) ->
+    try
+        {ClusterName, [process_value(Attr) || Attr <- Attrs]}
+    catch
+        Kind:Desc:Stack ->
+            error_logger:error_report([{error, mero_config_failed},
+                                       {kind, Kind},
+                                       {desc, Desc},
+                                       {stack, Stack}]),
+            {error, Desc}
+    end.
 
 get_env(Key) ->
     case application:get_env(mero, Key) of
@@ -273,18 +287,9 @@ get_elasticache_cluster_configs({Host, Port}) ->
     [get_elasticache_cluster_config(Host, Port)].
 
 get_elasticache_cluster_config(Host, Port) ->
-    get_elasticache_cluster_config(Host,
-                                   Port,
-                                   0,
-                                   mero_elasticache:get_cluster_config(Host, Port)).
-
-get_elasticache_cluster_config(_Host, _Port, _Retries, {ok, Entries}) ->
-    Entries;
-get_elasticache_cluster_config(Host, Port, ?MAX_RETRIES, {error, Reason}) ->
-    error({Reason, Host, Port});
-get_elasticache_cluster_config(Host, Port, Retries, {error, _Reason}) ->
-    timer:sleep(trunc(math:pow(2, Retries)) * 100),
-    get_elasticache_cluster_config(Host,
-                                   Port,
-                                   Retries + 1,
-                                   mero_elasticache:get_cluster_config(Host, Port)).
+    case mero_elasticache:get_cluster_config(Host, Port) of
+        {ok, Entries} ->
+            Entries;
+        {error, Reason} ->
+            error({Reason, Host, Port})
+    end.
