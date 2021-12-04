@@ -170,7 +170,7 @@ transaction(Client, async_delete, [Keys]) ->
             {Client, ok}
     end;
 transaction(_Client, async_increment, [_Keys]) ->
-    {error, not_supportable}; %% txt incr doesn't support initail etc
+    {error, not_supportable}; %% txt incr doesn't support initial etc
 transaction(Client, async_blank_response, [_Keys, _Timeout]) ->
     {Client, [ok]};
 transaction(Client, async_mget_response, [Keys, Timeout]) ->
@@ -299,7 +299,7 @@ process_result(_Cmd, _Status, Result) ->
 %% This is so extremely shitty that I will do the binary prototol no matter what :(
 parse_reply(Client, Cmd, Buffer, TimeLimit, AccResult) ->
     case split_command(Buffer) of
-        {error, uncomplete} ->
+        {error, incomplete} ->
             {ok, Buffer, Cmd, AccResult};
         {Command, BinaryRest} ->
             case {Cmd, parse_command(Command)} of
@@ -347,7 +347,7 @@ split_command(Buffer) ->
         [Line, RemainBuffer] ->
             {binary:split(Line, [<<" ">>], [global, trim]), RemainBuffer};
         [_UncompletedLine] ->
-            {error, uncomplete}
+            {error, incomplete}
     end.
 
 parse_command([<<"ERROR">> | Reason]) ->

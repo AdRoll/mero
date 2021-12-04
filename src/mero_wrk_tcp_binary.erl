@@ -237,7 +237,7 @@ pack({Op, {N, Key, Value, ExpTime, CAS}})
     IntExpTime = value_to_integer(ExpTime),
     pack(<<16#DEADBEEF:32, IntExpTime:32>>, Op, Key, Value, CAS, N);
 pack({?MEMCACHE_FLUSH_ALL, {}}) ->
-    %% Flush inmediately by default
+    %% Flush immediately by default
     ExpirationTime = 16#00,
     pack(<<ExpirationTime:32>>, ?MEMCACHE_FLUSH_ALL, <<>>).
 

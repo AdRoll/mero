@@ -46,7 +46,7 @@
 %%% common_test callbacks
 %%%=============================================================================
 
-%% TODO: Uncomment these if you want to test agains a specific memcache server
+%% TODO: Uncomment these if you want to test against a specific memcache server
 all() ->
     [].    %% get_undefined_binary,
            %% get_undefined_txt,
@@ -334,7 +334,7 @@ increment_with_initial(Cluster, ClusterAlt, Keys, Initial, Steps) ->
     [F(Key, Initial + 2 * Steps) || Key <- Keys].
 
 add(Cluster, ClusterAlt, Keys) ->
-    io:format("Attempt to add sucess to 5000 ~n"),
+    io:format("Attempt to add success to 5000 ~n"),
     Expected = <<"5000">>,
     Expected2 = <<"asdf">>,
     [begin

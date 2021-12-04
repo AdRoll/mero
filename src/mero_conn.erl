@@ -37,9 +37,9 @@
 
 -record(async_op,
         {op :: atom(), % name of worker op which sends this request
-         op_error :: atom(), % name of error for errors occuring when sending request
+         op_error :: atom(), % name of error for errors occurring when sending request
          response :: atom(), % name of worker op which reads response
-         response_error :: atom()}). % name of error for errors occuring when reading response
+         response_error :: atom()}). % name of error for errors occurring when reading response
 
 %%%=============================================================================
 %%% External functions
