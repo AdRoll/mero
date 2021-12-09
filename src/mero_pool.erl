@@ -67,7 +67,7 @@
          %% Number of connection attempts in progress
          num_connecting :: non_neg_integer(),
          %% Number of failed connection attempts
-         %% (reset to zero when connect attempt succeds)
+         %% (reset to zero when connect attempt succeeds)
          num_failed_connecting :: non_neg_integer(),
          reconnect_wait_time :: non_neg_integer(),
          min_connection_interval_ms :: non_neg_integer() | undefined,
@@ -113,7 +113,7 @@ checkout(PoolName, TimeLimit) ->
         {error, pool_timeout}
     end.
 
-%% @doc Return a  connection to specfied pool updating its timestamp
+%% @doc Return a  connection to specified pool updating its timestamp
 -spec checkin(Connection :: conn()) -> ok.
 checkin(#conn{pool = PoolName} = Connection) ->
     safe_send(PoolName, {checkin, self(), Connection#conn{updated = os:timestamp()}}),

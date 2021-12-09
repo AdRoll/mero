@@ -30,7 +30,7 @@
 %% @doc: Dynamically compiles a module containing the startup information for
 %% each worker pool.
 %%
-%% Cofiguration example:
+%% Configuration example:
 %%
 %% [{cluster_a,
 %%     [{servers, [{" server1", 11211}, {"server2", 11211}]},

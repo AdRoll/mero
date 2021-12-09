@@ -55,13 +55,13 @@
 %%% External functions
 %%%=============================================================================
 
-%% @doc Returns a _randomized_ time to wait between config checkes, in milliseconds
+%% @doc Returns a _randomized_ time to wait between config checks, in milliseconds
 monitor_heartbeat_delay() ->
     Min = get_env(conf_monitor_min_sleep),
     Max = get_env(conf_monitor_max_sleep),
     Min + rand:uniform(Max - Min).
 
-%% @doc Sets the boundaries of the time to wait between config checkes, in milliseconds
+%% @doc Sets the boundaries of the time to wait between config checks, in milliseconds
 monitor_heartbeat_delay(Min, Max) ->
     application:set_env(mero, conf_monitor_min_sleep, Min),
     application:set_env(mero, conf_monitor_max_sleep, Max).
@@ -95,7 +95,7 @@ initial_connections_per_pool(Initial) ->
     application:set_env(mero, initial_connections_per_pool, Initial).
 
 %% @doc: If the number of free sockets is smaller than this
-%% the pool will asyncronously create new ones to ensure we
+%% the pool will asynchronously create new ones to ensure we
 %% dont run out of them.
 -spec pool_min_free_connections(Pool :: atom()) -> integer().
 pool_min_free_connections(Pool) ->
@@ -105,7 +105,7 @@ pool_min_free_connections(Pool) ->
 min_free_connections_per_pool(MinFree) ->
     application:set_env(mero, min_free_connections_per_pool, MinFree).
 
-%% Maximun number of connections that each pool will open.
+%% Maximum number of connections that each pool will open.
 -spec pool_max_connections(Pool :: atom()) -> integer().
 pool_max_connections(Pool) ->
     get_env_per_pool(max_connections_per_pool, Pool).
