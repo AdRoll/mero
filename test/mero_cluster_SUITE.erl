@@ -128,21 +128,21 @@ load_cluster(_Conf) ->
     ok.
 
 shard_phash2(_Conf) ->
-    [[begin
-          Result = mero:shard_phash2(Key, Shards),
-          ?assertEqual(Result, mero:shard_phash2(Key, Shards)),
-          ?assert(Result =< Shards)
-      end
-      || Shards <- lists:seq(1, 10)]
+    [lists:map(fun(Shards) ->
+                  Result = mero:shard_phash2(Key, Shards),
+                  ?assertEqual(Result, mero:shard_phash2(Key, Shards)),
+                  ?assert(Result =< Shards)
+               end,
+               lists:seq(1, 10))
      || Key <- [<<"Adroll">>, <<"retargetting">>, <<"platform">>]].
 
 shard_crc32(_Conf) ->
-    [[begin
-          Result = mero:shard_crc32(Key, Shards),
-          ?assertEqual(Result, mero:shard_crc32(Key, Shards)),
-          ?assert(Result =< Shards)
-      end
-      || Shards <- lists:seq(1, 10)]
+    [lists:map(fun(Shards) ->
+                  Result = mero:shard_crc32(Key, Shards),
+                  ?assertEqual(Result, mero:shard_crc32(Key, Shards)),
+                  ?assert(Result =< Shards)
+               end,
+               lists:seq(1, 10))
      || Key <- [<<"Adroll">>, <<"retargetting">>, <<"platform">>]].
 
 select_pool(_Conf) ->

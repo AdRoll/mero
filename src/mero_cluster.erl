@@ -291,15 +291,18 @@ get_server_defs({ClusterName, ClusterConfig}) ->
     {Elements, _} =
         lists:foldl(fun({Host, Port}, {Acc, ShardSizeAcc}) ->
                        Elements =
-                           [begin
-                                WorkerName =
-                                    worker_name(ClusterName, Host, ReplicationNumber, ShardSizeAcc),
-                                {ClusterName,
-                                 ShardSizeAcc,
-                                 ReplicationNumber,
-                                 {ClusterName, Host, Port, WorkerName, WorkerModule}}
-                            end
-                            || ReplicationNumber <- lists:seq(0, Workers - 1)],
+                           lists:map(fun(ReplicationNumber) ->
+                                        WorkerName =
+                                            worker_name(ClusterName,
+                                                        Host,
+                                                        ReplicationNumber,
+                                                        ShardSizeAcc),
+                                        {ClusterName,
+                                         ShardSizeAcc,
+                                         ReplicationNumber,
+                                         {ClusterName, Host, Port, WorkerName, WorkerModule}}
+                                     end,
+                                     lists:seq(0, Workers - 1)),
                        {Acc ++ Elements, ShardSizeAcc + 1}
                     end,
                     {[], 0},

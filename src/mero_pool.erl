@@ -30,6 +30,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% catch X is used as a way to fire and forget, ignoring errors if there are any
+-elvis([{elvis_style, no_catch_expressions, disable}]).
+
 %% many functions are "callbacks" for proc_lib
 -hank([{unnecessary_function_arguments, [system_terminate]}]).
 

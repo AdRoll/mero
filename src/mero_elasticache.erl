@@ -125,13 +125,14 @@ parse_cluster_entries([H | T], Accum) ->
         [Host, IP, Port] ->
             case inet:parse_ipv4_address(IP) of
                 {ok, IPAddr} ->
-                    case catch erlang:list_to_integer(Port) of
-                        {'EXIT', _} ->
-                            {error, bad_port};
+                    try erlang:list_to_integer(Port) of
                         P when P < 1 orelse P > 65535 ->
                             {error, bad_port};
                         P ->
                             parse_cluster_entries(T, [{Host, IPAddr, P} | Accum])
+                    catch
+                        _:_ ->
+                            {error, bad_port}
                     end;
                 {error, _} ->
                     {error, bad_ip}
