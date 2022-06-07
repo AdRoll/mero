@@ -77,7 +77,7 @@ start_stop(_Conf) ->
     mero_test_util:start_server(?CLUSTER_CONFIG, 5, 30, 1000, 5000),
     ct:log("~p~n", [mero_cluster:child_definitions(cluster)]),
     ?assertMatch([{cluster,
-                   [{links, _},
+                   [{links, Links},
                     {monitors, 0},
                     {free, 5},
                     {connected, 5},
@@ -85,6 +85,7 @@ start_stop(_Conf) ->
                     {failed, 0},
                     {message_queue_len, 0}]}],
                  mero:state()),
+    ok = Links == 6 orelse Links == 7, %% 6 in OTP25, 7 before that
     ok = application:stop(mero),
     ok = application:unload(mero).
 
