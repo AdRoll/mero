@@ -30,6 +30,9 @@
 
 -author('Miriam Pena <miriam.pena@adroll.com>').
 
+%% The usage of throw here is intentional and it's correctly used for non-local returns.
+-elvis([{elvis_style, no_throw, disable}]).
+
 -include_lib("mero/include/mero.hrl").
 
 -behaviour(mero_pool).

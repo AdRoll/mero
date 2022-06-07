@@ -217,24 +217,22 @@ async_by_shard(Name,
                          response_error = AsyncOpResponseError}) ->
     {Processed, Errors} =
         lists:foldl(fun({ShardIdentifier, Items}, {Processed, Errors}) ->
-                       begin
-                           PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
-                           case mero_pool:checkout(PoolName, TimeLimit) of
-                               {ok, Conn} ->
-                                   case mero_pool:transaction(Conn, AsyncOp, [Items]) of
-                                       {error, Reason} ->
-                                           mero_pool:close(Conn, AsyncOpError),
-                                           mero_pool:checkin_closed(Conn),
-                                           {Processed, [Reason | Errors]};
-                                       {NConn, {error, Reason}} ->
-                                           mero_pool:checkin(NConn),
-                                           {Processed, [Reason | Errors]};
-                                       {NConn, ok} ->
-                                           {[{NConn, Items} | Processed], Errors}
-                                   end;
-                               {error, Reason} ->
-                                   {Processed, [Reason | Errors]}
-                           end
+                       PoolName = mero_cluster:random_pool_of_shard(Name, ShardIdentifier),
+                       case mero_pool:checkout(PoolName, TimeLimit) of
+                           {ok, Conn} ->
+                               case mero_pool:transaction(Conn, AsyncOp, [Items]) of
+                                   {error, Reason} ->
+                                       mero_pool:close(Conn, AsyncOpError),
+                                       mero_pool:checkin_closed(Conn),
+                                       {Processed, [Reason | Errors]};
+                                   {NConn, {error, Reason}} ->
+                                       mero_pool:checkin(NConn),
+                                       {Processed, [Reason | Errors]};
+                                   {NConn, ok} ->
+                                       {[{NConn, Items} | Processed], Errors}
+                               end;
+                           {error, Reason} ->
+                               {Processed, [Reason | Errors]}
                        end
                     end,
                     {[], []},
