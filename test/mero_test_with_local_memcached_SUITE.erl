@@ -28,8 +28,6 @@
 %%
 -module(mero_test_with_local_memcached_SUITE).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -behaviour(ct_suite).
 
 -include_lib("eunit/include/eunit.hrl").

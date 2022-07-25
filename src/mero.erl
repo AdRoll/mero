@@ -28,8 +28,6 @@
 %%
 -module(mero).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -behaviour(application).
 
 -export([start/0, start/2, stop/1]).

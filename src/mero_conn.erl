@@ -28,8 +28,6 @@
 %%
 -module(mero_conn).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -export([increment_counter/7, mincrement_counter/6, get/3, set/6, mset/3, delete/3,
          mdelete/3, add/5, madd/3, flush_all/2]).
 
