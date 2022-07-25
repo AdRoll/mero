@@ -104,8 +104,6 @@
 %%
 -module(mero_cluster).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -export([child_definitions/1, sup_by_cluster_name/1, cluster_shards/1,
          workers_per_shard/1, sharding_algorithm/1, load_clusters/1, total_workers/1, server/2,
          one_pool_of_each_shard_of_cluster/1, group_by_shards/2, group_by_shards/3,

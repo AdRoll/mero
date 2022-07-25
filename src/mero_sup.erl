@@ -28,8 +28,6 @@
 %%
 -module(mero_sup).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -export([start_link/1, start_child/1, restart_child/1, terminate_child/1, init/1]).
 
 -behaviour(supervisor).

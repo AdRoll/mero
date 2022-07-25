@@ -31,8 +31,6 @@
 %%
 -module(mero_elasticache).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 %% API
 -export([get_cluster_config/2]).
 %% Just for testing purposes

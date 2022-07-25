@@ -28,8 +28,6 @@
 %%
 -module(mero_test_util).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -export([start_server/5, stop_servers/1, wait_for_pool_state/5,
          wait_for_min_connections_failed/4]).
 

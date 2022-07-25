@@ -30,8 +30,6 @@
 
 -include_lib("mero/include/mero.hrl").
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 -behaviour(gen_server).
 
 -export([start_link/1, stop/1, reset/1, init/1, handle_call/3, handle_cast/2,

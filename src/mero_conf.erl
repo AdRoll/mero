@@ -29,8 +29,6 @@
 %% @doc: Lists all modules
 -module(mero_conf).
 
--author('Miriam Pena <miriam.pena@adroll.com>').
-
 %% It's dynamically invoked using rpc:pmap/3
 -ignore_xref({?MODULE, get_elasticache_cluster_configs, 1}).
 
