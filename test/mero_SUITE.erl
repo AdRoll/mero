@@ -32,8 +32,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
-%% TODO: Remove this when we require OTP >= 25
--include_lib("mero/include/workaround_otp25.hrl").
 
 -export([all/0, groups/0, init_per_group/2, end_per_group/2, init_per_testcase/2,
          end_per_testcase/2, add/1, delete/1, get_undefineds/1, increase_counter/1,
@@ -449,26 +447,27 @@ mcas(_) ->
                      || {Key, _, CAS} <- KVCs]),
     ?assertEqual(Expected, mero:mcas(cluster, NUpdates, 5000)).
 
+%% OTP25 introduced a modernization on the `timer` module,
+%% which refactors the amount of linked processes said module
+%% will produce. Reference: https://github.com/erlang/otp/pull/4811
 state_ok(_) ->
     State = mero:state(),
-    %% See comments on the .hrl
-    LinksCluster2 = ?LINKED_PROCESSES(3),
-    ?assertEqual([{connected, 1},
+    ?assertMatch([{connected, 1},
                   {connecting, 0},
                   {failed, 0},
                   {free, 1},
-                  {links, LinksCluster2},
+                  %% @todo: restore to value '2' when we require OTP >= 25
+                  {links, _},
                   {message_queue_len, 0},
                   {monitors, 0}],
                  lists:sort(
                      proplists:get_value(cluster2, State))),
-    %% See comments on the .hrl
-    LinksCluster = ?LINKED_PROCESSES(?LINKED_PROCESSES(6)),
-    ?assertEqual([{connected, 2},
+    ?assertMatch([{connected, 2},
                   {connecting, 0},
                   {failed, 0},
                   {free, 2},
-                  {links, LinksCluster},
+                  %% @todo: restore to value '4' when we require OTP >= 25
+                  {links, _},
                   {message_queue_len, 0},
                   {monitors, 0}],
                  lists:sort(

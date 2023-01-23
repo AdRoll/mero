@@ -31,8 +31,6 @@
 -behaviour(ct_suite).
 
 -include_lib("eunit/include/eunit.hrl").
-%% TODO: Remove this when we require OTP >= 25
--include_lib("mero/include/workaround_otp25.hrl").
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2, start_stop/1, start_stop_many/1,
          checkout_checkin/1, checkout_checkin_limits/1, checkout_checkin_closed/1,
@@ -76,9 +74,10 @@ end_per_testcase(_, _Conf) ->
 start_stop(_Conf) ->
     mero_test_util:start_server(?CLUSTER_CONFIG, 5, 30, 1000, 5000),
     ct:log("~p~n", [mero_cluster:child_definitions(cluster)]),
-    LinksCluster = ?LINKED_PROCESSES(7),
     ?assertMatch([{cluster,
-                   [{links, LinksCluster},
+                   %% @todo: restore to value '6' when we require OTP >= 25
+                   %% see note on mero_SUITE:state_ok for more context
+                   [{links, _},
                     {monitors, 0},
                     {free, 5},
                     {connected, 5},
