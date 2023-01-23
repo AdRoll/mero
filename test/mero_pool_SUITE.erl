@@ -75,7 +75,9 @@ start_stop(_Conf) ->
     mero_test_util:start_server(?CLUSTER_CONFIG, 5, 30, 1000, 5000),
     ct:log("~p~n", [mero_cluster:child_definitions(cluster)]),
     ?assertMatch([{cluster,
-                   [{links, 7}, % we get +1 for timer:send_interval()
+                   %% @todo: restore to value '6' when we require OTP >= 25
+                   %% see note on mero_SUITE:state_ok for more context
+                   [{links, _},
                     {monitors, 0},
                     {free, 5},
                     {connected, 5},

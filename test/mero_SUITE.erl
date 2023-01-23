@@ -447,22 +447,27 @@ mcas(_) ->
                      || {Key, _, CAS} <- KVCs]),
     ?assertEqual(Expected, mero:mcas(cluster, NUpdates, 5000)).
 
+%% OTP25 introduced a modernization on the `timer` module,
+%% which refactors the amount of linked processes said module
+%% will produce. Reference: https://github.com/erlang/otp/pull/4811
 state_ok(_) ->
     State = mero:state(),
-    ?assertEqual([{connected, 1},
+    ?assertMatch([{connected, 1},
                   {connecting, 0},
                   {failed, 0},
                   {free, 1},
-                  {links, 3},
+                  %% @todo: restore to value '2' when we require OTP >= 25
+                  {links, _},
                   {message_queue_len, 0},
                   {monitors, 0}],
                  lists:sort(
                      proplists:get_value(cluster2, State))),
-    ?assertEqual([{connected, 2},
+    ?assertMatch([{connected, 2},
                   {connecting, 0},
                   {failed, 0},
                   {free, 2},
-                  {links, 6},
+                  %% @todo: restore to value '4' when we require OTP >= 25
+                  {links, _},
                   {message_queue_len, 0},
                   {monitors, 0}],
                  lists:sort(
