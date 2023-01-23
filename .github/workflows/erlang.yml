@@ -2,15 +2,18 @@ name: Erlang CI
 
 on: [push, pull_request]
 
+env:
+  ERL_FLAGS: "-enable-feature all"
+
 jobs:
 
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     strategy:
       matrix:
-        otp: [23.3, 24.3]
+        otp: ['23.3', '24.3', '25.2.1']
 
     steps:
     - uses: actions/checkout@v3
