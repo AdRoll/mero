@@ -200,11 +200,6 @@ state(PoolName) ->
             erlang:demonitor(MRef),
             PoolPid = whereis(PoolName),
             {links, Links} = process_info(PoolPid, links),
-            ct:print("Links: ~p", [Links]),
-            [ct:print("Port info: ~p", [erlang:port_info(Port)])
-             || Port <- Links, erlang:is_port(Port)],
-            [ct:print("Pid info: ~p", [erlang:process_info(Pid)])
-             || Pid <- Links, erlang:is_pid(Pid)],
             {monitors, Monitors} = process_info(PoolPid, monitors),
             [process_info(PoolPid, message_queue_len),
              {links, length(Links)},
