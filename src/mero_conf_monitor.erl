@@ -45,7 +45,7 @@
 %%%-----------------------------------------------------------------------------
 %%% API
 %%%-----------------------------------------------------------------------------
--spec start_link(cluster_config()) -> {ok, pid()} | {error, term()}.
+-spec start_link(cluster_config()) -> {ok, pid()} | ignore | {error, term()}.
 start_link(OrigConfig) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}, []).
 
@@ -81,7 +81,8 @@ handle_continue(program_heartbeat, State) ->
     program_heartbeat(),
     {noreply, State}.
 
--spec handle_info(heartbeat | _, State) -> {noreply, State} when State :: state().
+-spec handle_info(heartbeat | _, state()) ->
+                     {noreply, state()} | {noreply, state(), {continue, reload}}.
 handle_info(heartbeat, State) ->
     {noreply, State, {continue, reload}};
 handle_info(_, State) ->
