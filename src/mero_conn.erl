@@ -167,9 +167,7 @@ flush_all(Name, Timeout) ->
 
 mset_(Name, KVECs, Timeout, Op) ->
     TimeLimit = mero_conf:add_now(Timeout),
-    Requests =
-        lists:zip(
-            lists:seq(1, length(KVECs)), KVECs),
+    Requests = lists:enumerate(KVECs),
     %% we number each request according to its original position so we can return results
     %% in the same order:
     NKVECs = [{N, Key, Value, ExpTime, CAS} || {N, {Key, Value, ExpTime, CAS}} <- Requests],
