@@ -43,7 +43,8 @@
 
 %% @doc: Starts a list of workers with the configuration generated on
 %% mero_cluster
--spec start_link(mero:cluster_config()) -> {ok, Pid :: pid()} | {error, Reason :: term()}.
+-spec start_link(mero:cluster_config()) ->
+                    {ok, Pid :: pid()} | ignore | {error, Reason :: term()}.
 start_link(OrigConfig) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}).
 
