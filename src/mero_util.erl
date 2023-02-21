@@ -20,7 +20,7 @@ to_int(Value) when is_binary(Value) ->
 to_bin(Value) when is_binary(Value) ->
     Value;
 to_bin(Value) when is_integer(Value) ->
-    to_bin(integer_to_list(Value));
+    integer_to_binary(Value);
 to_bin(Value) when is_list(Value) ->
     list_to_binary(Value).
 

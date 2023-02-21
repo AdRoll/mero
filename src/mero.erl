@@ -147,7 +147,7 @@ mgets(ClusterName, Keys) ->
              ok | {error, Reason :: term()}.
 add(ClusterName, Key, Value, ExpTime, Timeout)
     when is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
-    BExpTime = list_to_binary(integer_to_list(ExpTime)),
+    BExpTime = integer_to_binary(ExpTime),
     mero_conn:add(ClusterName, Key, Value, BExpTime, Timeout).
 
 -spec madd(ClusterName :: atom(),
@@ -155,7 +155,7 @@ add(ClusterName, Key, Value, ExpTime, Timeout)
            Timeout :: integer()) ->
               [ok | {error, Reason :: term()}].
 madd(ClusterName, KVEs, Timeout) when is_atom(ClusterName) ->
-    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime))}
+    L = [{Key, Value, integer_to_binary(ExpTime)}
          || {Key, Value, ExpTime} <- KVEs, is_binary(Key), is_binary(Value), is_integer(ExpTime)],
     mero_conn:madd(ClusterName, L, Timeout).
 
@@ -191,7 +191,7 @@ mset(ClusterName, KVEs, Timeout) ->
 
 cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
     when is_atom(ClusterName), is_binary(Value), is_integer(ExpTime) ->
-    BExpTime = list_to_binary(integer_to_list(ExpTime)),
+    BExpTime = integer_to_binary(ExpTime),
     %% note: if CAS is undefined, this will be an unconditional set:
     mero_conn:set(ClusterName, Key, Value, BExpTime, Timeout, CAS).
 
@@ -203,7 +203,7 @@ cas(ClusterName, Key, Value, ExpTime, Timeout, CAS)
 
 mcas(ClusterName, KVECs, Timeout) when is_atom(ClusterName) ->
     %% note: if CAS is undefined, the corresponding set will be unconditional.
-    L = [{Key, Value, list_to_binary(integer_to_list(ExpTime)), CAS}
+    L = [{Key, Value, integer_to_binary(ExpTime), CAS}
          || {Key, Value, ExpTime, CAS} <- KVECs,
             is_binary(Key),
             is_binary(Value),
@@ -234,9 +234,9 @@ increment_counter(ClusterName, Key) when is_atom(ClusterName) ->
 increment_counter(ClusterName, Key, Value, Initial, ExpTime, Retries, Timeout)
     when is_integer(Value), is_integer(ExpTime), is_atom(ClusterName), Initial >= 0,
          Value >= 0 ->
-    BValue = list_to_binary(integer_to_list(Value)),
-    BInitial = list_to_binary(integer_to_list(Initial)),
-    BExpTime = list_to_binary(integer_to_list(ExpTime)),
+    BValue = integer_to_binary(Value),
+    BInitial = integer_to_binary(Initial),
+    BExpTime = integer_to_binary(ExpTime),
     mero_conn:increment_counter(ClusterName,
                                 Key,
                                 BValue,
@@ -265,9 +265,9 @@ mincrement_counter(ClusterName, Keys) when is_atom(ClusterName), is_list(Keys) -
 mincrement_counter(ClusterName, Keys, Value, Initial, ExpTime, Timeout)
     when is_list(Keys), is_integer(Value), is_integer(ExpTime), is_atom(ClusterName),
          Initial >= 0, Value >= 0 ->
-    BValue = list_to_binary(integer_to_list(Value)),
-    BInitial = list_to_binary(integer_to_list(Initial)),
-    BExpTime = list_to_binary(integer_to_list(ExpTime)),
+    BValue = integer_to_binary(Value),
+    BInitial = integer_to_binary(Initial),
+    BExpTime = integer_to_binary(ExpTime),
     mero_conn:mincrement_counter(ClusterName, Keys, BValue, BInitial, BExpTime, Timeout).
 
 -spec delete(ClusterName :: atom(), Key :: mero_key(), Timeout :: integer()) ->

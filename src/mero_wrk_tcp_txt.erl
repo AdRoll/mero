@@ -209,7 +209,7 @@ pack({?MEMCACHE_DELETE, {Key}}) when is_binary(Key) ->
 pack({?MEMCACHE_DELETEQ, {Key}}) when is_binary(Key) ->
     [<<"delete ">>, Key, <<" noreply ">>, <<"\r\n">>];
 pack({?MEMCACHE_ADD, {Key, Initial, ExpTime}}) ->
-    NBytes = integer_to_list(size(Initial)),
+    NBytes = integer_to_binary(size(Initial)),
     [<<"add ">>,
      Key,
      <<" ">>,
@@ -222,7 +222,7 @@ pack({?MEMCACHE_ADD, {Key, Initial, ExpTime}}) ->
      Initial,
      <<"\r\n">>];
 pack({?MEMCACHE_SET, {Key, Initial, ExpTime, undefined}}) ->
-    NBytes = integer_to_list(size(Initial)),
+    NBytes = integer_to_binary(size(Initial)),
     [<<"set ">>,
      Key,
      <<" ">>,
@@ -238,7 +238,7 @@ pack({?MEMCACHE_SET, {Key, Initial, ExpTime, CAS}}) when is_integer(CAS) ->
     %% note: CAS should only be supplied if setting a value after looking it up.  if the
     %% value has changed since we looked it up, the result of a cas command will be EXISTS
     %% (otherwise STORED).
-    NBytes = integer_to_list(size(Initial)),
+    NBytes = integer_to_binary(size(Initial)),
     [<<"cas ">>,
      Key,
      <<" ">>,
