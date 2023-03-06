@@ -284,9 +284,9 @@ mget(Cluster, ClusterAlt, Keys) ->
                   end,
                   Keys).
 
-mincrement(Cluster = cluster_txt, Keys) ->
+mincrement(cluster_txt = Cluster, Keys) ->
     {error, not_supportable} = mero:mincrement_counter(Cluster, Keys);
-mincrement(Cluster = cluster_binary, Keys) ->
+mincrement(cluster_binary = Cluster, Keys) ->
     ok = mero:mincrement_counter(Cluster, Keys),
     MGetRet =
         lists:sort(
