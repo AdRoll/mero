@@ -28,6 +28,9 @@
 %%
 -module(mero_dummy_server).
 
+%% @todo Remove once https://github.com/inaka/elvis_core/issues/308 is dealt with
+-elvis([{elvis_style, export_used_types, disable}]).
+
 -include_lib("mero/include/mero.hrl").
 
 -behaviour(gen_server).

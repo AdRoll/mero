@@ -51,7 +51,9 @@
          worker_module :: module(),
          client :: client()}).
 
--type conn() :: #conn{}.
+-opaque conn() :: #conn{}.
+
+-export_type([conn/0]).
 
 -record(pool_st,
         {cluster,
@@ -115,21 +117,20 @@ checkout(PoolName, TimeLimit) ->
     end.
 
 %% @doc Return a  connection to specified pool updating its timestamp
--spec checkin(Connection :: conn()) -> ok.
+-spec checkin(conn()) -> ok.
 checkin(#conn{pool = PoolName} = Connection) ->
     safe_send(PoolName, {checkin, self(), Connection#conn{updated = os:timestamp()}}),
     ok.
 
 %% @doc Return a connection that has been closed.
--spec checkin_closed(Connection :: conn()) -> ok.
+-spec checkin_closed(conn()) -> ok.
 checkin_closed(#conn{pool = PoolName}) ->
     safe_send(PoolName, {checkin_closed, self()}),
     ok.
 
 %% @doc Executes an operation
 
--spec transaction(Connection :: conn(), atom(), list()) ->
-                     {NewConnection :: conn(), {ok, any()}} | {error, any()}.
+-spec transaction(conn(), atom(), list()) -> {conn(), {ok, any()}} | {error, any()}.
 transaction(#conn{worker_module = WorkerModule, client = Client} = Conn,
             Function,
             Args) ->
@@ -140,6 +141,7 @@ transaction(#conn{worker_module = WorkerModule, client = Client} = Conn,
             {Conn#conn{client = NClient}, Res}
     end.
 
+-spec close(conn(), term()) -> _.
 close(#conn{worker_module = WorkerModule, client = Client}, Reason) ->
     WorkerModule:close(Client, Reason).
 
@@ -163,10 +165,10 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
             process_flag(trap_exit, true),
             Deb = sys:debug_options([]),
             {Module, Function} = mero_conf:stat_callback(),
-            CallBackInfo =
+            CallbackInfo =
                 {Module, Function, [{cluster_name, ClusterName}, {host, Host}, {port, Port}]},
             Initial = mero_conf:pool_initial_connections(ClusterName),
-            spawn_connections(ClusterName, PoolName, WrkModule, Host, Port, CallBackInfo, Initial),
+            spawn_connections(ClusterName, PoolName, WrkModule, Host, Port, CallbackInfo, Initial),
             proc_lib:init_ack(Parent, {ok, self()}),
             State =
                 #pool_st{cluster = ClusterName,
@@ -183,7 +185,7 @@ init(Parent, ClusterName, Host, Port, PoolName, WrkModule) ->
                          %% If a connection attempt fails, or a connection is broken
                          reconnect_wait_time = 200,
                          pool = PoolName,
-                         callback_info = CallBackInfo,
+                         callback_info = CallbackInfo,
                          worker_module = WrkModule,
                          last_connection_attempt = 0},
             timer:send_interval(5000, reload_pool_min_max_settings),
@@ -297,18 +299,18 @@ maybe_spawn_connect(#pool_st{free = Free,
 %% - There is minimum interval between connections, and that hasn't elapsed yet since the last
 %%   connection
 %% - There are in-flight connection attempts
-maybe_spawn_connect(State =
-                        #pool_st{min_connection_interval_ms = Min,
-                                 last_connection_attempt = Last,
-                                 num_connecting = Connecting},
+maybe_spawn_connect(#pool_st{min_connection_interval_ms = Min,
+                             last_connection_attempt = Last,
+                             num_connecting = Connecting} =
+                        State,
                     Needed,
                     Now)
     when Min /= undefined, Now - Last < Min; Connecting > 0; Needed == 0 ->
     State;
-maybe_spawn_connect(State =
-                        #pool_st{num_failed_connecting = NumFailed,
-                                 reconnect_wait_time = WaitTime,
-                                 num_connecting = Connecting},
+maybe_spawn_connect(#pool_st{num_failed_connecting = NumFailed,
+                             reconnect_wait_time = WaitTime,
+                             num_connecting = Connecting} =
+                        State,
                     _Needed,
                     _Now)
     when NumFailed > 0 ->
@@ -317,14 +319,14 @@ maybe_spawn_connect(State =
     %% one connection until an attempt has succeeded again.
     erlang:send_after(WaitTime, self(), connect),
     State#pool_st{num_connecting = Connecting + 1};
-maybe_spawn_connect(State =
-                        #pool_st{num_connecting = Connecting,
-                                 pool = Pool,
-                                 worker_module = WrkModule,
-                                 cluster = ClusterName,
-                                 host = Host,
-                                 port = Port,
-                                 callback_info = CallbackInfo},
+maybe_spawn_connect(#pool_st{num_connecting = Connecting,
+                             pool = Pool,
+                             worker_module = WrkModule,
+                             cluster = ClusterName,
+                             host = Host,
+                             port = Port,
+                             callback_info = CallbackInfo} =
+                        State,
                     Needed,
                     Now) ->
     spawn_connections(ClusterName, Pool, WrkModule, Host, Port, CallbackInfo, Needed),
@@ -453,7 +455,7 @@ conn_time_to_live(ClusterName) ->
             Milliseconds * 1000
     end.
 
-schedule_expiration(State = #pool_st{cluster = ClusterName}) ->
+schedule_expiration(#pool_st{cluster = ClusterName} = State) ->
     erlang:send_after(
         mero_conf:pool_expiration_interval(ClusterName), self(), expire),
     State.
@@ -500,7 +502,7 @@ filter_expired(#conn{updated = Updated} = Conn, {Now, TTL, ExpConns, ActConns}) 
 %%       If current # of connections > new max_connections,  no action is taken to
 %%       close the exceeding ones.  Instead, they won't be re-created once they
 %%       terminate by themselves (because of timeouts, errors, inactivity, etc)
-reload_pool_min_max_settings(State = #pool_st{cluster = ClusterName}) ->
+reload_pool_min_max_settings(#pool_st{cluster = ClusterName} = State) ->
     State#pool_st{min_connections = mero_conf:pool_min_free_connections(ClusterName),
                   max_connections = mero_conf:pool_max_connections(ClusterName),
                   min_connection_interval_ms = mero_conf:pool_min_connection_interval(ClusterName)}.

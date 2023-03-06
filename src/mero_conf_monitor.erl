@@ -28,24 +28,26 @@
 %%
 -module(mero_conf_monitor).
 
+%% @todo Remove once https://github.com/inaka/elvis_core/issues/308 is dealt with
+-elvis([{elvis_style, export_used_types, disable}]).
+
 -behaviour(gen_server).
 
 -export([start_link/1, init/1, handle_call/3, handle_cast/2, handle_info/2,
          handle_continue/2]).
 
 -record(state,
-        {orig_config :: cluster_config(),
-         processed_config :: cluster_config(),
+        {orig_config :: mero:cluster_config(),
+         processed_config :: mero:cluster_config(),
          cluster_version :: undefined | pos_integer()}).
 
 -type state() :: #state{}.
--type cluster_config() :: mero:cluster_config().
--type init_args() :: #{orig_config := cluster_config()}.
+-type init_args() :: #{orig_config := mero:cluster_config()}.
 
 %%%-----------------------------------------------------------------------------
 %%% API
 %%%-----------------------------------------------------------------------------
--spec start_link(cluster_config()) -> {ok, pid()} | ignore | {error, term()}.
+-spec start_link(mero:cluster_config()) -> {ok, pid()} | ignore | {error, term()}.
 start_link(OrigConfig) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, #{orig_config => OrigConfig}, []).
 
