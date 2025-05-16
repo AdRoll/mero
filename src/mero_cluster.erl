@@ -119,6 +119,28 @@
               {mero_cluster_util, worker_by_index, 3},
               {mero_cluster_util, module_info, 1}]).
 
+%% OTP 27 improved dialyzer and now it's complaining
+%% about functions of a dynamic compiled module.
+-if(?OTP_RELEASE >= 27).
+
+-dialyzer({[no_unknown],
+           [child_definitions/1,
+            sup_by_cluster_name/1,
+            cluster_shards/1,
+            workers_per_shard/1,
+            pool_worker_module/1,
+            sharding_algorithm/1,
+            one_pool_of_each_shard_of_cluster/1,
+            random_pool_of_shard/2,
+            total_workers/1,
+            shard_identifier/2,
+            version/0,
+            clusters/0]}).
+
+- else .
+
+-endif.
+
 -type child_definitions() ::
     [{Host :: string(),
       Port :: pos_integer(),

@@ -6,15 +6,16 @@ env:
   ERL_FLAGS: "-enable-feature all"
 
 jobs:
-
   build:
-
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     strategy:
       matrix:
-        otp: ['25.2.1']
-        rebar: ['3.20.0']
+        include:
+          - otp: '25.2.1'
+            rebar: '3.20.0'
+          - otp: '27.3.4'
+            rebar: '3.24.0'
 
     steps:
     - uses: actions/checkout@v3
@@ -22,9 +23,9 @@ jobs:
       id: setup-beam
       with:
         otp-version: ${{matrix.otp}}
-        rebar3-version: '3.20.0'
+        rebar3-version: ${{matrix.rebar}}
     - name: Restore _build
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: _build
         key: "_build-cache-for\
@@ -33,7 +34,7 @@ jobs:
               -rebar3-${{steps.setup-beam.outputs.rebar3-version}}\
               -hash-${{hashFiles('rebar.lock')}}"
     - name: Restore rebar3's cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/rebar3
         key: "rebar3-cache-for\

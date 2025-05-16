@@ -89,7 +89,7 @@ init_per_testcase(_, Conf) ->
 end_per_testcase(diff, _Conf) ->
     ok;
 end_per_testcase(_, _Conf) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     meck:unload([mero_elasticache]),
     ok.
 
