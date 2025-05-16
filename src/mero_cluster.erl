@@ -119,7 +119,8 @@
               {mero_cluster_util, worker_by_index, 3},
               {mero_cluster_util, module_info, 1}]).
 
-%% OTP 27 got a better dialyzer and now it's complaining about functions of a dynamic compiled module.
+%% OTP 27 improved dialyzer and now it's complaining
+%% about functions of a dynamic compiled module.
 -if(?OTP_RELEASE >= 27).
 
 -dialyzer({[no_unknown],
