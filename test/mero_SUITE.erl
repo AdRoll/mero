@@ -38,7 +38,7 @@
          increase_counter_clustered_key/1, increment/1, mdelete/1, multiget_defineds/1,
          multiget_defineds_clustered_keys/1, multiget_undefineds/1, set/1, undefined_counter/1,
          mincrease_counter/1, cas/1, madd/1, mset/1, mcas/1, state_ok/1, state_error/1,
-         state_timeout/1]).
+         state_timeout/1, get_clustered_key/1]).
 
 %%%=============================================================================
 %%% common_test callbacks
@@ -53,6 +53,7 @@ groups() ->
       [add,
        delete,
        get_undefineds,
+       get_clustered_key,
        increase_counter,
        increase_counter_clustered_key,
        increment,
@@ -71,6 +72,7 @@ groups() ->
       [add,
        delete,
        get_undefineds,
+       get_clustered_key,
        increase_counter,
        increase_counter_clustered_key,
        %% mincrease_counter,
@@ -263,6 +265,12 @@ get_undefineds(_Conf) ->
     {Key, undefined} = mero:get(cluster, Key, 1000),
     {Key2, undefined} = mero:get(cluster, Key2, 1000),
     {Key3, undefined} = mero:get(cluster, Key3, 1000).
+
+get_clustered_key(_) ->
+    Key = key(),
+    ClusteredKey = {<<"1">>, Key},
+    ?assertEqual(ok, mero:set(cluster, ClusteredKey, <<"Adroll">>, 11111, 1000)),
+    ?assertEqual({Key, <<"Adroll">>}, mero:get(cluster, ClusteredKey, 1000)).
 
 multiget_undefineds(_Conf) ->
     [] = mero:mget(cluster, [], 1000),

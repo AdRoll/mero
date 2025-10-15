@@ -79,8 +79,8 @@ get(ClusterName, Key, Timeout) ->
     case gets(ClusterName, Key, Timeout) of
         {error, Reason} ->
             {error, Reason};
-        {Key, Value, _CAS} ->
-            {Key, Value}
+        {NKey, Value, _CAS} ->
+            {NKey, Value}
     end.
 
 get(ClusterName, Key) ->
