@@ -38,7 +38,7 @@
          increase_counter_clustered_key/1, increment/1, mdelete/1, multiget_defineds/1,
          multiget_defineds_clustered_keys/1, multiget_undefineds/1, set/1, undefined_counter/1,
          mincrease_counter/1, cas/1, madd/1, mset/1, mcas/1, state_ok/1, state_error/1,
-         state_timeout/1, get_clustered_key/1]).
+         state_timeout/1, get_clustered_key/1, cluster_availability/1]).
 
 %%%=============================================================================
 %%% common_test callbacks
@@ -66,7 +66,8 @@ groups() ->
        cas,
        state_ok,
        state_error,
-       state_timeout]},
+       state_timeout,
+       cluster_availability]},
      {binary_protocol,
       [shuffle, {repeat_until_any_fail, 1}],
       [add,
@@ -89,7 +90,8 @@ groups() ->
        mcas,
        state_ok,
        state_error,
-       state_timeout]}].
+       state_timeout,
+       cluster_availability]}].
 
 init_per_group(text_protocol, Config) ->
     ClusterConfig =
@@ -524,6 +526,11 @@ state_timeout(_) ->
                   {monitors, 0}],
                  lists:sort(
                      proplists:get_value(cluster, State))).
+
+cluster_availability(_) ->
+    ?assertEqual(true, mero:is_cluster_available(cluster)),
+    ?assertEqual(true, mero:is_cluster_available(cluster2)),
+    ?assertEqual({false, cluster_not_found}, mero:is_cluster_available(non_existing_cluster)).
 
 %%%=============================================================================
 %%% Internal functions
