@@ -35,7 +35,7 @@
          gets/2, gets/3, delete/3, mdelete/3, mget/2, mget/3, mgets/2, mgets/3, set/5, mset/3,
          cas/6, mcas/3, add/5, madd/3, flush_all/1, shard_phash2/2, shard_crc32/2,
          clustering_key/1, storage_key/1]).
--export([state/0, state/1, deep_state/0, deep_state/1]).
+-export([state/0, state/1, deep_state/0, deep_state/1, is_cluster_available/1]).
 
 -include_lib("mero/include/mero.hrl").
 
@@ -354,3 +354,25 @@ deep_state(ClusterName) ->
 %% @doc: Returns the state of the sockets for all clusters
 deep_state() ->
     [{Cluster, deep_state(Cluster)} || Cluster <- mero_cluster:clusters()].
+
+%% @doc: Returns current availability of a cluster
+-spec is_cluster_available(atom()) -> true | {false, atom()}.
+is_cluster_available(ClusterName) ->
+    try
+        Clusters = mero_cluster:clusters(),
+        case lists:member(ClusterName, Clusters) of
+            false ->
+                {false, cluster_not_found};
+            true ->
+                true
+        end
+    catch
+        error:undef ->
+            {false, cluster_util_not_loaded};
+        error:function_clause ->
+            {false, invalid_sharding_algorithm};
+        error:badarg ->
+            {false, invalid_sharding_algorithm};
+        _:_ ->
+            {false, cluster_config_error}
+    end.
