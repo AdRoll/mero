@@ -278,9 +278,22 @@ pool_loop(State, Parent, Deb) ->
 
 get_connection(#pool_st{free = Free} = State, From) when Free /= [] ->
     give(State, From);
-get_connection(State, {Pid, Ref} = _From) ->
+get_connection(#pool_st{callback_info = CallbackInfo} = State, {Pid, Ref} = _From) ->
+    ?LOG_EVENT(CallbackInfo, [socket, checkout, reject, {class, reject_class(State)}]),
     safe_send(Pid, {Ref, {reject, State}}),
     maybe_spawn_connect(State).
+
+reject_class(#pool_st{num_failed_connecting = Failed}) when Failed > 0 ->
+    degraded;
+reject_class(#pool_st{num_connected = Connected,
+                      num_connecting = 0,
+                      max_connections = Max})
+    when Connected >= Max ->
+    saturated;
+reject_class(#pool_st{num_connecting = Connecting}) when Connecting > 0 ->
+    warming;
+reject_class(_State) ->
+    under_capacity.
 
 maybe_spawn_connect(#pool_st{free = Free,
                              num_connecting = Connecting,
