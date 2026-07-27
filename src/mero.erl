@@ -345,9 +345,9 @@ inc_state(St, Acc) ->
               Acc).
 
 deep_state(ClusterName) ->
-    F = fun({_, _, Pool, _}, Acc) ->
+    F = fun({Host, Port, Pool, _}, Acc) ->
            St = mero_pool:state(Pool),
-           [[{pool, Pool} | St] | Acc]
+           [[{pool, Pool}, {host, Host}, {port, Port} | St] | Acc]
         end,
     lists:foldr(F, [], mero_cluster:child_definitions(ClusterName)).
 
